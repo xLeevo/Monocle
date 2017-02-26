@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from enum import Enum
 from time import time, mktime
 
-from sqlalchemy import Column, Integer, String, Float, SmallInteger, BigInteger, ForeignKey, UniqueConstraint, create_engine, cast, func, desc, asc, and_, exists
+from sqlalchemy import Column, Boolean, Integer, String, Float, SmallInteger, BigInteger, ForeignKey, UniqueConstraint, create_engine, cast, func, desc, asc, and_, exists
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.types import TypeDecorator, Numeric, Text
 from sqlalchemy.ext.declarative import declarative_base
@@ -334,6 +334,9 @@ class Fort(Base):
     external_id = Column(String(35), unique=True)
     lat = Column(FLOAT_TYPE)
     lon = Column(FLOAT_TYPE)
+    name = Column(String(50))
+    url = Column(String(200))
+    description = Column(String(50))
 
     sightings = relationship(
         'FortSighting',
@@ -352,6 +355,7 @@ class FortSighting(Base):
     prestige = Column(MEDIUM_TYPE)
     guard_pokemon_id = Column(TINY_TYPE)
     slots_available = Column(Integer)
+    is_in_battle = Column(Boolean)
 
     __table_args__ = (
         UniqueConstraint(
@@ -361,6 +365,30 @@ class FortSighting(Base):
         ),
     )
 
+class Trainer(Base):
+    __tablename__ = 'trainer'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50))
+    level = Column(Integer)
+
+class GymPokemon(Base):
+    __tablename__ = 'gym_pokemon'
+
+    id = Column(Integer, primary_key=True)
+    external_id = Column(String(25), unique=True)
+    trainer_id = Column(Integer, ForeignKey('trainer.id'))
+    pokemon_id = Column(Integer)
+    cp = Column(Integer)
+    move_1 = Column(SmallInteger)
+    move_2 = Column(SmallInteger)
+    individual_attack = Column(SmallInteger)
+    individual_defense = Column(SmallInteger)
+    individual_stamina = Column(SmallInteger)
+    battles_attacked = Column(Integer)
+    battles_defended = Column(Integer)
+    creation_time = Column(Integer)
+    num_upgrades = Column(SmallInteger)
 
 class Pokestop(Base):
     __tablename__ = 'pokestops'
