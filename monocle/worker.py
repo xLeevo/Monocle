@@ -125,6 +125,7 @@ class Worker:
         self.item_capacity = 350
         self.visits = 0
         self.pokestops = conf.SPIN_POKESTOPS
+        self.gyms = conf.GET_GYM_DETAILS
         self.next_spin = 0
         self.handle = HandleStub()
         self.gyms = config.GET_GYM_DETAILS
@@ -917,7 +918,7 @@ class Worker:
         gym_location = gym['lat'], gym['lon']
         distance = get_distance(self.location, gym_location)
 
-        if distance > 400:
+        if distance > 150:
             return False
 
         # randomize location up to ~1.4 meters
@@ -942,10 +943,10 @@ class Worker:
             self.log.info('The server said {} was out of gym details range. {:.1f}m {:.1f}{}',
                 name, distance, self.speed, UNIT_STRING)
 
-        self.next_gym = time() + config.GYM_COOLDOWN
+        self.next_gym = time() + conf.GYM_COOLDOWN
         self.error_code = '!'
         
-        print(responses.get('GET_GYM_DETAILS'))
+        print(responses.get('GET_GYM_DETAILS', {}))
         return responses
 
     async def spin_pokestop(self, pokestop):
