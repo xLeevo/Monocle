@@ -821,6 +821,7 @@ class Worker:
                         norm = self.normalize_lured(fort, request_time_ms)
                         pokemon_seen += 1
                         if norm not in SIGHTING_CACHE:
+                            self.account_seen += 1
                             db_proc.add(norm)
                     if (self.pokestops and
                             self.bag_items < self.item_capacity
@@ -924,7 +925,7 @@ class Worker:
         # randomize location up to ~1.4 meters
         self.simulate_jitter(amount=0.00001)
 
-        version = '5702'
+        version = '5704'
 
         request = self.api.create_request()
         request.get_gym_details(gym_id = gym['external_id'],
@@ -939,6 +940,13 @@ class Worker:
         result = responses.get('GET_GYM_DETAILS', {}).get('result', 0)
         if result == 1:
             self.log.info('GET_GYM_DETAILS {}.', name)
+            try:
+                gym['name'] = name
+                gym['url'] = responses['GET_GYM_DETAILS']['urls'][0]
+                gym['description'] = responses['GET_GYM_DETAILS'].get('description', '')
+
+            except KeyError:
+                self.log.error('Missing Gym data in get_gym_details response.')
         elif result == 2:
             self.log.info('The server said {} was out of gym details range. {:.1f}m {:.1f}{}',
                 name, distance, self.speed, UNIT_STRING)
@@ -968,6 +976,11 @@ class Worker:
                              longitude = pokestop_location[1])
         responses = await self.call(request, action=1.2)
         name = responses['FORT_DETAILS'].name
+        try:
+            pokestop['name'] = name
+            pokestop['url'] = responses['FORT_DETAILS'].image_urls[0]
+        except KeyError:
+            self.log.error('Missing Pokestop data in fort_details response.')
 
         request = self.api.create_request()
         request.fort_search(fort_id = pokestop.id,
@@ -1349,6 +1362,8 @@ class Worker:
             'external_id': raw.id,
             'lat': raw.latitude,
             'lon': raw.longitude
+            'name': '',
+            'url': ''
         }
 
     @staticmethod
