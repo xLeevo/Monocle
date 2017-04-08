@@ -397,6 +397,8 @@ class Pokestop(Base):
     external_id = Column(String(35), unique=True)
     lat = Column(FLOAT_TYPE, index=True)
     lon = Column(FLOAT_TYPE, index=True)
+    name = Column(String(50))
+    url = Column(String(200))
 
 
 @contextmanager
@@ -619,6 +621,8 @@ def add_pokestop(session, raw_pokestop):
         external_id=pokestop_id,
         lat=raw_pokestop['lat'],
         lon=raw_pokestop['lon']
+        name=raw_pokestop['name'],
+        url=raw_pokestop['url'],
     )
     session.add(pokestop)
     FORT_CACHE.pokestops.add(pokestop_id)
