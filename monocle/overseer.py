@@ -1,31 +1,35 @@
-import asyncio
-
+from asyncio import gather, Semaphore, sleep, Task, CancelledError
 from datetime import datetime
 from statistics import median
-from threading import active_count
-from os import system
 from sys import platform
-from random import uniform
+from cyrandom import shuffle
 from collections import deque
-from concurrent.futures import CancelledError
+from itertools import dropwhile
+from time import time, monotonic
 
-from pogo_async.hash_server import HashServer
+from aiopogo import HashServer
 from sqlalchemy.exc import OperationalError
 
-import time
-
-try:
-    import _thread
-except ImportError:
-    import _dummy_thread as _thread
-
 from .db import SIGHTING_CACHE, MYSTERY_CACHE
-from .utils import get_current_hour, dump_pickle, get_start_coords, get_bootstrap_points, randomize_point
-from .shared import get_logger, LOOP
-from .db_proc import DB_PROC
-from .spawns import SPAWNS
-from . import config
+from .utils import get_current_hour, dump_pickle, get_start_coords, get_bootstrap_points, randomize_point, best_factors, percentage_split
+from .shared import get_logger, LOOP, run_threaded, ACCOUNTS
+from . import bounds, db_proc, spawns, sanitized as conf
 from .worker import Worker
+
+ANSI = '\x1b[2J\x1b[H'
+if platform == 'win32':
+    try:
+        from platform import win32_ver
+        from distutils.version import LooseVersion
+        if LooseVersion(win32_ver()[1]) >= LooseVersion('10.0.10586'):
+            import ctypes
+            ctypes.windll.kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+        else:
+            from os import system
+            ANSI = ''
+    except Exception:
+        from os import system
+        ANSI = ''
 
 BAD_STATUSES = (
     'FAILED LOGIN',
@@ -34,54 +38,49 @@ BAD_STATUSES = (
     'KEY EXPIRED',
     'HASHING OFFLINE',
     'NIANTIC OFFLINE',
-    'THROTTLE',
+    'BAD REQUEST',
+    'INVALID REQUEST',
     'CAPTCHA',
     'BANNED',
     'BENCHING',
     'REMOVING',
     'IP BANNED',
     'MALFORMED RESPONSE',
-    'PGOAPI ERROR',
+    'AIOPOGO ERROR',
     'MAX RETRIES',
     'HASHING ERROR',
     'PROXY ERROR',
     'TIMEOUT'
 )
 
-START_TIME = time.monotonic()
-
 
 class Overseer:
-    accounts = Worker.accounts
-
-    def __init__(self, status_bar, manager):
+    def __init__(self, manager):
         self.log = get_logger('overseer')
         self.workers = []
         self.manager = manager
-        self.count = config.GRID[0] * config.GRID[1]
-        self.start_date = datetime.now()
-        self.status_bar = status_bar
-        self.things_count = []
+        self.things_count = deque(maxlen=9)
         self.paused = False
         self.coroutines_count = 0
         self.skipped = 0
         self.visits = 0
-        self.mysteries = deque()
-        self.coroutine_semaphore = asyncio.Semaphore(config.COROUTINES_LIMIT)
+        self.coroutine_semaphore = Semaphore(conf.COROUTINES_LIMIT, loop=LOOP)
         self.redundant = 0
+        self.running = True
         self.all_seen = False
         self.idle_seconds = 0
         self.log.info('Overseer initialized')
+        self.pokemon_found = ''
 
-    def start(self):
+    def start(self, status_bar):
         self.captcha_queue = self.manager.captcha_queue()
         Worker.captcha_queue = self.manager.captcha_queue()
         self.extra_queue = self.manager.extra_queue()
         Worker.extra_queue = self.manager.extra_queue()
-        if config.MAP_WORKERS:
+        if conf.MAP_WORKERS:
             Worker.worker_dict = self.manager.worker_dict()
 
-        for username, account in self.accounts.items():
+        for username, account in ACCOUNTS.items():
             account['username'] = username
             if account.get('banned'):
                 continue
@@ -90,89 +89,96 @@ class Overseer:
             else:
                 self.extra_queue.put(account)
 
-        self.workers = tuple(Worker(worker_no=x) for x in range(self.count))
-        DB_PROC.start()
+        self.workers = tuple(Worker(worker_no=x) for x in range(conf.GRID[0] * conf.GRID[1]))
+        db_proc.start()
+        LOOP.call_later(10, self.update_count)
+        LOOP.call_later(max(conf.SWAP_OLDEST, conf.MINIMUM_RUNTIME), self.swap_oldest)
+        LOOP.call_soon(self.update_stats)
+        if status_bar:
+            LOOP.call_soon(self.print_status)
 
-    async def check(self):
-        now = time.monotonic()
-        last_commit = now
-        last_things_found_updated = now
-        last_swap = now
-        last_stats_updated = 0
+    def update_count(self):
+        self.things_count.append(str(db_proc.count))
+        self.pokemon_found = (
+            'Pokemon found count (10s interval):\n'
+            + ' '.join(self.things_count)
+            + '\n')
+        LOOP.call_later(10, self.update_count)
 
-        while True:
+    def swap_oldest(self, interval=conf.SWAP_OLDEST, minimum=conf.MINIMUM_RUNTIME):
+        if not self.paused and not self.extra_queue.empty():
+            oldest, minutes = self.longest_running()
+            if minutes > minimum:
+                LOOP.create_task(oldest.lock_and_swap(minutes))
+        LOOP.call_later(interval, self.swap_oldest)
+
+    def print_status(self, refresh=conf.REFRESH_RATE):
+        try:
+            self._print_status()
+        except CancelledError:
+            return
+        except Exception as e:
+            self.log.exception('{} occurred while printing status.', e.__class__.__name__)
+        self.print_handle = LOOP.call_later(refresh, self.print_status)
+
+    async def exit_progress(self):
+        while self.coroutines_count > 2:
             try:
-                now = time.monotonic()
-                if now - last_commit > 5:
-                    DB_PROC.commit()
-                    last_commit = now
-                if not self.paused and now - last_swap > config.SWAP_WORST:
-                    if not self.extra_queue.empty():
-                        worst, per_minute = self.least_productive()
-                        if worst:
-                            asyncio.ensure_future(
-                                worst.swap_account(
-                                    reason='only {:.1f} seen per minute'.format(per_minute),
-                                    lock=True),
-                                loop=LOOP
-                            )
-                    last_swap = now
-                # Record things found count
-                if not self.paused and now - last_stats_updated > config.STAT_REFRESH:
-                    self.seen_stats, self.visit_stats, self.delay_stats, self.speed_stats = self.get_visit_stats()
-                    self.update_coroutines_count()
-                    last_stats_updated = now
-                if not self.paused and now - last_things_found_updated > 10:
-                    self.things_count = self.things_count[-9:]
-                    self.things_count.append(str(DB_PROC.count))
-                    last_things_found_updated = now
-                if self.status_bar:
-                    if platform == 'win32':
-                        system('cls')
-                    else:
-                        system('clear')
-                    print(self.get_status_message())
-
-                if self.paused:
-                    await asyncio.sleep(max(15, config.REFRESH_RATE))
-                else:
-                    await asyncio.sleep(config.REFRESH_RATE)
+                self.update_coroutines_count(simple=False)
+                pending = len(db_proc)
+                # Spaces at the end are important, as they clear previously printed
+                # output - \r doesn't clean whole line
+                print(
+                    '{} coroutines active, {} DB items pending   '.format(
+                        self.coroutines_count, pending),
+                    end='\r'
+                )
+                await sleep(.5)
             except CancelledError:
                 return
             except Exception as e:
-                self.log.exception('A wild {} appeared in check!', e.__class__.__name__)
+                self.log.exception('A wild {} appeared in exit_progress!', e.__class__.__name__)
 
-    @staticmethod
-    def generate_stats(somelist):
-        return {
-            'max': max(somelist),
-            'min': min(somelist),
-            'med': median(somelist)
-        }
-
-    def get_visit_stats(self):
+    def update_stats(self, refresh=conf.STAT_REFRESH, med=median, count=conf.GRID[0] * conf.GRID[1]):
         visits = []
-        seconds_since_start = time.monotonic() - START_TIME - self.idle_seconds
-        hours_since_start = seconds_since_start / 3600
-        seconds_per_visit = []
         seen_per_worker = []
         after_spawns = []
         speeds = []
 
         for w in self.workers:
-            if w.after_spawn:
-                after_spawns.append(w.after_spawn)
+            after_spawns.append(w.after_spawn)
             seen_per_worker.append(w.total_seen)
             visits.append(w.visits)
             speeds.append(w.speed)
-        if after_spawns:
-            delay_stats = self.generate_stats(after_spawns)
-        else:
-            delay_stats = {'min': 0, 'max': 0, 'med': 0}
-        seen_stats = self.generate_stats(seen_per_worker)
-        visit_stats = self.generate_stats(visits)
-        speed_stats = self.generate_stats(speeds)
-        return seen_stats, visit_stats, delay_stats, speed_stats
+
+        self.stats = (
+            'Seen per worker: min {}, max {}, med {:.0f}\n'
+            'Visits per worker: min {}, max {}, med {:.0f}\n'
+            'Visit delay: min {:.1f}, max {:.1f}, med {:.1f}\n'
+            'Speed: min {:.1f}, max {:.1f}, med {:.1f}\n'
+            'Extra accounts: {}, CAPTCHAs needed: {}\n'
+        ).format(
+            min(seen_per_worker), max(seen_per_worker), med(seen_per_worker),
+            min(visits), max(visits), med(visits),
+            min(after_spawns), max(after_spawns), med(after_spawns),
+            min(speeds), max(speeds), med(speeds),
+            self.extra_queue.qsize(), self.captcha_queue.qsize()
+        )
+
+        self.sighting_cache_size = len(SIGHTING_CACHE.store)
+        self.mystery_cache_size = len(MYSTERY_CACHE.store)
+
+        self.update_coroutines_count()
+        self.counts = (
+            'Known spawns: {}, unknown: {}, more: {}\n'
+            '{} workers, {} coroutines\n'
+            'sightings cache: {}, mystery cache: {}, DB queue: {}\n'
+        ).format(
+            len(spawns), len(spawns.unknown), spawns.cells_count,
+            count, self.coroutines_count,
+            len(SIGHTING_CACHE), len(MYSTERY_CACHE), len(db_proc)
+        )
+        LOOP.call_later(refresh, self.update_stats)
 
     def get_dots_and_messages(self):
         """Returns status dots and status messages for workers
@@ -195,7 +201,6 @@ class Overseer:
         A = simulating app startup
         T = completing the tutorial
         X = something bad happened
-        H = waiting for the next period on the hashing server
         C = CAPTCHA
 
         Other letters: various errors and procedures
@@ -204,7 +209,7 @@ class Overseer:
         messages = []
         row = []
         for i, worker in enumerate(self.workers):
-            if i > 0 and i % config.GRID[1] == 0:
+            if i > 0 and i % conf.GRID[1] == 0:
                 dots.append(row)
                 row = []
             if worker.error_code in BAD_STATUSES:
@@ -218,56 +223,29 @@ class Overseer:
             dots.append(row)
         return dots, messages
 
-    def update_coroutines_count(self):
+    def update_coroutines_count(self, simple=True, loop=LOOP):
         try:
-            self.coroutines_count = len(asyncio.Task.all_tasks(LOOP))
+            tasks = Task.all_tasks(loop)
+            self.coroutines_count = len(tasks) if simple else sum(not t.done() for t in tasks)
         except RuntimeError:
             # Set changed size during iteration
-            self.coroutines_count = '?'
+            self.coroutines_count = '-1'
 
-    def get_status_message(self):
-        running_for = datetime.now() - self.start_date
+    def _print_status(self, _ansi=ANSI, _start=datetime.now(), _notify=conf.NOTIFY):
+        running_for = datetime.now() - _start
 
-        seconds_since_start = time.monotonic() - START_TIME - self.idle_seconds
+        seconds_since_start = running_for.seconds - self.idle_seconds or 0.1
         hours_since_start = seconds_since_start / 3600
-        visits_per_second = self.visits / seconds_since_start
 
         output = [
-            'Monocle running for {}'.format(running_for),
-            'Known spawns: {}, unknown: {}, more: {}'.format(
-                len(SPAWNS),
-                SPAWNS.mysteries_count,
-                SPAWNS.cells_count),
-            '{} workers, {} threads, {} coroutines'.format(
-                self.count,
-                active_count(),
-                self.coroutines_count),
-            'DB queue: {}, sightings cache: {}, mystery cache: {}'.format(
-                DB_PROC.queue.qsize(),
-                len(SIGHTING_CACHE.store),
-                len(MYSTERY_CACHE.store)),
-            '',
-            'Seen per worker: min {min}, max {max}, med {med:.0f}'.format(
-                **self.seen_stats),
-            'Visits per worker: min {min}, max {max:}, med {med:.0f}'.format(
-                **self.visit_stats),
-            'Visit delay: min {min:.1f}, max {max:.1f}, med {med:.1f}'.format(
-                **self.delay_stats),
-            'Speed: min {min:.1f}, max {max:.1f}, med {med:.1f}'.format(
-                **self.speed_stats),
-            'Extra accounts: {}, CAPTCHAs needed: {}'.format(
-                self.extra_queue.qsize(),
-                self.captcha_queue.qsize()),
-            '',
-            'Pokemon found count (10s interval):',
-            ' '.join(self.things_count),
-            '',
-            'Visits: {}, per second: {:.2f}'.format(
-                self.visits,
-                visits_per_second),
-            'Skipped: {}, unnecessary: {}'.format(
-                self.skipped,
-                self.redundant)
+            '{}Monocle running for {}'.format(_ansi, running_for),
+            self.counts,
+            self.stats,
+            self.pokemon_found,
+            ('Visits: {}, per second: {:.2f}\n'
+             'Skipped: {}, unnecessary: {}').format(
+                self.visits, self.visits / seconds_since_start,
+                self.skipped, self.redundant)
         ]
 
         try:
@@ -285,22 +263,20 @@ class Overseer:
         except ZeroDivisionError:
             pass
 
-        if config.HASH_KEY:
-            try:
-                refresh = HashServer.status.get('period') - time.time()
-                output.append('Hashes: {r}/{m}, refresh in {t:.0f}'.format(
-                    r=HashServer.status.get('remaining'),
-                    m=HashServer.status.get('maximum'),
-                    t=refresh
-                ))
-            except TypeError:
-                pass
-
         try:
-            output.append('Notifications sent: {}, per hour {:.1f}'.format(
-                Worker.notifier.sent, Worker.notifier.sent / hours_since_start))
-        except AttributeError:
+            hash_status = HashServer.status
+            output.append('Hashes: {}/{}, refresh in {:.0f}'.format(
+                hash_status['remaining'],
+                hash_status['maximum'],
+                hash_status['period'] - time()
+            ))
+        except (KeyError, TypeError):
             pass
+
+        if _notify:
+            sent = Worker.notifier.sent
+            output.append('Notifications sent: {}, per hour {:.1f}'.format(
+                sent, sent / hours_since_start))
 
         output.append('')
         if not self.all_seen:
@@ -319,31 +295,29 @@ class Overseer:
             output.append('\t'.join(messages[previous:i]))
             previous = i
         if self.paused:
-            output += ('', 'CAPTCHAs are needed to proceed.')
-        return '\n'.join(output)
+            output.append('\nCAPTCHAs are needed to proceed.')
+        if not _ansi:
+            system('cls')
+        print('\n'.join(output))
 
-    def least_productive(self):
-        worker = None
-        lowest = None
-        now = time.time()
-        for account in self.workers:
-            per_second = account.seen_per_second(now)
-            if not lowest or (per_second and per_second < lowest):
-                lowest = per_second
-                worker = account
-        try:
-            per_minute = lowest * 60
-            return worker, per_minute
-        except TypeError:
-            return None, None
+    def longest_running(self):
+        workers = (x for x in self.workers if x.start_time)
+        worker = next(workers)
+        earliest = worker.start_time
+        for w in workers:
+            if w.start_time < earliest:
+                worker = w
+                earliest = w.start_time
+        minutes = ((time() * 1000) - earliest) / 60000
+        return worker, minutes
 
     def get_start_point(self):
         smallest_diff = float('inf')
-        now = time.time() % 3600
+        now = time() % 3600
         closest = None
 
-        for spawn_id, spawn in SPAWNS.items():
-            time_diff = now - spawn[1]
+        for spawn_id, spawn_time in spawns.known.values():
+            time_diff = now - spawn_time
             if 0 < time_diff < smallest_diff:
                 smallest_diff = time_diff
                 closest = spawn_id
@@ -351,201 +325,227 @@ class Overseer:
                 break
         return closest
 
-    async def launch(self, bootstrap, pickle):
-        try:
-            await self._launch(bootstrap, pickle)
-        except CancelledError:
-            return
-        except Exception:
-            exceptions += 1
-            if exceptions > 100:
-                self.log.exception('Over 100 errors occured in launcher loop, exiting.')
-                return False
-            else:
-                self.log.exception('Error occured in launcher loop.')
-
-    async def _launch(self, bootstrap, pickle):
-        initial = True
-        exceptions = 0
+    async def update_spawns(self, initial=False):
         while True:
-            if not initial:
-                pickle = False
-                bootstrap = False
-
-            while True:
-                try:
-                    await LOOP.run_in_executor(None, SPAWNS.update, pickle)
-                except OperationalError as e:
-                    self.log.exception('Operational error while trying to update spawns.')
-                    if initial:
-                        raise OperationalError('Could not update spawns, ensure your DB is set up.') from e
-                    await asyncio.sleep(20)
-                except Exception as e:
-                    self.log.exception('A wild {} appeared while updating spawns!', e.__class__.__name__)
-                    await asyncio.sleep(20)
-                else:
-                    break
-
-            if not SPAWNS or bootstrap:
-                self.bootstrap()
-
-            current_hour = get_current_hour()
-            if SPAWNS.after_last():
-                current_hour += 3600
-                initial = False
-
-            if initial:
-                start_point = self.get_start_point()
-                if not start_point:
-                    initial = False
-            else:
-                asyncio.ensure_future(
-                    LOOP.run_in_executor(None, dump_pickle, 'accounts', self.accounts)
-                )
-
-            for spawn_id, spawn in SPAWNS.items():
+            try:
+                await run_threaded(spawns.update)
+                LOOP.create_task(run_threaded(spawns.pickle))
+            except OperationalError as e:
+                self.log.exception('Operational error while trying to update spawns.')
                 if initial:
-                    if spawn_id == start_point:
-                        initial = False
-                    else:
-                        continue
+                    raise OperationalError('Could not update spawns, ensure your DB is set up.') from e
+                await sleep(15, loop=LOOP)
+            except CancelledError:
+                raise
+            except Exception as e:
+                self.log.exception('A wild {} appeared while updating spawns!', e.__class__.__name__)
+                await sleep(15, loop=LOOP)
+            else:
+                break
 
+    async def launch(self, bootstrap, pickle):
+        exceptions = 0
+        self.next_mystery_reload = 0
+
+        if not pickle or not spawns.unpickle():
+            await self.update_spawns(initial=True)
+
+        if not spawns or bootstrap:
+            try:
+                await self.bootstrap()
+                await self.update_spawns()
+            except CancelledError:
+                return
+
+        update_spawns = False
+        self.mysteries = spawns.mystery_gen()
+        while True:
+            try:
+                await self._launch(update_spawns)
+                update_spawns = True
+            except CancelledError:
+                return
+            except Exception:
+                exceptions += 1
+                if exceptions > 25:
+                    self.log.exception('Over 25 errors occured in launcher loop, exiting.')
+                    return False
+                else:
+                    self.log.exception('Error occured in launcher loop.')
+                    update_spawns = False
+
+    async def _launch(self, update_spawns):
+        if update_spawns:
+            await self.update_spawns()
+            LOOP.create_task(run_threaded(dump_pickle, 'accounts', ACCOUNTS))
+            spawns_iter = iter(spawns.items())
+        else:
+            start_point = self.get_start_point()
+            if start_point and not spawns.after_last():
+                spawns_iter = dropwhile(
+                    lambda s: s[1][0] != start_point, spawns.items())
+            else:
+                spawns_iter = iter(spawns.items())
+
+        current_hour = get_current_hour()
+        if spawns.after_last():
+            current_hour += 3600
+
+        captcha_limit = conf.MAX_CAPTCHAS
+        skip_spawn = conf.SKIP_SPAWN
+        for point, (spawn_id, spawn_seconds) in spawns_iter:
+            try:
+                if self.captcha_queue.qsize() > captcha_limit:
+                    self.paused = True
+                    self.idle_seconds += await run_threaded(self.captcha_queue.full_wait, conf.MAX_CAPTCHAS)
+                    self.paused = False
+            except (EOFError, BrokenPipeError, FileNotFoundError):
+                pass
+
+            spawn_time = spawn_seconds + current_hour
+
+            # negative = hasn't happened yet
+            # positive = already happened
+            time_diff = time() - spawn_time
+
+            while time_diff < 0.5:
                 try:
-                    if self.captcha_queue.qsize() > config.MAX_CAPTCHAS:
-                        self.paused = True
-                        self.idle_seconds += LOOP.run_in_executor(None, self.captcha_queue.full_wait, config.MAX_CAPTCHAS)
-                        self.paused = False
-                except (EOFError, BrokenPipeError, FileNotFoundError):
-                    continue
+                    mystery_point = next(self.mysteries)
 
-                point = spawn[0]
-                spawn_time = spawn[1] + current_hour
+                    await self.coroutine_semaphore.acquire()
+                    LOOP.create_task(self.try_point(mystery_point))
+                except StopIteration:
+                    if self.next_mystery_reload < monotonic():
+                        self.mysteries = spawns.mystery_gen()
+                        self.next_mystery_reload = monotonic() + conf.RESCAN_UNKNOWN
+                    else:
+                        await sleep(min(spawn_time - time() + .5, self.next_mystery_reload - monotonic()), loop=LOOP)
+                time_diff = time() - spawn_time
 
-                # negative = hasn't happened yet
-                # positive = already happened
-                time_diff = time.time() - spawn_time
+            if time_diff > 5 and spawn_id in SIGHTING_CACHE.store:
+                self.redundant += 1
+                continue
+            elif time_diff > skip_spawn:
+                self.skipped += 1
+                continue
 
-                while time_diff < 0:
-                    try:
-                        mystery_point = self.mysteries.popleft()
+            await self.coroutine_semaphore.acquire()
+            LOOP.create_task(self.try_point(point, spawn_time, spawn_id))
 
-                        await self.coroutine_semaphore.acquire()
-                        asyncio.ensure_future(
-                            self.try_point(mystery_point), loop=LOOP
-                        )
-                    except IndexError:
-                        self.mysteries = SPAWNS.get_mysteries()
-                        if not self.mysteries:
-                            time_diff = time.time() - spawn_time
-                            break
-                    time_diff = time.time() - spawn_time
-
-                if time_diff > 5 and spawn_id in SIGHTING_CACHE.store:
-                    self.redundant += 1
-                    continue
-                elif time_diff > config.SKIP_SPAWN:
-                    self.skipped += 1
-                    continue
-
-                await self.coroutine_semaphore.acquire()
-                asyncio.ensure_future(
-                    self.try_point(point, spawn_time), loop=LOOP
-                )
+    async def try_again(self, point):
+        async with self.coroutine_semaphore:
+            worker = await self.best_worker(point, False)
+            async with worker.busy:
+                if await worker.visit(point):
+                    self.visits += 1
 
     async def bootstrap(self):
         try:
+            self.log.warning('Starting bootstrap phase 1.')
             await self.bootstrap_one()
-            await asyncio.sleep(10)
+        except CancelledError:
+            raise
         except Exception:
             self.log.exception('An exception occurred during bootstrap phase 1.')
 
         try:
             self.log.warning('Starting bootstrap phase 2.')
             await self.bootstrap_two()
-            await asyncio.sleep(1)
-            self.log.warning('Finished bootstrapping.')
+        except CancelledError:
+            raise
         except Exception:
             self.log.exception('An exception occurred during bootstrap phase 2.')
 
+        self.log.warning('Starting bootstrap phase 3.')
+        unknowns = list(spawns.unknown)
+        shuffle(unknowns)
+        tasks = (self.try_again(point) for point in unknowns)
+        await gather(*tasks, loop=LOOP)
+        self.log.warning('Finished bootstrapping.')
+
     async def bootstrap_one(self):
-        async def visit_release(worker, point):
+        async def visit_release(worker, num, *args):
             async with self.coroutine_semaphore:
                 async with worker.busy:
-                    if await worker.bootstrap_visit(point):
-                        self.visits += 1
+                    point = get_start_coords(num, *args)
+                    self.log.warning('start_coords: {}', point)
+                    self.visits += await worker.bootstrap_visit(point)
 
-        for worker in self.workers:
-            number = worker.worker_no
-            worker.bootstrap = True
-            point = get_start_coords(number)
-            await asyncio.sleep(.25)
-            asyncio.ensure_future(visit_release(worker, point), loop=LOOP)
+        if bounds.multi:
+            areas = [poly.polygon.area for poly in bounds.polygons]
+            area_sum = sum(areas)
+            percentages = [area / area_sum for area in areas]
+            tasks = []
+            for i, workers in enumerate(percentage_split(
+                    self.workers, percentages)):
+                grid = best_factors(len(workers))
+                tasks.extend(visit_release(w, n, grid, bounds.polygons[i])
+                             for n, w in enumerate(workers))
+        else:
+            tasks = (visit_release(w, n) for n, w in enumerate(self.workers))
+        await gather(*tasks, loop=LOOP)
 
-    def bootstrap_two(self):
+    async def bootstrap_two(self):
         async def bootstrap_try(point):
             async with self.coroutine_semaphore:
-                worker = await self.best_worker(point, must_visit=True)
+                randomized = randomize_point(point, randomization)
+                LOOP.call_later(1790, LOOP.create_task, self.try_again(randomized))
+                worker = await self.best_worker(point, False)
                 async with worker.busy:
-                    if await worker.bootstrap_visit(point):
-                        self.visits += 1
+                    self.visits += await worker.bootstrap_visit(point)
 
-        for point in get_bootstrap_points():
-            asyncio.ensure_future(bootstrap_try(point), loop=LOOP)
+        # randomize to within ~140m of the nearest neighbor on the second visit
+        randomization = conf.BOOTSTRAP_RADIUS / 155555 - 0.00045
+        tasks = (bootstrap_try(x) for x in get_bootstrap_points(bounds))
+        await gather(*tasks, loop=LOOP)
 
-    async def try_point(self, point, spawn_time=None):
+    async def try_point(self, point, spawn_time=None, spawn_id=None):
         try:
             point = randomize_point(point)
-            worker = await self.best_worker(point, spawn_time)
+            skip_time = monotonic() + (conf.GIVE_UP_KNOWN if spawn_time else conf.GIVE_UP_UNKNOWN)
+            worker = await self.best_worker(point, skip_time)
             if not worker:
                 if spawn_time:
                     self.skipped += 1
-                else:
-                    self.mysteries.append(point)
                 return
             async with worker.busy:
                 if spawn_time:
-                    time_diff = spawn_time - time.time() + 1
-                    if time_diff > 0:
-                        await asyncio.sleep(time_diff)
-                    worker.after_spawn = time.time() - spawn_time
+                    worker.after_spawn = time() - spawn_time
 
-                if await worker.visit(point):
+                if await worker.visit(point, spawn_id):
                     self.visits += 1
         except CancelledError:
-            return
+            raise
         except Exception:
             self.log.exception('An exception occurred in try_point')
         finally:
             self.coroutine_semaphore.release()
 
-    async def best_worker(self, point, spawn_time=None, must_visit=False):
-        if spawn_time:
-            skip_time = max(time.monotonic() + config.GIVE_UP_KNOWN, spawn_time)
-        elif must_visit:
-            skip_time = None
-        else:
-            skip_time = time.monotonic() + config.GIVE_UP_UNKNOWN
-
-        while True:
-            speed = None
-            lowest_speed = float('inf')
-            for w in (x for x in self.workers if not x.busy.locked()):
+    async def best_worker(self, point, skip_time):
+        good_enough = conf.GOOD_ENOUGH
+        while self.running:
+            gen = (w for w in self.workers if not w.busy.locked())
+            try:
+                worker = next(gen)
+                lowest_speed = worker.travel_speed(point)
+            except StopIteration:
+                lowest_speed = float('inf')
+            for w in gen:
                 speed = w.travel_speed(point)
                 if speed < lowest_speed:
                     lowest_speed = speed
                     worker = w
-                    if config.GOOD_ENOUGH and speed < config.GOOD_ENOUGH:
+                    if speed < good_enough:
                         break
-            if lowest_speed < config.SPEED_LIMIT:
+            if lowest_speed < conf.SPEED_LIMIT:
                 worker.speed = lowest_speed
                 return worker
-            if time.monotonic() > skip_time:
+            if skip_time and monotonic() > skip_time:
                 return None
-            worker = None
-            await asyncio.sleep(config.SEARCH_SLEEP)
+            await sleep(conf.SEARCH_SLEEP, loop=LOOP)
 
     def refresh_dict(self):
         while not self.extra_queue.empty():
             account = self.extra_queue.get()
             username = account['username']
-            self.accounts[username] = account
+            ACCOUNTS[username] = account

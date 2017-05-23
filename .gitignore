@@ -94,6 +94,8 @@ ENV/
 
 # configuration
 config.py
+accounts*.csv
+banned.csv
 templates/footer.html
 templates/custom.html
 static/css/custom.css
@@ -105,6 +107,7 @@ static/js/custom.js
 # storage and logging
 *.sqlite
 *.log
+scan.log.*
 *.pickle
 *.xz
 pickles/

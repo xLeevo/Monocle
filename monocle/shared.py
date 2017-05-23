@@ -1,10 +1,17 @@
 from logging import getLogger, LoggerAdapter
-
+from concurrent.futures import ThreadPoolExecutor
 from time import time
 from asyncio import get_event_loop
+
 from aiohttp import ClientSession
+from aiopogo import json_dumps
+from aiopogo.session import SESSIONS
+
+from .utils import load_accounts
+
 
 LOOP = get_event_loop()
+ACCOUNTS = load_accounts()
 
 
 class SessionManager:
@@ -13,7 +20,13 @@ class SessionManager:
         try:
             return cls._session
         except AttributeError:
-            cls._session = ClientSession(loop=LOOP)
+            cls._session = ClientSession(connector=SESSIONS.get_connector(False),
+                                         loop=LOOP,
+                                         conn_timeout=5.0,
+                                         read_timeout=30.0,
+                                         connector_owner=False,
+                                         raise_for_status=True,
+                                         json_serialize=json_dumps)
             return cls._session
 
     @classmethod
@@ -60,3 +73,8 @@ def call_at(when, cb, *args):
     """Run call back at the unix time given"""
     delay = when - time()
     return call_later(delay, cb, *args)
+
+
+async def run_threaded(cb, *args):
+    with ThreadPoolExecutor(max_workers=1) as x:
+        return await LOOP.run_in_executor(x, cb, *args)

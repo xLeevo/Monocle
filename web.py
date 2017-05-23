@@ -3,93 +3,78 @@
 from datetime import datetime
 from pkg_resources import resource_filename
 
-import json
+try:
+    from ujson import dumps
+    from flask import json as flask_json
+    flask_json.dumps = lambda obj, **kwargs: dumps(obj, double_precision=6)
+except ImportError:
+    from json import dumps
 
-from flask import Flask, request, render_template, jsonify, Markup
+from flask import Flask, jsonify, Markup, render_template, request
 
-from monocle import config, db, utils
-from monocle.names import POKEMON_NAMES, MOVES, POKEMON_MOVES
-
-# Set defaults for missing config options
-_optional = {
-    'AREA_NAME': 'area',
-    'GOOGLE_MAPS_KEY': None,
-    'RARE_IDS': (),
-    'TRASH_IDS': (),
-    'MAP_PROVIDER_URL': '//{s}.tile.osm.org/{z}/{x}/{y}.png',
-    'MAP_PROVIDER_ATTRIBUTION': '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
-    'MAP_WORKERS': True,
-    'AUTHKEY': b'm3wtw0',
-    'REPORT_MAPS': True,
-    'LOAD_CUSTOM_HTML_FILE': False,
-    'LOAD_CUSTOM_CSS_FILE': False,
-    'LOAD_CUSTOM_JS_FILE': False,
-    'FB_PAGE_ID': None,
-    'TWITTER_SCREEN_NAME': None,
-    'DISCORD_INVITE_ID': None,
-    'TELEGRAM_USERNAME': None,
-    'BOUNDARIES': None,
-    'FIXED_OPACITY': False,
-    'SHOW_TIMER': False
-}
-for setting_name, default in _optional.items():
-    if not hasattr(config, setting_name):
-        setattr(config, setting_name, default)
-del _optional
-
+from monocle import db, sanitized as conf
+from monocle.names import POKEMON
 from monocle.web_utils import *
+from monocle.bounds import area, center
 
-
-if not config.REPORT_MAPS:
-    config.GOOGLE_MAPS_KEY = None
 
 app = Flask(__name__, template_folder=resource_filename('monocle', 'templates'), static_folder=resource_filename('monocle', 'static'))
 
 
-@app.route('/')
-def fullmap():
-    extra_css_js = ''
+def social_links():
     social_links = ''
-    init_js_vars = ''
 
-    init_js_vars += "_defaultSettings['FIXED_OPACITY'] = '{}'; ".format(int(config.FIXED_OPACITY))
-    init_js_vars += "_defaultSettings['SHOW_TIMER'] = '{}'; ".format(int(config.SHOW_TIMER))
-    init_js_vars += "_defaultSettings['TRASH_IDS'] = [{}]; ".format(', '.join(str(p_id) for p_id in config.TRASH_IDS))
+    if conf.FB_PAGE_ID:
+        social_links = '<a class="map_btn facebook-icon" target="_blank" href="https://www.facebook.com/' + conf.FB_PAGE_ID + '"></a>'
+    if conf.TWITTER_SCREEN_NAME:
+        social_links += '<a class="map_btn twitter-icon" target="_blank" href="https://www.twitter.com/' + conf.TWITTER_SCREEN_NAME + '"></a>'
+    if conf.DISCORD_INVITE_ID:
+        social_links += '<a class="map_btn discord-icon" target="_blank" href="https://discord.gg/' + conf.DISCORD_INVITE_ID + '"></a>'
+    if conf.TELEGRAM_USERNAME:
+        social_links += '<a class="map_btn telegram-icon" target="_blank" href="https://www.telegram.me/' + conf.TELEGRAM_USERNAME + '"></a>'
 
-    if config.LOAD_CUSTOM_HTML_FILE:
-        mapfile = 'custom.html'
-    else:
-        mapfile = 'newmap.html'
-
-    if config.LOAD_CUSTOM_CSS_FILE:
-        extra_css_js += '<link rel="stylesheet" href="static/css/custom.css">'
-
-    if config.LOAD_CUSTOM_JS_FILE:
-        extra_css_js += '<script type="text/javascript" src="static/js/custom.js"></script>'
-
-    if config.FB_PAGE_ID:
-        social_links += '<a class="map_btn facebook-icon" target="_blank" href="https://www.facebook.com/' + config.FB_PAGE_ID + '"></a>'
-
-    if config.TWITTER_SCREEN_NAME:
-        social_links += '<a class="map_btn twitter-icon" target="_blank" href="https://www.twitter.com/' + config.TWITTER_SCREEN_NAME + '"></a>'
-
-    if config.DISCORD_INVITE_ID:
-        social_links += '<a class="map_btn discord-icon" target="_blank" href="https://discord.gg/' + config.DISCORD_INVITE_ID + '"></a>'
-
-    if config.TELEGRAM_USERNAME:
-        social_links += '<a class="map_btn telegram-icon" target="_blank" href="https://www.telegram.me/' + config.TELEGRAM_USERNAME + '"></a>'
+    return Markup(social_links)
 
 
-    return render_template(
-        mapfile,
-        area_name=config.AREA_NAME,
-        map_center=utils.MAP_CENTER,
-        map_provider_url=config.MAP_PROVIDER_URL,
-        map_provider_attribution=config.MAP_PROVIDER_ATTRIBUTION,
-        social_links=Markup(social_links),
-        init_js_vars=Markup(init_js_vars),
-        extra_css_js=Markup(extra_css_js)
+def render_map():
+    css_js = ''
+
+    if conf.LOAD_CUSTOM_CSS_FILE:
+        css_js = '<link rel="stylesheet" href="static/css/custom.css">'
+    if conf.LOAD_CUSTOM_JS_FILE:
+        css_js += '<script type="text/javascript" src="static/js/custom.js"></script>'
+
+    js_vars = Markup(
+        "_defaultSettings['FIXED_OPACITY'] = '{:d}'; "
+        "_defaultSettings['SHOW_TIMER'] = '{:d}'; "
+        "_defaultSettings['TRASH_IDS'] = [{}]; ".format(conf.FIXED_OPACITY, conf.SHOW_TIMER, ', '.join(str(p_id) for p_id in conf.TRASH_IDS)))
+
+    template = app.jinja_env.get_template('custom.html' if conf.LOAD_CUSTOM_HTML_FILE else 'newmap.html')
+    return template.render(
+        area_name=conf.AREA_NAME,
+        map_center=center,
+        map_provider_url=conf.MAP_PROVIDER_URL,
+        map_provider_attribution=conf.MAP_PROVIDER_ATTRIBUTION,
+        social_links=social_links(),
+        init_js_vars=js_vars,
+        extra_css_js=Markup(css_js)
     )
+
+
+def render_worker_map():
+    template = app.jinja_env.get_template('workersmap.html')
+    return template.render(
+        area_name=conf.AREA_NAME,
+        map_center=center,
+        map_provider_url=conf.MAP_PROVIDER_URL,
+        map_provider_attribution=conf.MAP_PROVIDER_ATTRIBUTION,
+        social_links=social_links()
+    )
+
+
+@app.route('/')
+def fullmap(map_html=render_map()):
+    return map_html
 
 
 @app.route('/data')
@@ -104,7 +89,7 @@ def gym_data():
 
 
 @app.route('/spawnpoints')
-def get_spawn_points():
+def spawn_points():
     return jsonify(get_spawnpoint_markers())
 
 
@@ -118,9 +103,8 @@ def scan_coords():
     return jsonify(get_scan_coords())
 
 
-if config.MAP_WORKERS:
+if conf.MAP_WORKERS:
     workers = Workers()
-
 
     @app.route('/workers_data')
     def workers_data():
@@ -128,29 +112,27 @@ if config.MAP_WORKERS:
 
 
     @app.route('/workers')
-    def workers_map():
-        return render_template(
-            'workersmap.html',
-            area_name=config.AREA_NAME,
-            map_center=utils.MAP_CENTER,
-            map_provider_url=config.MAP_PROVIDER_URL,
-            map_provider_attribution=config.MAP_PROVIDER_ATTRIBUTION
-        )
+    def workers_map(map_html=render_worker_map()):
+        return map_html
+
 
 
 @app.route('/report')
-def report_main():
+def report_main(area_name=conf.AREA_NAME,
+                names=POKEMON,
+                key=conf.GOOGLE_MAPS_KEY if conf.REPORT_MAPS else None):
     with db.session_scope() as session:
         counts = db.get_sightings_per_pokemon(session)
-        session_stats = db.get_session_stats(session)
 
         count = sum(counts.values())
         counts_tuple = tuple(counts.items())
+        nonexistent = [(x, names[x]) for x in range(1, 252) if x not in counts]
+        del counts
+
         top_pokemon = list(counts_tuple[-30:])
         top_pokemon.reverse()
         bottom_pokemon = counts_tuple[:30]
-        nonexistent = [(x, POKEMON_NAMES[x]) for x in range(1, 252) if x not in counts]
-        rare_pokemon = [r for r in counts_tuple if r[0] in config.RARE_IDS]
+        rare_pokemon = [r for r in counts_tuple if r[0] in conf.RARE_IDS]
         if rare_pokemon:
             rare_sightings = db.get_all_sightings(
                 session, [r[0] for r in rare_pokemon]
@@ -160,33 +142,31 @@ def report_main():
         js_data = {
             'charts_data': {
                 'punchcard': db.get_punch_card(session),
-                'top30': [(POKEMON_NAMES[r[0]], r[1]) for r in top_pokemon],
+                'top30': [(names[r[0]], r[1]) for r in top_pokemon],
                 'bottom30': [
-                    (POKEMON_NAMES[r[0]], r[1]) for r in bottom_pokemon
+                    (names[r[0]], r[1]) for r in bottom_pokemon
                 ],
                 'rare': [
-                    (POKEMON_NAMES[r[0]], r[1]) for r in rare_pokemon
+                    (names[r[0]], r[1]) for r in rare_pokemon
                 ],
             },
             'maps_data': {
-                'rare': [sighting_to_marker(s) for s in rare_sightings],
+                'rare': [sighting_to_report_marker(s) for s in rare_sightings],
             },
-            'map_center': utils.MAP_CENTER,
+            'map_center': center,
             'zoom': 13,
         }
     icons = {
-        'top30': [(r[0], POKEMON_NAMES[r[0]]) for r in top_pokemon],
-        'bottom30': [(r[0], POKEMON_NAMES[r[0]]) for r in bottom_pokemon],
-        'rare': [(r[0], POKEMON_NAMES[r[0]]) for r in rare_pokemon],
+        'top30': [(r[0], names[r[0]]) for r in top_pokemon],
+        'bottom30': [(r[0], names[r[0]]) for r in bottom_pokemon],
+        'rare': [(r[0], names[r[0]]) for r in rare_pokemon],
         'nonexistent': nonexistent
     }
-
-    area = utils.get_scan_area()
-
+    session_stats = db.get_session_stats(session)
     return render_template(
         'report.html',
         current_date=datetime.now(),
-        area_name=config.AREA_NAME,
+        area_name=area_name,
         area_size=area,
         total_spawn_count=count,
         spawns_per_hour=count // session_stats['length_hours'],
@@ -195,33 +175,35 @@ def report_main():
         session_length_hours=session_stats['length_hours'],
         js_data=js_data,
         icons=icons,
-        google_maps_key=config.GOOGLE_MAPS_KEY,
+        google_maps_key=key,
     )
 
 
 @app.route('/report/<int:pokemon_id>')
-def report_single(pokemon_id):
+def report_single(pokemon_id,
+                  area_name=conf.AREA_NAME,
+                  key=conf.GOOGLE_MAPS_KEY if conf.REPORT_MAPS else None):
     with db.session_scope() as session:
         session_stats = db.get_session_stats(session)
         js_data = {
             'charts_data': {
                 'hours': db.get_spawns_per_hour(session, pokemon_id),
             },
-            'map_center': utils.MAP_CENTER,
+            'map_center': center,
             'zoom': 13,
         }
         return render_template(
             'report_single.html',
             current_date=datetime.now(),
-            area_name=config.AREA_NAME,
-            area_size=utils.get_scan_area(),
+            area_name=area_name,
+            area_size=area,
             pokemon_id=pokemon_id,
-            pokemon_name=POKEMON_NAMES[pokemon_id],
+            pokemon_name=POKEMON[pokemon_id],
             total_spawn_count=db.get_total_spawns_count(session, pokemon_id),
             session_start=session_stats['start'],
             session_end=session_stats['end'],
             session_length_hours=int(session_stats['length_hours']),
-            google_maps_key=config.GOOGLE_MAPS_KEY,
+            google_maps_key=key,
             js_data=js_data,
         )
 
@@ -230,7 +212,7 @@ def report_single(pokemon_id):
 def report_heatmap():
     pokemon_id = request.args.get('id')
     with db.session_scope() as session:
-        return json.dumps(db.get_all_spawn_coords(session, pokemon_id=pokemon_id))
+        return dumps(db.get_all_spawn_coords(session, pokemon_id=pokemon_id))
 
 
 def main():
