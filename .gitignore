@@ -134,3 +134,12 @@ monocle/static/monocle-icons
 
 ### IntelliJ IDEA ###
 .idea
+
+### Supervisor
+supervisor/
+tmp/
+node_modules/
+*.swo
+*.swp
+log/
+monotailer*.tgz

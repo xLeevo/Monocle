@@ -86,7 +86,7 @@ function monitor (group, initial) {
     group.on('remove', setHidden);
 }
 
-monitor(overlays.Pokemon, false)
+monitor(overlays.Pokemon, true)
 monitor(overlays.Trash, true)
 monitor(overlays.Raids, true)
 monitor(overlays.Gyms, true)
