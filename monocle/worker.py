@@ -185,7 +185,7 @@ class Worker:
             raise err
 
         self.error_code = '°'
-        version = 6301
+        version = 6304
         async with self.sim_semaphore:
             self.error_code = 'APP SIMULATION'
             if conf.APP_SIMULATION:
@@ -261,7 +261,7 @@ class Worker:
             await self.random_sleep(.5, 4)
 
             request = self.api.create_request()
-            request.mark_tutorial_complete(tutorials_completed=1)
+            request.mark_tutorial_complete(tutorials_completed=(1,))
             await self.call(request, buddy=False)
 
         await self.random_sleep(.5, 1)
@@ -380,7 +380,7 @@ class Worker:
         if 0 not in tutorial_state:
             # legal screen
             request = self.api.create_request()
-            request.mark_tutorial_complete(tutorials_completed=[0])
+            request.mark_tutorial_complete(tutorials_completed=(0,))
             await self.call(request, buddy=False)
 
             await self.random_sleep(.35, .525)
@@ -440,14 +440,14 @@ class Worker:
             await sleep(.13, loop=LOOP)
 
             request = self.api.create_request()
-            request.mark_tutorial_complete(tutorials_completed=4)
+            request.mark_tutorial_complete(tutorials_completed=(4,))
             await self.call(request, buddy=False)
 
         if 7 not in tutorial_state:
             # first time experience
             await self.random_sleep(3.9, 4.5)
             request = self.api.create_request()
-            request.mark_tutorial_complete(tutorials_completed=7)
+            request.mark_tutorial_complete(tutorials_completed=(7,))
             await self.call(request)
 
         if starter_id:
@@ -601,7 +601,7 @@ class Worker:
                         and conf.FORCED_KILL
                         and dl_settings.settings.minimum_client_version != '0.63.1'):
                     forced_version = StrictVersion(dl_settings.settings.minimum_client_version)
-                    if forced_version > StrictVersion('0.63.1'):
+                    if forced_version > StrictVersion('0.63.4'):
                         err = '{} is being forced, exiting.'.format(forced_version)
                         self.log.error(err)
                         print(err)
