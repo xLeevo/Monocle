@@ -19,7 +19,22 @@ var PokemonIcon = L.Icon.extend({
         return div;
     }
 });
-
+var RaidIcon = L.Icon.extend({
+    options: {
+        popupAnchor: [0, -10]
+    },
+    createIcon: function() {
+        var div = document.createElement('div');
+        div.innerHTML =
+            '<div class="pokemarker">' +
+              '<div class="raidimg">' +
+                   '<img class="leaflet-marker-icon raid_egg" src="' + this.options.iconUrl + '" />' +
+              '</div>' +
+              '<div class="number_marker">' + this.options.level + '</div>' +
+            '</div>';
+        return div;
+    }
+});
 var FortIcon = L.Icon.extend({
     options: {
         iconSize: [20, 20],
@@ -46,6 +61,7 @@ var markers = {};
 var overlays = {
     Pokemon: L.layerGroup([]),
     Trash: L.layerGroup([]),
+    Raids: L.layerGroup([]),
     Gyms: L.layerGroup([]),
     Pokestops: L.layerGroup([]),
     Workers: L.layerGroup([]),
@@ -69,8 +85,9 @@ function monitor (group, initial) {
 
 monitor(overlays.Pokemon, false)
 monitor(overlays.Trash, true)
+monitor(overlays.Raids, true)
 monitor(overlays.Gyms, true)
-monitor(overlays.Workers, false)
+monitor(overlays.Workers, true)
 
 function getPopupContent (item) {
     var diff = (item.expires_at - new Date().getTime() / 1000);
@@ -191,6 +208,23 @@ function FortMarker (raw) {
     return marker;
 }
 
+function RaidMarker (raw) {
+    var rarity = 'legendary';
+    if (raw.level === 1 || raw.level === 2) {
+        rarity = 'normal';
+    }
+    else if (raw.level === 3 || raw.level === 4) {
+        rarity = 'rare';
+    }
+    var icon = new RaidIcon({iconUrl: '/static/monocle-icons/raids/' + rarity + '.png', level: raw.level});
+    var marker = L.marker([raw.lat, raw.lon], {icon: icon});
+    var circle = L.circle([raw.lat, raw.lon], 25, {weight: 2});
+    var time_battle = new Date(raw.time_battle * 1000);
+    var group = L.featureGroup([marker, circle])
+        .bindPopup('<b>Raid level ' + raw.level + '</b><br>start time: ' + time_battle.getHours() + ':' + time_battle.getMinutes() + '<br>pokemon: ' + raw.pokemon_name);
+    return group;
+}
+
 function WorkerMarker (raw) {
     var icon = new WorkerIcon();
     var marker = L.marker([raw.lat, raw.lon], {icon: icon});
@@ -215,6 +249,17 @@ function addPokemonToMap (data, map) {
     if (_updateTimeInterval === null){
         _updateTimeInterval = setInterval(updateTime, 1000);
     }
+}
+
+function addRaidsToMap (data, map) {
+    data.forEach(function (item) {
+        // Already placed? No need to do anything, then
+        if (item.id in markers) {
+            return;
+        }
+        var marker = RaidMarker(item);
+        marker.addTo(overlays.Raids)
+    });
 }
 
 function addGymsToMap (data, map) {
@@ -294,6 +339,19 @@ function getPokemon () {
     });
 }
 
+function getRaids () {
+    if (overlays.Raids.hidden) {
+        return;
+    }
+    new Promise(function (resolve, reject) {
+        $.get('/raids', function (response) {
+            resolve(response);
+        });
+    }).then(function (data) {
+        addRaidsToMap(data, map);
+    });
+}
+
 function getGyms () {
     if (overlays.Gyms.hidden) {
         return;
@@ -364,6 +422,9 @@ map.whenReady(function () {
     $('.my-location').on('click', function () {
         map.locate({ enableHighAccurracy: true, setView: true });
     });
+    overlays.Raids.once('add', function(e) {
+        getRaids();
+    })
     overlays.Gyms.once('add', function(e) {
         getGyms();
     })
@@ -374,11 +435,13 @@ map.whenReady(function () {
         getPokestops();
     })
     getScanAreaCoords();
-    getWorkers();
-    overlays.Workers.hidden = true;
+    overlays.Workers.once('add', function(e) {
+        getWorkers();
+    })
     setInterval(getWorkers, 14000);
     getPokemon();
     setInterval(getPokemon, 30000);
+    setInterval(getRaids, 110000)
     setInterval(getGyms, 110000)
 });
 

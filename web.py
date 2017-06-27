@@ -83,6 +83,11 @@ def pokemon_data():
     return jsonify(get_pokemarkers(last_id))
 
 
+@app.route('/raids')
+def get_raids():
+    return jsonify(get_raid_markers())
+
+
 @app.route('/gym_data')
 def gym_data():
     return jsonify(get_gym_markers())
