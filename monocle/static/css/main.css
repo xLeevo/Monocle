@@ -153,6 +153,11 @@
     padding: 0;
 }
 
+.raid_egg {
+    width: 30px;
+    height: 30px;
+}
+
 #settings>.page-header{
     padding-bottom: 5px;
     margin: 20px 0 10px;

@@ -4,7 +4,7 @@ from multiprocessing.managers import BaseManager, RemoteError
 from time import time
 
 from monocle import sanitized as conf
-from monocle.db import get_forts, Pokestop, session_scope, Sighting, Spawnpoint
+from monocle.db import get_forts, Pokestop, session_scope, Sighting, Spawnpoint, Raid, Fort
 from monocle.utils import Units, get_address
 from monocle.names import DAMAGE, MOVES, POKEMON
 
@@ -116,6 +116,31 @@ def get_pokemarkers(after_id=0):
         if conf.MAP_FILTER_IDS:
             pokemons = pokemons.filter(~Sighting.pokemon_id.in_(conf.MAP_FILTER_IDS))
         return tuple(map(sighting_to_marker, pokemons))
+
+
+def get_raid_markers(names=POKEMON):
+    with session_scope() as session:
+        markers = []
+        raids = session.query(Raid) \
+            .filter(Raid.time_end > time())
+        for raid in raids:
+            fort_id = raid.fort_id
+            fort = session.query(Fort) \
+                .filter(Fort.external_id == fort_id) \
+                .scalar()
+            markers.append({
+                'id': 'raid-' + str(raid.id),
+                'level': raid.level,
+                'pokemon_id': raid.pokemon_id,
+                'pokemon_name': names[raid.pokemon_id],
+                'lat': fort.lat,
+                'lon': fort.lon,
+                'time_spawn': raid.time_spawn,
+                'time_battle': raid.time_battle,
+                'time_end': raid.time_end
+                })
+
+        return markers
 
 
 def get_gym_markers(names=POKEMON):
