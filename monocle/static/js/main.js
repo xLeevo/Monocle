@@ -31,6 +31,7 @@ var RaidIcon = L.Icon.extend({
                    '<img class="leaflet-marker-icon raid_egg" src="' + this.options.iconUrl + '" />' +
               '</div>' +
               '<div class="number_marker">' + this.options.level + '</div>' +
+              '<div class="remaining_text" data-expire="' + this.options.expires_at + '">' + calculateRemainingTime(this.options.expires_at) + '</div>' +
             '</div>';
         return div;
     }
@@ -115,6 +116,25 @@ function getPopupContent (item) {
         content += '<a href="#" data-pokeid="'+item.pokemon_id+'" data-newlayer="Trash" class="popup_filter_link">Move to Trash</a>';
     }
     content += '<br>=&gt; <a href="https://www.google.com/maps/?daddr='+ item.lat + ','+ item.lon +'" target="_blank" title="See in Google Maps">Get directions</a>';
+    return content;
+}
+
+function getRaidPopupContent (raw) {
+	var content = '<b>Raid level ' + raw.level + '</b><br>';
+	var info_link = (raw.pokemon_id === 0) ? '' : ' - <a href="https://pokemongo.gamepress.gg/pokemon/' + raw.pokemon_id + '">#' + raw.pokemon_id + '</a>';
+	content += 'Pokemon: ' + raw.pokemon_name + info_link + '<br>';
+	if (raw.pokemon_id === 0){
+		var diff = (raw.time_battle - new Date().getTime() / 1000);
+		var minutes = parseInt(diff / 60);
+    	var seconds = parseInt(diff - (minutes * 60));
+		content += 'Raid Battle: ' + minutes + 'm ' + seconds + 's<br>';
+	}else{
+		var diff = (raw.time_end - new Date().getTime() / 1000);
+		var minutes = parseInt(diff / 60);
+    	var seconds = parseInt(diff - (minutes * 60));
+		content += 'Raid End: ' + minutes + 'm ' + seconds + 's<br>';
+	}
+    content += '<br>=&gt; <a href="https://www.google.com/maps/?daddr='+ raw.lat + ','+ raw.lon +'" target="_blank" title="See in Google Maps">Get directions</a>';
     return content;
 }
 
@@ -216,13 +236,42 @@ function RaidMarker (raw) {
     else if (raw.level === 3 || raw.level === 4) {
         rarity = 'rare';
     }
-    var icon = new RaidIcon({iconUrl: '/static/monocle-icons/raids/' + rarity + '.png', level: raw.level});
+	var icon = null;
+	if (raw.pokemon_id === 0){
+		icon = new RaidIcon({iconUrl: '/static/monocle-icons/raids/' + rarity + '.png', level: raw.level, expires_at: raw.time_battle});
+	}else{
+		icon = new RaidIcon({iconUrl: '/static/monocle-icons/icons/' + raw.pokemon_id + '.png', level: raw.level, expires_at: raw.time_end});
+	}
+
     var marker = L.marker([raw.lat, raw.lon], {icon: icon});
-    var circle = L.circle([raw.lat, raw.lon], 25, {weight: 2});
-    var time_battle = new Date(raw.time_battle * 1000);
-    var group = L.featureGroup([marker, circle])
-        .bindPopup('<b>Raid level ' + raw.level + '</b><br>start time: ' + time_battle.getHours() + ':' + time_battle.getMinutes() + '<br>pokemon: ' + raw.pokemon_name);
-    return group;
+	marker.raw = raw;
+	marker.opacityInterval = setInterval(function () {
+        if (overlays.Raids.hidden) {
+            return;
+        }
+        var diff = marker.raw.time_end - new Date().getTime() / 1000;
+        if (diff <= 0) {
+            marker.removeFrom(overlays.Raids);
+            markers[marker.raw.id] = undefined;
+            clearInterval(marker.opacityInterval);
+        }
+    }, 2500);
+	markers[raw.id] = marker;
+    
+ 	marker.on('popupopen',function popupopen (event) {
+        event.popup.options.autoPan = true; // Pan into view once
+        event.popup.setContent(getRaidPopupContent(event.target.raw));
+        event.target.popupInterval = setInterval(function () {
+            event.popup.setContent(getRaidPopupContent(event.target.raw));
+            event.popup.options.autoPan = false; // Don't fight user panning
+        }, 1000);
+    });
+    marker.on('popupclose', function (event) {
+        clearInterval(event.target.popupInterval);
+    });
+
+    marker.bindPopup();
+    return marker;
 }
 
 function WorkerMarker (raw) {
@@ -255,7 +304,12 @@ function addRaidsToMap (data, map) {
     data.forEach(function (item) {
         // Already placed? No need to do anything, then
         if (item.id in markers) {
-            return;
+            if (item.pokemon_id == markers[item.id].raw.pokemon_id){
+				return;
+			}
+			markers[item.id].removeFrom(overlays.Raids);
+            clearInterval(markers[item.id].opacityInterval);
+            markers[item.id] = undefined;
         }
         var marker = RaidMarker(item);
         marker.addTo(overlays.Raids)
