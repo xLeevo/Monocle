@@ -218,7 +218,10 @@ function FortMarker (raw) {
             else if (raw.team === 3 ) {
                 content = '<b>Team Instinct</b>'
             }
-            content += '<br>Prestige: ' + raw.prestige +
+            var last_modified = new Date(raw.last_modified * 1000);
+
+            content += '<br><span style="font-size: smaller">Last Modified: ' + last_modified.toLocaleString() + '</span>' +
+                       '<br>Slots occupied: '+ (6 - raw.slots_available) + '/6' +
                        '<br>Guarding Pokemon: ' + raw.pokemon_name + ' (#' + raw.pokemon_id + ')';
         }
         content += '<br>=&gt; <a href=https://www.google.com/maps/?daddr='+ raw.lat + ','+ raw.lon +' target="_blank" title="See in Google Maps">Get directions</a>';

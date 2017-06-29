@@ -346,6 +346,7 @@ class FortSighting(Base):
     team = Column(TINY_TYPE)
     prestige = Column(MEDIUM_TYPE)
     guard_pokemon_id = Column(TINY_TYPE)
+    slots_available = Column(Integer)
 
     __table_args__ = (
         UniqueConstraint(
@@ -530,6 +531,7 @@ def add_fort_sighting(session, raw_fort):
         prestige=raw_fort['prestige'],
         guard_pokemon_id=raw_fort['guard_pokemon_id'],
         last_modified=raw_fort['last_modified'],
+        slots_available=raw_fort['slots_available']
     )
     session.add(obj)
     FORT_CACHE.add(raw_fort)
@@ -630,7 +632,8 @@ def _get_forts_sqlite(session):
             fs.guard_pokemon_id,
             fs.last_modified,
             f.lat,
-            f.lon
+            f.lon,
+            fs.slots_available
         FROM fort_sightings fs
         JOIN forts f ON f.id=fs.fort_id
         WHERE fs.fort_id || '-' || fs.last_modified IN (
@@ -651,7 +654,8 @@ def _get_forts(session):
             fs.guard_pokemon_id,
             fs.last_modified,
             f.lat,
-            f.lon
+            f.lon,
+            f.slots_available
         FROM fort_sightings fs
         JOIN forts f ON f.id=fs.fort_id
         WHERE (fs.fort_id, fs.last_modified) IN (
