@@ -1269,6 +1269,7 @@ class Worker:
             'prestige': raw.gym_points,
             'guard_pokemon_id': raw.guard_pokemon_id,
             'last_modified': raw.last_modified_timestamp_ms // 1000,
+            'slots_available': raw.gym_display.slots_available
         }
 
     @staticmethod
