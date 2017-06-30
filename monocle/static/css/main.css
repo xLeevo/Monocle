@@ -148,7 +148,7 @@
     left: -16px;
     top: -16px;
     width: 32px;
-    height: 32px;
+	height: 32px;
     text-align: center;
     margin: 0;
     padding: 0;
@@ -188,7 +188,10 @@
     margin-bottom: 0;
     font-weight: initial;
 }
-
+.raid-label{
+    width: 150px;
+    display: inline-block;
+}
 .number_marker {
     position: absolute;
     width: 15px;
