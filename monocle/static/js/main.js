@@ -1,5 +1,7 @@
 var _last_pokemon_id = 0;
 var _pokemon_count = 251;
+var _raids_count = 5;
+var _raids_labels = ['Normal', 'Normal', 'Rare', 'Rare', 'Legendary'];
 var _WorkerIconUrl = 'static/monocle-icons/assets/ball.png';
 var _PokestopIconUrl = 'static/monocle-icons/assets/stop.png';
 
@@ -259,6 +261,14 @@ function RaidMarker (raw) {
             clearInterval(marker.opacityInterval);
         }
     }, 2500);
+
+    var userPreference = getPreference('raids-'+raw.level);
+    if (userPreference === 'show'){
+        marker.overlay = 'Raids';
+    }else if (userPreference === 'hide'){
+        marker.overlay = 'Hidden';
+    }
+
 	markers[raw.id] = marker;
     
  	marker.on('popupopen',function popupopen (event) {
@@ -315,7 +325,10 @@ function addRaidsToMap (data, map) {
             markers[item.id] = undefined;
         }
         var marker = RaidMarker(item);
-        marker.addTo(overlays.Raids)
+        
+		if (marker.overlay !== "Hidden"){
+            marker.addTo(overlays[marker.overlay])
+        }
     });
 }
 
@@ -556,31 +569,50 @@ $('#settings').on('click', '.settings-panel button', function () {
 
     if (key.indexOf('filter-') > -1){
         // This is a pokemon's filter button
-        moveToLayer(id, value);
+        moveToLayer(id, value, 'filter');
+    }else if (key.indexOf('raids-') > -1){
+        // This is a raid's filter button
+        moveToLayer(id, value, 'raids');		
     }else{
         setPreference(key, value);
     }
 });
 
-function moveToLayer(id, layer){
-    setPreference("filter-"+id, layer);
+function moveToLayer(id, layer, type){
+    setPreference(type+"-"+id, layer);
     layer = layer.toLowerCase();
-    for(var k in markers) {
-        var m = markers[k];
-        if ((k.indexOf("pokemon-") > -1) && (m !== undefined) && (m.raw.pokemon_id === id)){
-            m.removeFrom(overlays[m.overlay]);
-            if (layer === 'pokemon'){
-                m.overlay = "Pokemon";
-                m.addTo(overlays.Pokemon);
-            }else if (layer === 'trash') {
-                m.overlay = "Trash";
-                m.addTo(overlays.Trash);
-            }
-        }
+    if (type === 'filter'){
+		for(var k in markers) {
+		    var m = markers[k];
+		    if ((k.indexOf("pokemon-") > -1) && (m !== undefined) && (m.raw.pokemon_id === id)){
+		        m.removeFrom(overlays[m.overlay]);
+		        if (layer === 'pokemon'){
+		            m.overlay = "Pokemon";
+		            m.addTo(overlays.Pokemon);
+		        }else if (layer === 'trash') {
+		            m.overlay = "Trash";
+		            m.addTo(overlays.Trash);
+		        }
+		    }
+		}
+    }else if (type === 'raids'){
+        for(var k in markers) {
+		    var m = markers[k];
+		    if ((k.indexOf("raid-") > -1) && (m !== undefined) && (m.raw.level === id)){
+		        m.removeFrom(overlays[m.overlay]);
+		        if (layer === 'show'){
+		            m.overlay = "Raids";
+		            m.addTo(overlays.Raids);
+		        }else{
+		            m.overlay = "Hidden";
+                }
+		    }
+		}
     }
 }
 
 function populateSettingsPanels(){
+    // Filters
     var container = $('.settings-panel[data-panel="filters"]').children('.panel-body');
     var newHtml = '';
     for (var i = 1; i <= _pokemon_count; i++){
@@ -598,11 +630,32 @@ function populateSettingsPanels(){
     }
     newHtml += '</div>';
     container.html(newHtml);
+
+    // Raids
+    container = $('.settings-panel[data-panel="raids"]').children('.panel-body');
+    newHtml = '';
+    for (var i = 1; i <= _raids_count; i++){
+        var partHtml = `<div class="text-center">
+                <span class="raid-label">Level ` + i + ` (` + _raids_labels[i-1] + `)` + `</span>
+                <div class="btn-group" role="group" data-group="raids-`+i+`">
+                  <button type="button" class="btn btn-default" data-id="`+i+`" data-value="show">Show</button>
+                  <button type="button" class="btn btn-default" data-id="`+i+`" data-value="hide">Hide</button>
+                </div>
+            </div>
+        `;
+
+        newHtml += partHtml
+    }
+    newHtml += '</div>';
+    container.html(newHtml);
 }
 
 function setSettingsDefaults(){
     for (var i = 1; i <= _pokemon_count; i++){
         _defaultSettings['filter-'+i] = (_defaultSettings['TRASH_IDS'].indexOf(i) > -1) ? "trash" : "pokemon";
+    };
+    for (var i = 1; i <= _raids_count; i++){
+        _defaultSettings['raids-'+i] = (_defaultSettings['RAIDS_FILTER'].indexOf(i) > -1) ? "show" : "hide";
     };
 
     $("#settings div.btn-group").each(function(){

@@ -231,6 +231,7 @@ LOAD_CUSTOM_JS_FILE = False   # File path MUST be 'static/js/custom.js'
 #TELEGRAM_USERNAME = None  # Username withouth '@' char
 
 ## Variables below will be used as default values on frontend
+#RAIDS_FILTER = (1, 2, 3, 4, 5)  # Levels shown by default on map
 FIXED_OPACITY = False  # Make marker opacity independent of remaining time
 SHOW_TIMER = False  # Show remaining time on a label under each pokemon marker
 
