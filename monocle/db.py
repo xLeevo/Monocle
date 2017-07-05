@@ -168,7 +168,7 @@ class RaidCache:
         return len(self.store)
 
     def add(self, raid):
-        self.store[raid['fort_id']] = raid['time_end']
+        self.store[raid['fort_id']] = raid
         call_at(raid['time_end'], self.remove, raid['fort_id'])
 
     def remove(self, cache_id):
@@ -179,10 +179,11 @@ class RaidCache:
 
     def __contains__(self, raw_fort):
         try:
-            expire_timestamp = self.store[raw_fort.id]
+            raid = self.store[raw_fort.id]
             return (
-                expire_timestamp > raw_fort.raid_info.raid_end_ms // 1000 - 2 and
-                expire_timestamp < raw_fort.raid_info.raid_end_ms // 1000 + 2)
+                raid['time_end'] > raw_fort.raid_info.raid_end_ms // 1000 - 2 and
+                raid['time_end'] < raw_fort.raid_info.raid_end_ms // 1000 + 2 and
+                raid['pokemon_id'] != raw_fort.raid_info.raid_pokemon.pokemon_id)
         except KeyError:
             return False
 
