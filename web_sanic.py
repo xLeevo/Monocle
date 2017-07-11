@@ -112,7 +112,6 @@ async def gym_data(request, names=POKEMON, _str=str):
                 fs.fort_id,
                 fs.id,
                 fs.team,
-                fs.prestige,
                 fs.guard_pokemon_id,
                 fs.last_modified,
                 f.lat,
@@ -128,7 +127,6 @@ async def gym_data(request, names=POKEMON, _str=str):
     return json([{
             'id': 'fort-' + _str(fort['fort_id']),
             'sighting_id': fort['id'],
-            'prestige': fort['prestige'],
             'pokemon_id': fort['guard_pokemon_id'],
             'pokemon_name': names[fort['guard_pokemon_id']],
             'team': fort['team'],
