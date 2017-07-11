@@ -128,7 +128,6 @@ class Worker:
         self.gyms = conf.GET_GYM_DETAILS
         self.next_spin = 0
         self.handle = HandleStub()
-        self.gyms = config.GET_GYM_DETAILS
         self.next_gym = 0
 
     def initialize_api(self):
@@ -821,7 +820,6 @@ class Worker:
                         norm = self.normalize_lured(fort, request_time_ms)
                         pokemon_seen += 1
                         if norm not in SIGHTING_CACHE:
-                            self.account_seen += 1
                             db_proc.add(norm)
                     if (self.pokestops and
                             self.bag_items < self.item_capacity
@@ -837,10 +835,13 @@ class Worker:
                 else:
                     normalized_fort = self.normalize_gym(fort)
                     if fort not in FORT_CACHE:
-                        db_proc.add(normalized_fort)
-                    elif (self.gyms and time() > self.next_gym and self.smart_throttle(1):
-                        gym_details = await self.get_gym_details(normalized_fort)
-                        #db_proc.add(normalized_fort)
+                        if (self.gyms and time() > self.next_gym and self.smart_throttle(1)):
+                            gym = await self.gym_get_info(normalized_fort)
+                            if gym:
+                                self.log.info('Got gym info for {}', normalized_fort["name"])
+                            db_proc.add(normalized_fort)
+                        else:
+                            db_proc.add(normalized_fort)
                     if fort.HasField('raid_info'):
                         if fort not in RAID_CACHE:
                             normalized_raid = self.normalize_raid(fort)
@@ -914,7 +915,7 @@ class Worker:
         except (TypeError, KeyError):
             return False
 
-    async def get_gym_details(self, gym):
+    async def gym_get_info(self, gym):
         self.error_code = 'G'
         gym_location = gym['lat'], gym['lon']
         distance = get_distance(self.location, gym_location)
@@ -925,28 +926,32 @@ class Worker:
         # randomize location up to ~1.4 meters
         self.simulate_jitter(amount=0.00001)
 
-        version = '5704'
-
         request = self.api.create_request()
-        request.get_gym_details(gym_id = gym['external_id'],
-                            player_latitude = self.location[0],
-                            player_longitude = self.location[1],
-                            gym_latitude = gym['lat'],
-                            gym_longitude = gym['lon'],
-                            client_version = version)
+        request.gym_get_info(gym_id = gym['external_id'],
+                             player_lat_degrees = self.location[0],
+                             player_lng_degrees = self.location[1],
+                             gym_lat_degrees = gym['lat'],
+                             gym_lng_degrees = gym['lon'])
         responses = await self.call(request, action=1)
 
-        name = responses.get('GET_GYM_DETAILS', {}).get('name')
-        result = responses.get('GET_GYM_DETAILS', {}).get('result', 0)
+        info = responses['GYM_GET_INFO']
+        name = info.name
+        result = info.result or 0
+
         if result == 1:
-            self.log.info('GET_GYM_DETAILS {}.', name)
             try:
                 gym['name'] = name
-                gym['url'] = responses['GET_GYM_DETAILS']['urls'][0]
-                gym['description'] = responses['GET_GYM_DETAILS'].get('description', '')
+                gym['url'] = info.url
 
-            except KeyError:
-                self.log.error('Missing Gym data in get_gym_details response.')
+                for gym_defender in info.gym_status_and_defenders.gym_defender:
+                    normalized_defender = self.normalize_gym_defender(gym_defender)
+                    gym['gym_defenders'].append(normalized_defender)
+
+            except KeyError as e:
+                self.log.error('Missing Gym data in gym_get_info response. {}',e)
+            except Exception as e:
+                self.log.error('Unknown error: in gym_get_info: {}',e)
+
         elif result == 2:
             self.log.info('The server said {} was out of gym details range. {:.1f}m {:.1f}{}',
                 name, distance, self.speed, UNIT_STRING)
@@ -954,8 +959,7 @@ class Worker:
         self.next_gym = time() + conf.GYM_COOLDOWN
         self.error_code = '!'
         
-        print(responses.get('GET_GYM_DETAILS', {}))
-        return responses
+        return gym 
 
     async def spin_pokestop(self, pokestop):
         self.error_code = '$'
@@ -977,10 +981,13 @@ class Worker:
         responses = await self.call(request, action=1.2)
         name = responses['FORT_DETAILS'].name
         try:
-            pokestop['name'] = name
-            pokestop['url'] = responses['FORT_DETAILS'].image_urls[0]
+            normalized = self.normalize_pokestop(pokestop)
+            normalized['name'] = name
+            normalized['url'] = responses['FORT_DETAILS'].image_urls[0]
+            if pokestop.id not in FORT_CACHE.pokestop_names:
+                db_proc.add(normalized)
         except KeyError:
-            self.log.error('Missing Pokestop data in fort_details response.')
+            self.log.error("Missing Pokestop data in fort_details response. {}".format(responses))
 
         request = self.api.create_request()
         request.fort_search(fort_id = pokestop.id,
@@ -1326,10 +1333,11 @@ class Worker:
             'lat': raw.latitude,
             'lon': raw.longitude,
             'team': raw.owned_by_team,
-            'prestige': raw.gym_points, # left it for legacy reasons. Someone please remove it in another PR.
             'guard_pokemon_id': raw.guard_pokemon_id,
             'last_modified': raw.last_modified_timestamp_ms // 1000,
-            'slots_available': raw.gym_display.slots_available
+            'is_in_battle': raw.is_in_battle,
+            'slots_available': raw.gym_display.slots_available,
+            'gym_defenders': [],
         }
 
     @staticmethod
@@ -1354,6 +1362,34 @@ class Worker:
             obj['move_2'] = raw.raid_info.raid_pokemon.move_2
         return obj
 
+    @staticmethod
+    def normalize_gym_defender(raw):
+        pokemon = raw.motivated_pokemon.pokemon
+
+        obj = {
+            'type': 'gym_defender',
+            'external_id': pokemon.id,
+            'pokemon_id': pokemon.pokemon_id,
+            'owner_name': pokemon.owner_name,
+            'nickname': pokemon.nickname,
+            'cp': pokemon.cp,
+            'stamina': pokemon.stamina,
+            'stamina_max': pokemon.stamina_max,
+            'atk_iv': pokemon.individual_attack,
+            'def_iv': pokemon.individual_defense,
+            'sta_iv': pokemon.individual_stamina,
+            'move_1': pokemon.move_1,
+            'move_2': pokemon.move_2,
+            'battles_attacked': pokemon.battles_attacked,
+            'battles_defended': pokemon.battles_defended,
+            'num_upgrades': 0,
+        }
+
+        if hasattr(pokemon, 'num_upgrades'):
+            obj['num_upgrades'] = pokemon.num_upgrades
+
+        return obj
+
 
     @staticmethod
     def normalize_pokestop(raw):
@@ -1361,9 +1397,9 @@ class Worker:
             'type': 'pokestop',
             'external_id': raw.id,
             'lat': raw.latitude,
-            'lon': raw.longitude
-            'name': '',
-            'url': ''
+            'lon': raw.longitude,
+            'name': None,
+            'url': None
         }
 
     @staticmethod

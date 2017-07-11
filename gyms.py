@@ -32,13 +32,9 @@ def get_stats():
     with db.session_scope() as session:
         forts = db.get_forts(session)
     count = {t.value: 0 for t in db.Team}
-    strongest = {t.value: None for t in db.Team}
     guardians = {t.value: {} for t in db.Team}
     top_guardians = {t.value: None for t in db.Team}
-    prestige = {t.value: 0 for t in db.Team}
     percentages = {}
-    prestige_percent = {}
-    total_prestige = 0
     last_date = 0
     pokemon_names = POKEMON
     for fort in forts:
@@ -47,32 +43,12 @@ def get_stats():
         team = fort['team']
         count[team] += 1
         if team != 0:
-            # Strongest gym
-            existing = strongest[team]
-            should_replace = (
-                existing is not None and
-                fort['prestige'] > existing[0] or
-                existing is None
-            )
-            pokemon_id = fort['guard_pokemon_id']
-            if should_replace:
-                strongest[team] = (
-                    fort['prestige'],
-                    pokemon_id,
-                    pokemon_names[pokemon_id],
-                )
             # Guardians
             guardian_value = guardians[team].get(pokemon_id, 0)
             guardians[team][pokemon_id] = guardian_value + 1
-            # Prestige
-            prestige[team] += fort['prestige']
-    total_prestige = sum(prestige.values())
     for team in db.Team:
         percentages[team.value] = (
             count.get(team.value) / len(forts) * 100
-        )
-        prestige_percent[team.value] = (
-            prestige.get(team.value) / total_prestige * 100
         )
         if guardians[team.value]:
             pokemon_id = sorted(
@@ -86,9 +62,6 @@ def get_stats():
         'order': sorted(count, key=count.__getitem__, reverse=True),
         'count': count,
         'total_count': len(forts),
-        'strongest': strongest,
-        'prestige': prestige,
-        'prestige_percent': prestige_percent,
         'percentages': percentages,
         'last_date': last_date,
         'top_guardians': top_guardians,

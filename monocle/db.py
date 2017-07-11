@@ -193,6 +193,7 @@ class FortCache:
     def __init__(self):
         self.gyms = {}
         self.pokestops = set()
+        self.pokestop_names = set()
         self.class_version = 2
         self.unpickle()
 
@@ -334,14 +335,20 @@ class Fort(Base):
     external_id = Column(String(35), unique=True)
     lat = Column(FLOAT_TYPE)
     lon = Column(FLOAT_TYPE)
-    name = Column(String(50))
+    name = Column(String(128))
     url = Column(String(200))
-    description = Column(String(50))
 
     sightings = relationship(
         'FortSighting',
         backref='fort',
         order_by='FortSighting.last_modified'
+    )
+
+    gym_defenders = relationship(
+        'GymDefender',
+        backref='fort',
+        order_by='GymDefender.id',
+        cascade="save-update, merge, delete"
     )
 
 
@@ -352,10 +359,9 @@ class FortSighting(Base):
     fort_id = Column(Integer, ForeignKey('forts.id'))
     last_modified = Column(Integer, index=True)
     team = Column(TINY_TYPE)
-    prestige = Column(MEDIUM_TYPE)
     guard_pokemon_id = Column(TINY_TYPE)
     slots_available = Column(Integer)
-    is_in_battle = Column(Boolean)
+    is_in_battle = Column(Boolean, default=False)
 
     __table_args__ = (
         UniqueConstraint(
@@ -365,30 +371,27 @@ class FortSighting(Base):
         ),
     )
 
-class Trainer(Base):
-    __tablename__ = 'trainer'
+class GymDefender(Base):
+    __tablename__ = 'gym_defenders'
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(50))
-    level = Column(Integer)
-
-class GymPokemon(Base):
-    __tablename__ = 'gym_pokemon'
-
-    id = Column(Integer, primary_key=True)
-    external_id = Column(String(25), unique=True)
-    trainer_id = Column(Integer, ForeignKey('trainer.id'))
+    id = Column(HUGE_TYPE, primary_key=True)
+    fort_id = Column(Integer, ForeignKey('forts.id', onupdate="CASCADE", ondelete="CASCADE"), nullable=False, index=True)
+    external_id = Column(HUGE_TYPE, unique=True, nullable=False)
     pokemon_id = Column(Integer)
+    owner_name = Column(String(128))
+    nickname = Column(String(128))
     cp = Column(Integer)
+    stamina = Column(Integer)
+    stamina_max = Column(Integer)
+    atk_iv = Column(SmallInteger)
+    def_iv = Column(SmallInteger)
+    sta_iv = Column(SmallInteger)
     move_1 = Column(SmallInteger)
     move_2 = Column(SmallInteger)
-    individual_attack = Column(SmallInteger)
-    individual_defense = Column(SmallInteger)
-    individual_stamina = Column(SmallInteger)
     battles_attacked = Column(Integer)
     battles_defended = Column(Integer)
-    creation_time = Column(Integer)
     num_upgrades = Column(SmallInteger)
+    created = Column(Integer, index=True)
 
 class Pokestop(Base):
     __tablename__ = 'pokestops'
@@ -397,7 +400,7 @@ class Pokestop(Base):
     external_id = Column(String(35), unique=True)
     lat = Column(FLOAT_TYPE, index=True)
     lon = Column(FLOAT_TYPE, index=True)
-    name = Column(String(50))
+    name = Column(String(128))
     url = Column(String(200))
 
 
@@ -440,6 +443,35 @@ def add_sighting(session, pokemon):
     )
     session.add(obj)
     SIGHTING_CACHE.add(pokemon)
+
+def add_gym_defenders(session, fort, gym_defenders):
+        
+    session.query(GymDefender).filter(GymDefender.fort_id==fort.id).delete()
+
+    try:
+        for gym_defender in gym_defenders:
+            obj = GymDefender(
+                fort=fort,
+                external_id=gym_defender['external_id'],
+                pokemon_id=gym_defender['pokemon_id'],
+                owner_name=gym_defender['owner_name'],
+                nickname=gym_defender['nickname'],
+                cp=gym_defender['cp'],
+                stamina=gym_defender['stamina'],
+                stamina_max=gym_defender['stamina_max'],
+                atk_iv=gym_defender['atk_iv'],
+                def_iv=gym_defender['def_iv'],
+                sta_iv=gym_defender['sta_iv'],
+                move_1=gym_defender['move_1'],
+                move_2=gym_defender['move_2'],
+                battles_attacked=gym_defender['battles_attacked'],
+                battles_defended=gym_defender['battles_defended'],
+                num_upgrades=gym_defender['num_upgrades'],
+                created=round(time()),
+            )
+            session.add(obj)
+    except Exception as e:
+        log.warning("ERROR: {}",e)
 
 
 def add_spawnpoint(session, pokemon):
@@ -553,6 +585,15 @@ def add_fort_sighting(session, raw_fort):
             lon=raw_fort['lon'],
         )
         session.add(fort)
+    # Update fort name
+    if (not fort.name) and ('name' in raw_fort):
+        fort.name = raw_fort['name']
+        fort.url = raw_fort['url']
+        session.add(fort)
+    
+    if fort.id and 'gym_defenders' in raw_fort and len(raw_fort['gym_defenders']) > 0:
+        add_gym_defenders(session, fort, raw_fort['gym_defenders'])
+    
     if fort.id and session.query(exists().where(and_(
                 FortSighting.fort_id == fort.id,
                 FortSighting.last_modified == raw_fort['last_modified']
@@ -560,15 +601,18 @@ def add_fort_sighting(session, raw_fort):
         # Why is it not in the cache? It should be there!
         FORT_CACHE.add(raw_fort)
         return
+
     obj = FortSighting(
         fort=fort,
         team=raw_fort['team'],
-        prestige=raw_fort['prestige'],
         guard_pokemon_id=raw_fort['guard_pokemon_id'],
         last_modified=raw_fort['last_modified'],
-        slots_available=raw_fort['slots_available']
+        slots_available=raw_fort['slots_available'],
+        is_in_battle=raw_fort['is_in_battle']
     )
+
     session.add(obj)
+
     FORT_CACHE.add(raw_fort)
 
 
@@ -612,20 +656,37 @@ def add_raid(session, raw_raid):
 
 def add_pokestop(session, raw_pokestop):
     pokestop_id = raw_pokestop['external_id']
+
     if session.query(exists().where(
             Pokestop.external_id == pokestop_id)).scalar():
         FORT_CACHE.pokestops.add(pokestop_id)
-        return
 
-    pokestop = Pokestop(
-        external_id=pokestop_id,
-        lat=raw_pokestop['lat'],
-        lon=raw_pokestop['lon']
-        name=raw_pokestop['name'],
-        url=raw_pokestop['url'],
-    )
+        if pokestop_id in FORT_CACHE.pokestop_names:
+            return
+        elif raw_pokestop['name'] is None:
+            return 
+
+    pokestop = session.query(Pokestop) \
+        .filter(Pokestop.external_id == pokestop_id) \
+        .first()
+
+    if not pokestop:
+        pokestop = Pokestop(
+            external_id=pokestop_id,
+            lat=raw_pokestop['lat'],
+            lon=raw_pokestop['lon'],
+            name=raw_pokestop['name'],
+            url=raw_pokestop['url'],
+        )
+    else:
+        pokestop.name = raw_pokestop['name']
+        pokestop.url = raw_pokestop['url']
+
     session.add(pokestop)
+
     FORT_CACHE.pokestops.add(pokestop_id)
+    if raw_pokestop['name'] is not None:
+        FORT_CACHE.pokestop_names.add(pokestop_id)
 
 
 def update_failures(session, spawn_id, success, allowed=conf.FAILURES_ALLOWED):
@@ -676,7 +737,6 @@ def _get_forts_sqlite(session):
             fs.fort_id,
             fs.id,
             fs.team,
-            fs.prestige,
             fs.guard_pokemon_id,
             fs.last_modified,
             f.lat,
@@ -698,7 +758,6 @@ def _get_forts(session):
             fs.fort_id,
             fs.id,
             fs.team,
-            fs.prestige,
             fs.guard_pokemon_id,
             fs.last_modified,
             f.lat,

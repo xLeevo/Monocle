@@ -149,7 +149,6 @@ def get_gym_markers(names=POKEMON):
     return [{
             'id': 'fort-' + str(fort['fort_id']),
             'sighting_id': fort['id'],
-            'prestige': fort['prestige'],
             'pokemon_id': fort['guard_pokemon_id'],
             'pokemon_name': names[fort['guard_pokemon_id']],
             'team': fort['team'],
