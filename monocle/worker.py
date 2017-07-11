@@ -832,9 +832,9 @@ class Worker:
                         db_proc.add(pokestop)
                 else:
                     if fort not in FORT_CACHE:
-                        db_proc.add(self.normalize_gym(fort))
+                        normalized_fort = self.normalize_gym(fort)
+                        db_proc.add(normalized_fort)
                     if fort.HasField('raid_info'):
-                        print('raid found')
                         if fort not in RAID_CACHE:
                             db_proc.add(self.normalize_raid(fort))
 

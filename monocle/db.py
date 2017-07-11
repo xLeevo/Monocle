@@ -183,7 +183,7 @@ class RaidCache:
             return (
                 raid['time_end'] > raw_fort.raid_info.raid_end_ms // 1000 - 2 and
                 raid['time_end'] < raw_fort.raid_info.raid_end_ms // 1000 + 2 and
-                raid['pokemon_id'] != raw_fort.raid_info.raid_pokemon.pokemon_id)
+                raid['pokemon_id'] == raw_fort.raid_info.raid_pokemon.pokemon_id)
         except KeyError:
             return False
 
@@ -273,7 +273,7 @@ class Raid(Base):
     __tablename__ = 'raids'
 
     id = Column(Integer, primary_key=True)
-    external_id = Column(String(35), unique=True)
+    external_id = Column(HUGE_TYPE, unique=True)
     fort_id = Column(Integer, ForeignKey('forts.id'))
     level = Column(TINY_TYPE)
     pokemon_id = Column(TINY_TYPE)
@@ -552,9 +552,13 @@ def add_raid(session, raw_raid):
             RAID_CACHE.add(raw_raid)
             return
 
+    fort = session.query(Fort) \
+        .filter(Fort.external_id == raw_raid['fort_id']) \
+        .first()
+
     raid = Raid(
         external_id=raw_raid['external_id'],
-        fort_id=raw_raid['fort_id'],
+        fort_id=fort.id,
         level=raw_raid['level'],
         pokemon_id=raw_raid['pokemon_id'],
         time_spawn=raw_raid['time_spawn'],
