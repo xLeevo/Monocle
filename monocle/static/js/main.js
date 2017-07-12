@@ -90,7 +90,7 @@ monitor(overlays.Pokemon, false)
 monitor(overlays.Trash, true)
 monitor(overlays.Raids, true)
 monitor(overlays.Gyms, true)
-monitor(overlays.Workers, true)
+monitor(overlays.Workers, false)
 
 function getPopupContent (item) {
     var diff = (item.expires_at - new Date().getTime() / 1000);
