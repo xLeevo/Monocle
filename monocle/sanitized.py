@@ -92,7 +92,7 @@ _valid_types = {
     'PLAYER_LOCALE': dict,
     'PROVIDER': str,
     'PROXIES': set_sequence,
-	'RAIDS_FILTER': set_sequence_range,
+    'RAIDS_FILTER': set_sequence_range,
     'RARE_IDS': set_sequence_range,
     'RARITY_OVERRIDE': dict,
     'REFRESH_RATE': Number,

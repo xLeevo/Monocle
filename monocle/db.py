@@ -273,13 +273,17 @@ class Raid(Base):
     __tablename__ = 'raids'
 
     id = Column(Integer, primary_key=True)
-    external_id = Column(HUGE_TYPE, unique=True)
+    external_id = Column(BIGINT, unique=True)
     fort_id = Column(Integer, ForeignKey('forts.id'))
     level = Column(TINY_TYPE)
     pokemon_id = Column(TINY_TYPE)
     time_spawn = Column(Integer, index=True)
     time_battle = Column(Integer)
     time_end = Column(Integer)
+    cp = Column(Integer)
+    move_1 = Column(Integer)
+    move_2 = Column(Integer)
+
 
 
 class Mystery(Base):
@@ -545,6 +549,9 @@ def add_raid(session, raw_raid):
     if raid:
         if raid.pokemon_id == 0 and raw_raid['pokemon_id'] != 0:
             raid.pokemon_id = raw_raid['pokemon_id']
+            raid.cp = raw_raid['cp']
+            raid.move_1 = raw_raid['move_1']
+            raid.move_2 = raw_raid['move_2']
             RAID_CACHE.add(raw_raid)
             return
         else:
@@ -563,7 +570,10 @@ def add_raid(session, raw_raid):
         pokemon_id=raw_raid['pokemon_id'],
         time_spawn=raw_raid['time_spawn'],
         time_battle=raw_raid['time_battle'],
-        time_end=raw_raid['time_end']
+        time_end=raw_raid['time_end'],
+        cp=raw_raid['cp'],
+        move_1=raw_raid['move_1'],
+        move_2=raw_raid['move_2']
     )
     session.add(raid)
     RAID_CACHE.add(raw_raid)
