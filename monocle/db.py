@@ -670,7 +670,7 @@ def _get_forts(session):
             fs.last_modified,
             f.lat,
             f.lon,
-            f.slots_available
+            fs.slots_available
         FROM fort_sightings fs
         JOIN forts f ON f.id=fs.fort_id
         WHERE (fs.fort_id, fs.last_modified) IN (
