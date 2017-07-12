@@ -1274,16 +1274,26 @@ class Worker:
 
     @staticmethod
     def normalize_raid(raw):
-        return {
+        obj = {
             'type': 'raid',
             'external_id': raw.raid_info.raid_seed,
             'fort_id': raw.id,
             'level': raw.raid_info.raid_level,
-            'pokemon_id': raw.raid_info.raid_pokemon.pokemon_id if raw.raid_info.raid_pokemon else 0,
+            'pokemon_id': 0,
             'time_spawn': raw.raid_info.raid_spawn_ms // 1000,
             'time_battle': raw.raid_info.raid_battle_ms // 1000,
-            'time_end': raw.raid_info.raid_end_ms // 1000
+            'time_end': raw.raid_info.raid_end_ms // 1000,
+            'cp': 0,
+            'move_1': 0,
+            'move_2': 0,
         }
+        if raw.raid_info.HasField('raid_pokemon'):
+            obj['pokemon_id'] = raw.raid_info.raid_pokemon.pokemon_id
+            obj['cp'] = raw.raid_info.raid_pokemon.cp
+            obj['move_1'] = raw.raid_info.raid_pokemon.move_1
+            obj['move_2'] = raw.raid_info.raid_pokemon.move_2
+        return obj
+
 
     @staticmethod
     def normalize_pokestop(raw):
