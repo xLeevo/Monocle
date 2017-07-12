@@ -273,7 +273,7 @@ class Raid(Base):
     __tablename__ = 'raids'
 
     id = Column(Integer, primary_key=True)
-    external_id = Column(BIGINT, unique=True)
+    external_id = Column(BigInteger, unique=True)
     fort_id = Column(Integer, ForeignKey('forts.id'))
     level = Column(TINY_TYPE)
     pokemon_id = Column(TINY_TYPE)
