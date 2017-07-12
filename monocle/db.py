@@ -563,20 +563,21 @@ def add_raid(session, raw_raid):
         .filter(Fort.external_id == raw_raid['fort_id']) \
         .first()
 
-    raid = Raid(
-        external_id=raw_raid['external_id'],
-        fort_id=fort.id,
-        level=raw_raid['level'],
-        pokemon_id=raw_raid['pokemon_id'],
-        time_spawn=raw_raid['time_spawn'],
-        time_battle=raw_raid['time_battle'],
-        time_end=raw_raid['time_end'],
-        cp=raw_raid['cp'],
-        move_1=raw_raid['move_1'],
-        move_2=raw_raid['move_2']
-    )
-    session.add(raid)
-    RAID_CACHE.add(raw_raid)
+    if fort:
+        raid = Raid(
+            external_id=raw_raid['external_id'],
+            fort_id=fort.id,
+            level=raw_raid['level'],
+            pokemon_id=raw_raid['pokemon_id'],
+            time_spawn=raw_raid['time_spawn'],
+            time_battle=raw_raid['time_battle'],
+            time_end=raw_raid['time_end'],
+            cp=raw_raid['cp'],
+            move_1=raw_raid['move_1'],
+            move_2=raw_raid['move_2']
+        )
+        session.add(raid)
+        RAID_CACHE.add(raw_raid)
 
 
 def add_pokestop(session, raw_pokestop):
