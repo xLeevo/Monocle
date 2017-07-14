@@ -126,7 +126,7 @@ def get_raid_markers(names=POKEMON):
         for raid in raids:
             fort_id = raid.fort_id
             fort = session.query(Fort) \
-                .filter(Fort.external_id == fort_id) \
+                .filter(Fort.id == fort_id) \
                 .scalar()
             markers.append({
                 'id': 'raid-' + str(raid.id),
