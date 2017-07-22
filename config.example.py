@@ -70,8 +70,12 @@ SEARCH_SLEEP = 2.5
 #from shapely.geometry import Polygon
 #BOUNDARIES = Polygon(((40.799609, -111.948556), (40.792749, -111.887341), (40.779264, -111.838078), (40.761410, -111.817908), (40.728636, -111.805293), (40.688833, -111.785564), (40.689768, -111.919389), (40.750461, -111.949938)))
 
-# key for Bossland's hashing server, otherwise the old hashing lib will be used
+# key for Bossland's hashing server, needed if you're not using Go Hash.
 #HASH_KEY = '9d87af14461b93cb3605'  # this key is fake
+
+GO_HASH = False
+# key for Go Hash a new hashing service that acts as a hash surge buffer on top of Bosslands hash server with a pay per hash model. Needed if you're not using a key direct from Bossland
+#GO_HASH_KEY = 'PH7B03W1LSD4S2LHY8UH' # this is a fake key
 
 # Skip PokéStop spinning and egg incubation if your request rate is too high
 # for your hashing subscription.
