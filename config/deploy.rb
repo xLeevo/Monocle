@@ -54,8 +54,8 @@ namespace :deploy do
   task :pip_requirements do
     on roles(:app), in: :parallel do |host|
       within fetch(:release_path) do
-        execute "/tmp/python3/monocle/bin/pip3", :install, "-r", "requirements.txt", "--upgrade"
-        execute "/tmp/python3/monocle/bin/pip3", :install, "-r", "optional-requirements.txt", "--upgrade"
+        execute "/opt/python3-venv/bin/pip3", :install, "-r", "requirements.txt", "--upgrade"
+        execute "/opt/python3-venv/bin/pip3", :install, "-r", "optional-requirements.txt", "--upgrade"
         info "Host #{host.hostname}: pip3 requirements/optional-requirements updated."
       end
     end
