@@ -142,4 +142,5 @@ node_modules/
 *.swo
 *.swp
 log/
+logs/
 monotailer*.tgz
