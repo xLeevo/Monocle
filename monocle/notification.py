@@ -238,12 +238,15 @@ class Notification:
             self.move2 = None
 
         try:
-            if self.score == 1:
-                self.description = 'perfect'
-            elif self.score > .83:
-                self.description = 'great'
-            elif self.score > .6:
-                self.description = 'good'
+            if 'raid' in pokemon:
+                self.description = 'raid'
+            else:
+                if self.score == 1:
+                    self.description = 'perfect'
+                elif self.score > .83:
+                    self.description = 'great'
+                elif self.score > .6:
+                    self.description = 'good'
         except TypeError:
             pass
 
@@ -637,23 +640,24 @@ class Notifier:
 
     def eligible(self, pokemon):
         pokemon_id = pokemon['pokemon_id']
-        encounter_id = pokemon['encounter_id']
+
+        unique_id = self.unique_id(pokemon)
 
         if pokemon_id in self.never_notify:
             return False
         if pokemon_id in self.always_notify:
-            return encounter_id not in self.cache
+            return unique_id not in self.cache
         if (pokemon_id not in self.notify_ids
                 and pokemon_id not in self.rarity_override):
             return False
         if conf.IGNORE_RARITY:
-            return encounter_id not in self.cache
+            return unique_id not in self.cache
         try:
             if pokemon['time_till_hidden'] < conf.TIME_REQUIRED:
                 return False
         except KeyError:
             pass
-        if encounter_id in self.cache:
+        if unique_id in self.cache:
             return False
 
         rareness = self.get_rareness_score(pokemon_id)
@@ -661,10 +665,17 @@ class Notifier:
         score_required = self.get_required_score()
         return highest_score > score_required
 
-    def cleanup(self, encounter_id, handle):
-        self.cache.remove(encounter_id)
+    def cleanup(self, unique_id, handle):
+        self.cache.remove(unique_id)
         handle.cancel()
         return False
+
+    def unique_id(self, obj):
+        if 'encounter_id' in obj:
+            unique_id = obj['encounter_id']
+        elif 'external_id' in obj:
+            unique_id = "e{}".format(obj['external_id'])
+        return unique_id 
 
     async def notify(self, pokemon, time_of_day):
         """Send a PushBullet notification and/or a Tweet, depending on if their
@@ -676,8 +687,9 @@ class Notifier:
         pokemon_id = pokemon['pokemon_id']
         name = POKEMON[pokemon_id]
 
-        encounter_id = pokemon['encounter_id']
-        if encounter_id in self.cache:
+        unique_id = self.unique_id(pokemon)
+
+        if unique_id in self.cache:
             self.log.info("{} was already notified about.", name)
             return False
 
@@ -718,7 +730,7 @@ class Notifier:
 
         if 'time_till_hidden' not in pokemon:
             seen = pokemon['seen'] % 3600
-            cache_handle = self.cache.store.add(pokemon['encounter_id'])
+            cache_handle = self.cache.store.add(unique_id)
             try:
                 with session_scope() as session:
                     tth = await run_threaded(estimate_remaining_time, session, pokemon['spawn_id'], seen)
@@ -726,7 +738,7 @@ class Notifier:
                 self.log.exception('An exception occurred while trying to estimate remaining time.')
                 now_epoch = time()
                 tth = (pokemon['seen'] + 90 - now_epoch, pokemon['seen'] + 3600 - now_epoch)
-            LOOP.call_later(tth[1], self.cache.remove, pokemon['encounter_id'])
+            LOOP.call_later(tth[1], self.cache.remove, unique_id)
             if pokemon_id not in self.always_notify:
                 mean = sum(tth) / 2
                 if mean < conf.TIME_REQUIRED:
@@ -734,7 +746,7 @@ class Notifier:
                     return False
             pokemon['earliest_tth'], pokemon['latest_tth'] = tth
         else:
-            cache_handle = self.cache.add(pokemon['encounter_id'], pokemon['time_till_hidden'])
+            cache_handle = self.cache.add(unique_id, pokemon['time_till_hidden'])
 
         if WEBHOOK and NATIVE:
             notified, whpushed = await gather(
@@ -751,7 +763,27 @@ class Notifier:
             self.sent += 1
             return True
         else:
-            return self.cleanup(encounter_id, cache_handle)
+            return self.cleanup(unique_id, cache_handle)
+
+
+    async def notify_raid(self, raid, fort, time_of_day):
+        pokemon = {
+            'raid': True,
+            'pokemon_id': raid['pokemon_id'],
+            'external_id': raid['external_id'],
+            'lat': fort['lat'],
+            'lon': fort['lon'],
+            'level': raid['level'],
+            'seen': fort['last_modified'],
+            'time_till_hidden': raid['time_end'] - int(time()),
+            'expire_timestamp':  raid['time_end'],
+            'team': fort['team'],
+            'cp': raid['cp'],
+            'move_1': raid['move_1'],
+            'move_2': raid['move_2'],
+        }
+        return await self.notify(pokemon, time_of_day)
+
 
     async def webhook(self, pokemon):
         """ Send a notification via webhook
@@ -763,19 +795,31 @@ class Notifier:
             tth = pokemon['earliest_tth']
             ts = pokemon['seen'] + tth
 
-        data = {
-            'type': "pokemon",
-            'message': {
-                "encounter_id": pokemon['encounter_id'],
-                "pokemon_id": pokemon['pokemon_id'],
-                "last_modified_time": pokemon['seen'] * 1000,
-                "spawnpoint_id": pokemon['spawn_id'],
-                "latitude": pokemon['lat'],
-                "longitude": pokemon['lon'],
-                "disappear_time": ts,
-                "time_until_hidden_ms": tth * 1000
+        if 'raid' in pokemon:
+            data = {
+                'type': "raid",
+                'message': {
+                    "external_id": pokemon['external_id'],
+                    "level": pokemon['level'],
+                    "team": pokemon['team'],
+                    "cp": pokemon['cp'],
+                }
             }
-        }
+        else:
+            data = {
+                'type': "pokemon",
+                'message': {
+                    "encounter_id": pokemon['encounter_id'],
+                    "last_modified_time": pokemon['seen'] * 1000,
+                    "spawnpoint_id": pokemon['spawn_id'],
+                }
+            }
+
+        data['message']['pokemon_id'] = pokemon['pokemon_id']
+        data['message']['latitude'] = pokemon['lat']
+        data['message']['longitude'] = pokemon['lon']
+        data['message']['disappear_time'] = ts
+        data['message']['time_until_hidden_ms'] = tth * 1000
 
         try:
             data['message']['individual_attack'] = pokemon['individual_attack']
