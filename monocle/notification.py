@@ -803,6 +803,8 @@ class Notifier:
                     "level": pokemon['level'],
                     "team": pokemon['team'],
                     "cp": pokemon['cp'],
+                    "move_1": pokemon['move_1'],
+                    "move_2": pokemon['move_2'],
                 }
             }
         else:
