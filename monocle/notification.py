@@ -775,6 +775,7 @@ class Notifier:
             'lon': fort['lon'],
             'level': raid['level'],
             'seen': fort['last_modified'],
+            'time_spawn':  raid['time_spawn'],
             'time_till_hidden': raid['time_end'] - int(time()),
             'expire_timestamp':  raid['time_end'],
             'team': fort['team'],
@@ -805,6 +806,8 @@ class Notifier:
                     "cp": pokemon['cp'],
                     "move_1": pokemon['move_1'],
                     "move_2": pokemon['move_2'],
+                    "raid_begin": pokemon['time_spawn'],
+                    "raid_end": ts,
                 }
             }
         else:
