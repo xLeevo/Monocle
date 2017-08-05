@@ -9,7 +9,7 @@ set :repo_url, "git@github.com:cam-inc/Monocle.git"
 set :branch, :develop #`git rev-parse --abbrev-ref HEAD`.chomp
 
 # Default deploy_to directory is /var/www/my_app_name
-set :deploy_to, "/var/www/#{fetch(:application)}-#{ENV["SERVER_PORT"]}"
+set :deploy_to, "/var/www/#{fetch(:application)}-#{ENV["SERVER_PORT"] || "10000"}"
 
 # Default value for :format is :airbrussh.
 # set :format, :airbrussh
@@ -46,13 +46,13 @@ set :rbenv_prefix, "RBENV_ROOT=#{fetch(:rbenv_path)} RBENV_VERSION=#{fetch(:rben
 set :rbenv_map_bins, %w{rake gem bundle ruby whenever}
 set :rbenv_roles, :all # default value
 
-set :whenever_roles, %{app}
+set :whenever_roles, %{maintenance}
 set :whenever_identifier, ->{ "#{fetch(:application)}_#{fetch(:stage)}" }
 
-namespace :deploy do
+namespace :pip do
   desc "Install pip requirements"
-  task :pip_requirements do
-    on roles(:app), in: :parallel do |host|
+  task :requirements do
+    on roles(:maintenance), in: :parallel do |host|
       within fetch(:release_path) do
         execute "/opt/python3-venv/bin/pip3", :install, "-r", "requirements.txt", "--upgrade"
         execute "/opt/python3-venv/bin/pip3", :install, "-r", "optional-requirements.txt", "--upgrade"
@@ -60,10 +60,12 @@ namespace :deploy do
       end
     end
   end
+end
 
+namespace :deploy do
   desc "Export monocle/config.py"
   task :export_config do
-    on roles(:app), in: :parallel do |host|
+    on roles(:worker), in: :parallel do |host|
       within fetch(:release_path) do
         upload! StringIO.new(host.properties.config_file), "#{fetch(:release_path)}/monocle/config.py"
         info "Host #{host.hostname}: written `monocle/config.py`"
@@ -73,7 +75,7 @@ namespace :deploy do
 
   desc "Export supervisor/monocle_worker.ini"
   task :export_supervisor do
-    on roles(:app), in: :parallel do |host|
+    on roles(:worker), in: :parallel do |host|
       within fetch(:release_path) do
         execute "rm", "-f", "/etc/supervisor/workers/#{host.properties.worker_name}.ini"
         execute "mkdir", "-p", "#{fetch(:release_path)}/supervisor"
@@ -96,7 +98,7 @@ namespace :deploy do
 
   desc "Stop supervisor"
   task :stop_supervisor => [:deploy] do
-    on roles(:app) do |host|
+    on roles(:worker) do |host|
       within fetch(:release_path) do
         execute :supervisorctl, :stop, host.properties.worker_name
         info "Host #{host.hostname}: stopped supervisor"
@@ -106,7 +108,7 @@ namespace :deploy do
 
   desc "Start supervisor"
   task :start_supervisor => [:deploy] do
-    on roles(:app) do |host|
+    on roles(:worker) do |host|
       within fetch(:release_path) do
         execute :rm, "-f", "#{fetch(:release_path)}/monocle.sock" 
         execute :supervisorctl, :reread
@@ -121,7 +123,7 @@ namespace :deploy do
 end
 
 before "deploy:started", "deploy:stop_supervisor"
-before "deploy:published", "deploy:pip_requirements"
-after "deploy:pip_requirements", "deploy:export_config"
+before "deploy:published", "pip:requirements"
+before "deploy:published", "deploy:export_config"
 after "deploy:export_config", "deploy:export_supervisor"
 after "deploy:finished", "deploy:start_supervisor"

@@ -4,13 +4,19 @@
 # You can define all roles on a single server, or split them:
 
 # server "example.com", user: "deploy", roles: %w{app db web}, my_property: :my_value
-server ENV["SERVER_HOST"], roles: %w{app},
-  worker_name: ENV["WORKER_NAME"] || "monocle_#{ENV["SN"]}_#{ENV["SERVER_PORT"]}",
-  config_file: File.read(ENV["CONFIG_FILE"]),
-  server_port: ENV["SERVER_PORT"],
-  sn: ENV["SN"] || "",
-  bootstrap: ENV["BOOTSTRAP"] || "",
-  no_pickle: ENV["NO_PICKLE"] || ""
+unless ENV["SERVER_HOST"].nil?
+  server ENV["SERVER_HOST"], roles: %w{app worker},
+    worker_name: ENV["WORKER_NAME"] || "monocle_#{ENV["SN"]}_#{ENV["SERVER_PORT"]}",
+    config_file: File.read(ENV["CONFIG_FILE"]),
+    server_port: ENV["SERVER_PORT"],
+    sn: ENV["SN"] || "",
+    bootstrap: ENV["BOOTSTRAP"] || "",
+    no_pickle: ENV["NO_PICKLE"] || ""
+else
+  all_servers = ["pgous3.pgous", "pgous4.pgous", "pgous5.pgous"]
+  role :app, all_servers
+  role :maintenance, all_servers
+end
 # server "db.example.com", user: "deploy", roles: %w{db}
 
 
