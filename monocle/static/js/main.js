@@ -96,8 +96,10 @@ function getPopupContent (item) {
     var diff = (item.expires_at - new Date().getTime() / 1000);
     var minutes = parseInt(diff / 60);
     var seconds = parseInt(diff - (minutes * 60));
+    var gender = getGender(item.gender);
+    var form = getForm(item.form);
     var expires_at = minutes + 'm ' + seconds + 's';
-    var content = '<b>' + item.name + '</b> - <a href="https://pokemongo.gamepress.gg/pokemon/' + item.pokemon_id + '">#' + item.pokemon_id + '</a>';
+    var content = '<b>' + item.name + gender + form + '</b> - <a href="https://pokemongo.gamepress.gg/pokemon/' + item.pokemon_id + '">#' + item.pokemon_id + '</a>';
     if(item.atk != undefined){
         var totaliv = 100 * (item.atk + item.def + item.sta) / 45;
         content += ' - <b>' + totaliv.toFixed(2) + '%</b><br>';
@@ -138,6 +140,23 @@ function getRaidPopupContent (raw) {
 	}
     content += '<br>=&gt; <a href="https://www.google.com/maps/?daddr='+ raw.lat + ','+ raw.lon +'" target="_blank" title="See in Google Maps">Get directions</a>';
     return content;
+}
+
+function getGender (g) {
+    if (g === 1) {
+        return " (Male)";
+    }
+    if (g === 2) {
+        return " (Female)";
+    }
+    return "";
+}
+
+function getForm (f) {
+    if ((f !== null) && f !== 0) {
+        return " (" + String.fromCharCode(f + 64) + ")";
+    }
+    return "";
 }
 
 function getOpacity (diff) {
