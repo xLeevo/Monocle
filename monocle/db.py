@@ -574,8 +574,8 @@ def add_mystery(session, pokemon):
         sta_iv=pokemon.get('individual_stamina'),
         move_1=pokemon.get('move_1'),
         move_2=pokemon.get('move_2'),
-        gender=pokemon['gender'],
-        form=pokemon['form']
+        gender=pokemon.get('gender', 0),
+        form=pokemon.get('form', 0)
     )
     session.add(obj)
     MYSTERY_CACHE.add(pokemon)
