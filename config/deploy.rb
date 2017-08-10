@@ -38,6 +38,7 @@ set :default_env, {
   "POGOMAP_DB_PASS"=> ENV["POGOMAP_DB_PASS"],
   "POGOMAP_CAPTCHA_KEY"=> ENV["POGOMAP_CAPTCHA_KEY"],
   "POGOMAP_GMAPS_KEY"=> ENV["POGOMAP_GMAPS_KEY"],
+  "DYNAMO_SOURCEDB_MONOCLE" => ENV["DYNAMO_SOURCEDB_MONOCLE"],
 }
 
 set :rbenv_type, :system # :user or :system, depends on your rbenv setup
@@ -46,7 +47,7 @@ set :rbenv_prefix, "RBENV_ROOT=#{fetch(:rbenv_path)} RBENV_VERSION=#{fetch(:rben
 set :rbenv_map_bins, %w{rake gem bundle ruby whenever}
 set :rbenv_roles, :all # default value
 
-set :whenever_roles, %{maintenance}
+set :whenever_roles, %{db}
 set :whenever_identifier, ->{ "#{fetch(:application)}_#{fetch(:stage)}" }
 
 namespace :pip do

@@ -16,6 +16,7 @@ else
   all_servers = ["pgous3.pgous", "pgous4.pgous", "pgous5.pgous"]
   role :app, all_servers
   role :maintenance, all_servers
+  role :db, "pgous3.pgous"
 end
 # server "db.example.com", user: "deploy", roles: %w{db}
 

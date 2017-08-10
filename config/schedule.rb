@@ -23,3 +23,18 @@ set :output, "#{Whenever.path}/logs/cron.log"
 env "POGOMAP_DB_PASS", ENV["POGOMAP_DB_PASS"]
 env "POGOMAP_CAPTCHA_KEY", ENV["POGOMAP_CAPTCHA_KEY"]
 env "POGOMAP_GMAPS_KEY", ENV["POGOMAP_GMAPS_KEY"]
+env "DYNAMO_SOURCEDB_MONOCLE", ENV["DYNAMO_SOURCEDB_MONOCLE"]
+
+job_type :cleanup, "cd :path && ./:task :output"
+
+every 1.minute, roles: [:db] do
+  cleanup "cleanup.sh"
+end
+
+every "30 2,14 * * *", roles: [:db] do
+  cleanup "cleanup_spawnpoints.sh"
+end
+
+every "30 * * * *", roles: [:db] do
+  cleanup "cleanup_clusters.sh"
+end
