@@ -14,9 +14,9 @@ unless ENV["SERVER_HOST"].nil?
     no_pickle: ENV["NO_PICKLE"] || ""
 else
   all_servers = ["pgous3.pgous", "pgous4.pgous", "pgous5.pgous"]
-  role :app, all_servers
+  role :app, all_servers + ["cron.pgous"]
   role :maintenance, all_servers
-  role :db, "pgous3.pgous"
+  role :db, "cron.pgous"
 end
 # server "db.example.com", user: "deploy", roles: %w{db}
 
