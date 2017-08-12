@@ -788,9 +788,10 @@ class Worker:
 
                 if (normalized not in SIGHTING_CACHE and
                         normalized not in MYSTERY_CACHE):
-                    if (encounter_conf == 'all'
+                    if ((encounter_conf == 'all'
                             or (encounter_conf == 'some'
-                            and normalized['pokemon_id'] in conf.ENCOUNTER_IDS)):
+		            and normalized['pokemon_id'] in conf.ENCOUNTER_IDS))
+                        and self.player_level != None and self.player_level >= 30):
                         try:
                             await self.encounter(normalized, pokemon.spawn_point_id)
                         except CancelledError:
@@ -799,7 +800,8 @@ class Worker:
                         except Exception as e:
                             self.log.warning('{} during encounter', e.__class__.__name__)
 
-                if notify_conf and self.notifier.eligible(normalized):
+                if (notify_conf and self.notifier.eligible(normalized)
+                    and self.player_level != None and self.player_level >= 30):
                     if encounter_conf and 'move_1' not in normalized:
                         try:
                             await self.encounter(normalized, pokemon.spawn_point_id)
