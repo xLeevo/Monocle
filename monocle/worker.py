@@ -800,9 +800,9 @@ class Worker:
                         except Exception as e:
                             self.log.warning('{} during encounter', e.__class__.__name__)
 
-                if (notify_conf and self.notifier.eligible(normalized)
-                    and self.player_level != None and self.player_level >= 30):
-                    if encounter_conf and 'move_1' not in normalized:
+                if notify_conf and self.notifier.eligible(normalized):
+                    if (encounter_conf and 'move_1' not in normalized
+                        and self.player_level != None and self.player_level >= 30):
                         try:
                             await self.encounter(normalized, pokemon.spawn_point_id)
                         except CancelledError:
