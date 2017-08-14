@@ -25,10 +25,6 @@ if conf.NOTIFY:
     if all((conf.TWITTER_CONSUMER_KEY, conf.TWITTER_CONSUMER_SECRET,
             conf.TWITTER_ACCESS_KEY, conf.TWITTER_ACCESS_SECRET)):
         try:
-            import peony.utils
-            def _get_image_metadata(file_):
-                return 'image/png', 'tweet_image', True, file_
-            peony.utils.get_image_metadata = _get_image_metadata
             from peony import PeonyClient
         except ImportError as e:
             raise ImportError("You specified a TWITTER_ACCESS_KEY but you don't have peony-twitter installed.") from e
@@ -512,7 +508,10 @@ class Notification:
                 self.log.exception('Failed to create a Tweet image.')
             else:
                 try:
-                    media = await client.upload_media(image, auto_convert=False)
+                    media = await client.upload_media(image,
+                        media_type='image/png',
+                        media_category='tweet_image',
+                        chunked=True)
                     media_id = media['media_id']
                 except Exception:
                     self.log.exception('Failed to upload Tweet image.')
@@ -719,7 +718,7 @@ class Notifier:
 
         if 'time_till_hidden' not in pokemon:
             seen = pokemon['seen'] % 3600
-            self.cache.store.add(pokemon['encounter_id'])
+            cache_handle = self.cache.store.add(pokemon['encounter_id'])
             try:
                 with session_scope() as session:
                     tth = await run_threaded(estimate_remaining_time, session, pokemon['spawn_id'], seen)

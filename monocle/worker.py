@@ -185,7 +185,7 @@ class Worker:
             raise err
 
         self.error_code = '°'
-        version = 6701
+        version = 6900
         async with self.sim_semaphore:
             self.error_code = 'APP SIMULATION'
             if conf.APP_SIMULATION:
@@ -221,7 +221,7 @@ class Worker:
     async def download_remote_config(self, version):
         request = self.api.create_request()
         request.download_remote_config_version(platform=1, app_version=version)
-        responses = await self.call(request, stamp=False, buddy=False, settings=True, dl_hash=False)
+        responses = await self.call(request, stamp=False, buddy=False, settings=True, inbox=False, dl_hash=False)
 
         try:
             inventory_items = responses['GET_INVENTORY'].inventory_delta.inventory_items
@@ -353,7 +353,7 @@ class Worker:
             # request 5: get_player_profile
             request = self.api.create_request()
             request.get_player_profile()
-            await self.call(request, settings=True)
+            await self.call(request, settings=True, inbox=False)
             await self.random_sleep(.2, .3)
 
             if self.player_level:
@@ -476,7 +476,7 @@ class Worker:
                         else:
                             self.unused_incubators.appendleft(item)
 
-    async def call(self, request, chain=True, stamp=True, buddy=True, settings=False, get_inbox=False, dl_hash=True, action=None):
+    async def call(self, request, chain=True, stamp=True, buddy=True, settings=False, inbox=True, dl_hash=True, action=None):
         if chain:
             request.check_challenge()
             request.get_hatched_eggs()
@@ -489,7 +489,7 @@ class Worker:
                     request.download_settings()
             if buddy:
                 request.get_buddy_walked()
-            if get_inbox:
+            if inbox:
                 request.get_inbox(is_history=True)
 
         if action:
@@ -596,9 +596,9 @@ class Worker:
             else:
                 if (not dl_hash
                         and conf.FORCED_KILL
-                        and dl_settings.settings.minimum_client_version != '0.67.1'):
+                        and dl_settings.settings.minimum_client_version != '0.69.0'):
                     forced_version = StrictVersion(dl_settings.settings.minimum_client_version)
-                    if forced_version > StrictVersion('0.67.1'):
+                    if forced_version > StrictVersion('0.69.0'):
                         err = '{} is being forced, exiting.'.format(forced_version)
                         self.log.error(err)
                         print(err)
