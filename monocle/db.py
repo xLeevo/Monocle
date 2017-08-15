@@ -368,7 +368,7 @@ class FortSighting(Base):
     last_modified = Column(Integer, index=True)
     team = Column(TINY_TYPE)
     guard_pokemon_id = Column(TINY_TYPE)
-    slots_available = Column(Integer)
+    slots_available = Column(SmallInteger)
     is_in_battle = Column(Boolean, default=False)
 
     __table_args__ = (

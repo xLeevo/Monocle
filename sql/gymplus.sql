@@ -9,6 +9,7 @@ UNLOCK TABLES;
 
 LOCK TABLES `fort_sightings` WRITE;
 ALTER TABLE fort_sightings 
+ADD COLUMN slots_available SMALLINT,
 ADD COLUMN is_in_battle BOOL DEFAULT 0;
 UNLOCK TABLES;
 
