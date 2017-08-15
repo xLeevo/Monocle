@@ -920,7 +920,8 @@ class Worker:
         gym_location = gym['lat'], gym['lon']
         distance = get_distance(self.location, gym_location)
 
-        if distance > 150:
+        # +-4 for jitter
+        if distance > 445:
             return False
 
         # randomize location up to ~1.4 meters
