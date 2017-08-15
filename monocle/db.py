@@ -262,6 +262,8 @@ class Sighting(Base):
     move_2 = Column(SmallInteger)
     gender = Column(SmallInteger)
     form = Column(SmallInteger)
+    cp = Column(SmallInteger)
+    level = Column(SmallInteger)
 
     __table_args__ = (
         UniqueConstraint(
@@ -309,6 +311,8 @@ class Mystery(Base):
     move_2 = Column(SmallInteger)
     gender = Column(SmallInteger)
     form = Column(SmallInteger)
+    cp = Column(SmallInteger)
+    level = Column(SmallInteger)
 
     __table_args__ = (
         UniqueConstraint(
@@ -445,7 +449,9 @@ def add_sighting(session, pokemon):
         move_1=pokemon.get('move_1'),
         move_2=pokemon.get('move_2'),
         gender=pokemon.get('gender', 0),
-        form=pokemon.get('form', 0)
+        form=pokemon.get('form', 0),
+        cp=pokemon.get('cp'),
+        level=pokemon.get('level')
     )
     session.add(obj)
     SIGHTING_CACHE.add(pokemon)
@@ -575,7 +581,9 @@ def add_mystery(session, pokemon):
         move_1=pokemon.get('move_1'),
         move_2=pokemon.get('move_2'),
         gender=pokemon.get('gender', 0),
-        form=pokemon.get('form', 0)
+        form=pokemon.get('form', 0),
+        cp=pokemon.get('cp'),
+        level=pokemon.get('level')
     )
     session.add(obj)
     MYSTERY_CACHE.add(pokemon)
