@@ -900,9 +900,10 @@ class Worker:
                 (point, start, self.speed, self.total_seen,
                 self.visits, pokemon_seen))])
         self.log.info(
-            'Point processed, {} Pokemon and {} forts seen!',
+            'Point processed, {} Pokemon and {} forts seen by {}!',
             pokemon_seen,
             forts_seen,
+            self.username
         )
 
         self.update_accounts_dict()
