@@ -208,6 +208,8 @@ class Worker:
         try:
             get_player = responses['GET_PLAYER']
 
+            if get_player.warn:
+                raise ex.WarnAccountException
             if get_player.banned:
                 raise ex.BannedAccountException
 
@@ -227,7 +229,7 @@ class Worker:
     async def download_remote_config(self, version):
         request = self.api.create_request()
         request.download_remote_config_version(platform=1, app_version=version)
-        responses = await self.call(request, stamp=False, buddy=False, settings=True, inbox=False, dl_hash=False)
+        responses = await self.call(request, buddy=False, settings=True, inbox=False, dl_hash=False)
 
         try:
             inventory_items = responses['GET_INVENTORY'].inventory_delta.inventory_items
@@ -256,25 +258,25 @@ class Worker:
             slot=tuple(),
             filters=(2,)
         )
-        await self.call(request, buddy=not tutorial, action=5)
+        await self.call(request, buddy=not tutorial, inbox=False, action=5)
         await self.random_sleep(7, 14)
 
         request = self.api.create_request()
         request.set_avatar(player_avatar=plater_avatar)
-        await self.call(request, buddy=not tutorial, action=2)
+        await self.call(request, buddy=not tutorial, inbox=False, action=2)
 
         if tutorial:
             await self.random_sleep(.5, 4)
 
             request = self.api.create_request()
             request.mark_tutorial_complete(tutorials_completed=(1,))
-            await self.call(request, buddy=False)
+            await self.call(request, buddy=False, inbox=False)
 
         await self.random_sleep(.5, 1)
 
         request = self.api.create_request()
         request.get_player_profile()
-        await self.call(request, action=1)
+        await self.call(request, inbox=False, action=1)
 
     async def app_simulation_login(self, version):
         self.log.info('Starting RPC login sequence (iOS app simulation)')
@@ -305,7 +307,7 @@ class Worker:
                     paginate=True,
                     page_offset=page_offset,
                     page_timestamp=page_timestamp)
-                responses = await self.call(request, buddy=False, settings=True)
+                responses = await self.call(request, buddy=False, settings=True, inbox=False)
                 if i > 2:
                     await sleep(1.45)
                     i = 0
@@ -333,7 +335,7 @@ class Worker:
                     paginate=True,
                     page_offset=page_offset,
                     page_timestamp=page_timestamp)
-                responses = await self.call(request, buddy=False, settings=True)
+                responses = await self.call(request, buddy=False, settings=True, inbox=False)
                 if i > 2:
                     await sleep(1.5)
                     i = 0
@@ -371,6 +373,11 @@ class Worker:
             else:
                 self.log.warning('No player level')
 
+            request = self.api.create_request()
+            request.get_store_items()
+            await self.call(request, chain=False)
+            await self.random_sleep(.43, .97)
+
             self.log.info('Finished RPC login sequence (iOS app simulation)')
             await self.random_sleep(.5, 1.3)
         self.error_code = None
@@ -382,13 +389,13 @@ class Worker:
             # legal screen
             request = self.api.create_request()
             request.mark_tutorial_complete(tutorials_completed=(0,))
-            await self.call(request, buddy=False)
+            await self.call(request, buddy=False, inbox=False)
 
             await self.random_sleep(.35, .525)
 
             request = self.api.create_request()
             request.get_player(player_locale=conf.PLAYER_LOCALE)
-            await self.call(request, buddy=False)
+            await self.call(request, buddy=False, inbox=False)
             await sleep(1)
 
         if 1 not in tutorial_state:
@@ -404,18 +411,13 @@ class Worker:
                 ('1a3c2816-65fa-4b97-90eb-0b301c064b7a/1487275569649000',
                 'aa8f7687-a022-4773-b900-3a8c170e9aea/1487275581132582',
                 'e89109b0-9a54-40fe-8431-12f7826c8194/1487275593635524'))
-            await self.call(request)
+            await self.call(request, inbox=False)
 
             await self.random_sleep(7, 10.3)
             request = self.api.create_request()
             starter = choice((1, 4, 7))
             request.encounter_tutorial_complete(pokemon_id=starter)
-            await self.call(request, action=1)
-
-            await self.random_sleep(.4, .5)
-            request = self.api.create_request()
-            request.get_player(player_locale=conf.PLAYER_LOCALE)
-            responses = await self.call(request)
+            responses = await self.call(request, inbox=False, action=1)
 
             try:
                 inventory = responses['GET_INVENTORY'].inventory_delta.inventory_items
@@ -427,35 +429,40 @@ class Worker:
             except (KeyError, TypeError):
                 starter_id = None
 
+            await self.random_sleep(.4, .5)
+            request = self.api.create_request()
+            request.get_player(player_locale=conf.PLAYER_LOCALE)
+            await self.call(request, inbox=False)
+
         if 4 not in tutorial_state:
             # name selection
             await self.random_sleep(12, 18)
             request = self.api.create_request()
             request.claim_codename(codename=self.username)
-            await self.call(request, action=2)
+            await self.call(request, inbox=False, action=2)
 
             await sleep(.7, loop=LOOP)
             request = self.api.create_request()
             request.get_player(player_locale=conf.PLAYER_LOCALE)
-            await self.call(request)
+            await self.call(request, inbox=False)
             await sleep(.13, loop=LOOP)
 
             request = self.api.create_request()
             request.mark_tutorial_complete(tutorials_completed=(4,))
-            await self.call(request, buddy=False)
+            await self.call(request, inbox=False)
 
         if 7 not in tutorial_state:
             # first time experience
             await self.random_sleep(3.9, 4.5)
             request = self.api.create_request()
             request.mark_tutorial_complete(tutorials_completed=(7,))
-            await self.call(request)
+            await self.call(request, inbox=False)
 
         if starter_id:
             await self.random_sleep(4, 5)
             request = self.api.create_request()
             request.set_buddy_pokemon(pokemon_id=starter_id)
-            await self.call(request, action=2)
+            await self.call(request, inbox=False, action=2)
             await self.random_sleep(.8, 1.2)
 
         await sleep(.2, loop=LOOP)
@@ -482,7 +489,7 @@ class Worker:
                         else:
                             self.unused_incubators.appendleft(item)
 
-    async def call(self, request, chain=True, stamp=True, buddy=True, settings=False, inbox=True, dl_hash=True, action=None):
+    async def call(self, request, chain=True, buddy=True, settings=False, inbox=True, dl_hash=True, action=None):
         if chain:
             request.check_challenge()
             request.get_hatched_eggs()
@@ -677,6 +684,11 @@ class Worker:
             self.error_code = 'HASHING BAN'
             self.log.error('Temporarily banned from hashing server for using invalid keys.')
             await sleep(185, loop=LOOP)
+        except ex.WarnAccountException:
+            self.error_code = 'WARN'
+            self.log.warning('{} is warn', self.username)
+            await sleep(1, loop=LOOP)
+            await self.remove_account(warn=True)
         except ex.BannedAccountException:
             self.error_code = 'BANNED'
             self.log.warning('{} is banned', self.username)
@@ -1013,6 +1025,20 @@ class Worker:
 
         if result == 1:
             self.log.info('Spun {}.', name)
+            try:
+                inventory_items = responses['GET_INVENTORY'].inventory_delta.inventory_items
+                for item in inventory_items:
+                    level = item.inventory_item_data.player_stats.level
+                    if level and level > self.player_level:
+                        # level_up_rewards if level has changed
+                        request = self.api.create_request()
+                        request.level_up_rewards(level=level)
+                        await self.call(request, settings=True)
+                        self.log.info('Level up, get rewards.', name)
+                        self.player_level = level
+                        break
+            except KeyError:
+                pass
         elif result == 2:
             self.log.info('The server said {} was out of spinning range. {:.1f}m {:.1f}{}',
                 name, distance, self.speed, UNIT_STRING)
@@ -1220,10 +1246,14 @@ class Worker:
 
         ACCOUNTS[self.username] = self.account
 
-    async def remove_account(self):
+    async def remove_account(self, warn=False):
         self.error_code = 'REMOVING'
-        self.log.warning('Removing {} due to ban.', self.username)
-        self.account['banned'] = True
+        if warn:
+            self.account['warn'] = True
+            self.log.warning('Removing {} due to warn.', self.username)
+        else:
+            self.account['banned'] = True
+            self.log.warning('Removing {} due to ban.', self.username)
         self.update_accounts_dict()
         await self.new_account()
 
