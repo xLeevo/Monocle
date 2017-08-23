@@ -837,10 +837,6 @@ class Worker:
                 else:
                     normalized_fort = self.normalize_gym(fort)
                     if fort not in FORT_CACHE:
-                        #self.log.info("PRIORITY_FORT {}, fort_id: {}, smart_throttle: {}, same: {}, time: {}", 
-                        #        priority_fort, fort.id, self.smart_throttle(1),
-                        #        priority_fort.id == fort.id if priority_fort else False,
-                        #        time() > self.next_gym)
                         if (priority_fort and
                                 self.gyms and
                                 priority_fort.id == fort.id and
