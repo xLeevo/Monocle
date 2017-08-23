@@ -817,6 +817,8 @@ class Worker:
                     LOOP.create_task(self.notifier.notify(normalized, map_objects.time_of_day))
                 db_proc.add(normalized)
 
+            priority_fort = self.prioritize_forts(map_cell.forts)
+
             for fort in map_cell.forts:
                 if not fort.enabled:
                     continue
@@ -841,7 +843,10 @@ class Worker:
                 else:
                     normalized_fort = self.normalize_gym(fort)
                     if fort not in FORT_CACHE:
-                        if (self.gyms and time() > self.next_gym and self.smart_throttle(1)):
+                        if (priority_fort and
+                                self.gyms and
+                                priority_fort.id == fort.id and
+                                time() > self.next_gym and self.smart_throttle(1)):
                             gym = await self.gym_get_info(normalized_fort)
                             if gym:
                                 self.log.info('Got gym info for {}', normalized_fort["name"])
@@ -924,11 +929,6 @@ class Worker:
 
     async def gym_get_info(self, gym):
         self.error_code = 'G'
-        gym_location = gym['lat'], gym['lon']
-        distance = get_distance(self.location, gym_location)
-
-        if distance > 150:
-            return False
 
         # randomize location up to ~1.4 meters
         self.simulate_jitter(amount=0.00001)
@@ -1286,6 +1286,34 @@ class Worker:
         self.unused_incubators = deque()
         self.initialize_api()
         self.error_code = None
+
+    def within_distance(self, fort, max_distance=445):
+        gym_location = fort.latitude, fort.longitude
+        distance = get_distance(self.location, gym_location)
+
+        if distance > max_distance:
+            return False
+
+        return True
+
+    def prioritize_forts(self, map_cell_forts):
+
+        # Filter gyms that are nearby 
+        forts = [ x for x in map_cell_forts if x.type == 0 and self.within_distance(x, max_distance=445)]
+
+        raids_to_check = [ x for x in forts if x.HasField("raid_info") and (x not in RAID_CACHE)]
+        gyms_to_check = [ x for x in forts if not x.HasField("raid_info") and (x not in FORT_CACHE)]
+
+        # Order oldest first
+        raids_to_check.sort(key=lambda x: x.last_modified_timestamp_ms, reverse=False)
+        gyms_to_check.sort(key=lambda x: x.last_modified_timestamp_ms, reverse=False)
+
+        # Prioritize raids over normal gyms
+        forts_to_check = raids_to_check +  gyms_to_check
+
+        # Get the head
+        fort_to_check = forts_to_check[0] if len(forts_to_check) > 0 else None
+        return fort_to_check
 
     def unset_code(self):
         self.error_code = None
