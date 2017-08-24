@@ -841,6 +841,7 @@ class Worker:
                                 self.gyms and
                                 priority_fort.id == fort.id and
                                 time() > self.next_gym and self.smart_throttle(1)):
+
                             gym = await self.gym_get_info(normalized_fort)
                             if gym:
                                 self.log.info('Got gym info for {}', normalized_fort["name"])
