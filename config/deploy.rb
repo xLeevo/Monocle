@@ -60,6 +60,19 @@ namespace :pip do
         info "Host #{host.hostname}: pip3 requirements/optional-requirements updated."
       end
     end
+
+    on roles(:db), in: :parallel do |host|
+      within fetch(:release_path) do
+        file = File.read(".env.production")
+        upload! StringIO.new(file), "#{fetch(:release_path)}/.env"
+
+        execute :npm, :install, "--silent"
+        info "#{host.hostname}: npm install --silent"
+
+        execute :slc, :ctl, :shutdown, :monocle, "&&", :slc, :start, "."
+        info "#{host.hostname}: slc ctl shutdown monocle && slc start ."
+      end
+    end
   end
 end
 
@@ -107,15 +120,15 @@ namespace :deploy do
     end
   end
 
-  desc "Start supervisor"
-  task :start_supervisor => [:deploy] do
+  desc "Restart supervisor"
+  task :restart_supervisor => [:deploy] do
     on roles(:worker) do |host|
       within fetch(:release_path) do
         execute :rm, "-f", "#{fetch(:release_path)}/monocle.sock" 
-        execute :supervisorctl, :reread
-        execute :supervisorctl, :update
-        execute :supervisorctl, :start, host.properties.worker_name
-        execute :supervisorctl, :restart, "#{host.properties.worker_name}_web"
+        execute :supervisorctl, :reread, "&&",
+          :supervisorctl, :update, "&&",
+          :supervisorctl, :start, host.properties.worker_name, "&&",
+          :supervisorctl, :restart, "#{host.properties.worker_name}_web"
         info "Host #{host.hostname}: started supervisor"
         info "Host #{host.hostname}: restarted web supervisor"
       end
@@ -127,4 +140,4 @@ before "deploy:started", "deploy:stop_supervisor"
 before "deploy:published", "pip:requirements"
 before "deploy:published", "deploy:export_config"
 after "deploy:export_config", "deploy:export_supervisor"
-after "deploy:finished", "deploy:start_supervisor"
+after "deploy:finished", "deploy:restart_supervisor"

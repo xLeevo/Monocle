@@ -1,5 +1,6 @@
 'use strict';
 
+require('dotenv').config();
 var express = require('express');
 var app = express();
 var bodyParser = require('body-parser');
@@ -47,20 +48,22 @@ var queue = async.queue(function(task, callback){
     commands.push(['CONFIG_FILE',configFile].join('='));
   }
 
-  commands.push(['bundle exec cap production deploy']);
+  commands.push(['/usr/local/rbenv/shims/bundle exec cap production deploy']);
 
 
   var child = exec(commands.join(' '), {
-    cwd: "/var/www/Monocle",
-    uid: 1001,
-    gid: 500,
+    cwd: process.env.DEPLOY_CWD,
+    uid: parseInt(process.env.DEPLOY_UID),
+    gid: parseInt(process.env.DEPLOY_GID),
     stdio:[
       process.stdin,
       process.stdout,
       process.stderr,
     ],
   }, function(error, stdout, stderr) {
-    fs.unlinkSync(configFile);
+    if (!error) {
+      fs.unlinkSync(configFile);
+    }
 
     console.log('stdout: ', stdout);
     console.log('stderr: ', stderr);

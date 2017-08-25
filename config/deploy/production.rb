@@ -55,6 +55,7 @@ end
 # Global options
 # --------------
 set :ssh_options, {
+  user: "phonephyo",
   keys: %w(/home/phonephyo/.ssh/id_rsa),
   forward_agent: true,
   auth_methods: %w(publickey)

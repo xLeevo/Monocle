@@ -144,3 +144,6 @@ node_modules/
 log/
 logs/
 monotailer*.tgz
+
+.env*
+!.env.example
