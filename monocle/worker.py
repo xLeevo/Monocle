@@ -859,6 +859,7 @@ class Worker:
                                 self.gyms and
                                 priority_fort.id == fort.id and
                                 time() > self.next_gym and self.smart_throttle(1)):
+
                             gym = await self.gym_get_info(normalized_fort)
                             if gym:
                                 self.log.info('Got gym info for {}', normalized_fort["name"])
@@ -869,8 +870,7 @@ class Worker:
                         if fort not in RAID_CACHE:
                             normalized_raid = self.normalize_raid(fort)
                             if (notify_conf and normalized_raid['pokemon_id'] > 0
-                                    and normalized_raid['time_end'] > int(time())
-                                    and self.notifier.eligible(normalized_raid)):
+                                    and normalized_raid['time_end'] > int(time())):
                                 LOOP.create_task(self.notifier.notify_raid(normalized_raid, normalized_fort, map_objects.time_of_day))
                             db_proc.add(normalized_raid)
 
