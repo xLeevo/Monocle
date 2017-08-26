@@ -31,7 +31,7 @@ every 1.minute, roles: [:db] do
   cleanup "cleanup.sh"
 end
 
-every "30 2,14 * * *", roles: [:db] do
+every "30 3,15 * * *", roles: [:db] do
   cleanup "cleanup_spawnpoints.sh"
 end
 

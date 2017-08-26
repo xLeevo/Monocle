@@ -4,7 +4,7 @@ CREATE TEMPORARY TABLE IF NOT EXISTS spawnpoints_tmp AS (
   FROM spawnpoints sp
   LEFT JOIN sightings s ON s.spawn_id = sp.spawn_id
   LEFT JOIN mystery_sightings ms ON ms.spawn_id = sp.spawn_id
-  WHERE (s.id IS NULL AND ms.id IS NULL)
+  WHERE (s.id IS NULL AND ms.id IS NULL) AND sp.updated = 0
   ORDER BY sp.id ASC
   LIMIT 500000
 );
