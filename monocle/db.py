@@ -251,7 +251,7 @@ else:
 class Sighting(Base):
     __tablename__ = 'sightings'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(HUGE_TYPE, primary_key=True)
     pokemon_id = Column(TINY_TYPE)
     spawn_id = Column(ID_TYPE)
     expire_timestamp = Column(Integer, index=True)
@@ -268,6 +268,8 @@ class Sighting(Base):
     cp = Column(SmallInteger)
     level = Column(SmallInteger)
 
+    user = relationship("SightingUser", uselist=False, back_populates="sighting")
+
     __table_args__ = (
         UniqueConstraint(
             'encounter_id',
@@ -276,6 +278,22 @@ class Sighting(Base):
         ),
     )
 
+class SightingUser(Base):
+    __tablename__ = 'sighting_users'
+
+    id = Column(HUGE_TYPE, primary_key=True)
+    username = Column(String(32))
+    sighting_id = Column(HUGE_TYPE, ForeignKey('sightings.id', onupdate="CASCADE", ondelete="CASCADE"), nullable=False, index=True)
+
+    sighting = relationship("Sighting", uselist=False, back_populates="user")
+
+    __table_args__ = (
+        UniqueConstraint(
+            'username',
+            'sighting_id',
+            name='ix_username_sighting_id'
+        ),
+    )
 
 class Raid(Base):
     __tablename__ = 'raids'
@@ -454,8 +472,11 @@ def add_sighting(session, pokemon):
         gender=pokemon.get('gender', 0),
         form=pokemon.get('form', 0),
         cp=pokemon.get('cp'),
-        level=pokemon.get('level')
+        level=pokemon.get('level'),
     )
+    username = pokemon.get('username', None)
+    if username:
+        obj.user = SightingUser(username=username)
     session.add(obj)
     SIGHTING_CACHE.add(pokemon)
 

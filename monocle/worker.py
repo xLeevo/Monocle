@@ -799,7 +799,7 @@ class Worker:
             for pokemon in map_cell.wild_pokemons:
                 pokemon_seen += 1
 
-                normalized = self.normalize_pokemon(pokemon)
+                normalized = self.normalize_pokemon(pokemon, username=self.username)
                 seen_target = seen_target or normalized['spawn_id'] == spawn_id
 
                 if (normalized not in SIGHTING_CACHE and
@@ -1350,7 +1350,7 @@ class Worker:
         self.error_code = None
 
     @staticmethod
-    def normalize_pokemon(raw, spawn_int=conf.SPAWN_ID_INT):
+    def normalize_pokemon(raw, spawn_int=conf.SPAWN_ID_INT, username=None):
         """Normalizes data coming from API into something acceptable by db"""
         tsm = raw.last_modified_timestamp_ms
         tss = round(tsm / 1000)
@@ -1364,7 +1364,8 @@ class Worker:
             'spawn_id': int(raw.spawn_point_id, 16) if spawn_int else raw.spawn_point_id,
             'seen': tss,
             'gender': raw.pokemon_data.pokemon_display.gender,
-            'form': raw.pokemon_data.pokemon_display.form
+            'form': raw.pokemon_data.pokemon_display.form,
+            'username': username,
         }
         if tth > 0 and tth <= 90000:
             norm['expire_timestamp'] = round((tsm + tth) / 1000)
