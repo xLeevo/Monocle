@@ -644,7 +644,7 @@ class Notifier:
         unique_id = self.unique_id(pokemon)
 
         if "raid" in pokemon:
-            return True
+            return unique_id not in self.cache 
         if pokemon_id in self.never_notify:
             return False
         if pokemon_id in self.always_notify:
