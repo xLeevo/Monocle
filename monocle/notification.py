@@ -643,6 +643,8 @@ class Notifier:
 
         unique_id = self.unique_id(pokemon)
 
+        if "raid" in pokemon:
+            return True
         if pokemon_id in self.never_notify:
             return False
         if pokemon_id in self.always_notify:
@@ -695,6 +697,8 @@ class Notifier:
 
         now = monotonic()
         if pokemon_id in self.always_notify:
+            score_required = 0
+        elif "raid" in pokemon:
             score_required = 0
         else:
             score_required = self.get_required_score(now)
