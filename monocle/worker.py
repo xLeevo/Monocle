@@ -870,7 +870,8 @@ class Worker:
                         if fort not in RAID_CACHE:
                             normalized_raid = self.normalize_raid(fort)
                             if (notify_conf and normalized_raid['pokemon_id'] > 0
-                                    and normalized_raid['time_end'] > int(time())):
+                                    and normalized_raid['time_end'] > int(time())
+                                    and self.notifier.eligible(normalized_raid)):
                                 LOOP.create_task(self.notifier.notify_raid(normalized_raid, normalized_fort, map_objects.time_of_day))
                             db_proc.add(normalized_raid)
 
