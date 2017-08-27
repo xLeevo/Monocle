@@ -460,30 +460,27 @@ def add_gym_defenders(session, fort, gym_defenders):
         
     session.query(GymDefender).filter(GymDefender.fort_id==fort.id).delete()
 
-    try:
-        for gym_defender in gym_defenders:
-            obj = GymDefender(
-                fort=fort,
-                external_id=gym_defender['external_id'],
-                pokemon_id=gym_defender['pokemon_id'],
-                owner_name=gym_defender['owner_name'],
-                nickname=gym_defender['nickname'],
-                cp=gym_defender['cp'],
-                stamina=gym_defender['stamina'],
-                stamina_max=gym_defender['stamina_max'],
-                atk_iv=gym_defender['atk_iv'],
-                def_iv=gym_defender['def_iv'],
-                sta_iv=gym_defender['sta_iv'],
-                move_1=gym_defender['move_1'],
-                move_2=gym_defender['move_2'],
-                battles_attacked=gym_defender['battles_attacked'],
-                battles_defended=gym_defender['battles_defended'],
-                num_upgrades=gym_defender['num_upgrades'],
-                created=round(time()),
-            )
-            session.add(obj)
-    except Exception as e:
-        log.warning("ERROR: {}",e)
+    for gym_defender in gym_defenders:
+        obj = GymDefender(
+            fort=fort,
+            external_id=gym_defender['external_id'],
+            pokemon_id=gym_defender['pokemon_id'],
+            owner_name=gym_defender['owner_name'],
+            nickname=gym_defender['nickname'],
+            cp=gym_defender['cp'],
+            stamina=gym_defender['stamina'],
+            stamina_max=gym_defender['stamina_max'],
+            atk_iv=gym_defender['atk_iv'],
+            def_iv=gym_defender['def_iv'],
+            sta_iv=gym_defender['sta_iv'],
+            move_1=gym_defender['move_1'],
+            move_2=gym_defender['move_2'],
+            battles_attacked=gym_defender['battles_attacked'],
+            battles_defended=gym_defender['battles_defended'],
+            num_upgrades=gym_defender['num_upgrades'],
+            created=round(time()),
+        )
+        session.add(obj)
 
 
 def add_spawnpoint(session, pokemon):
