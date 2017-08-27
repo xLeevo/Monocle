@@ -26,6 +26,7 @@ if conf.DB_ENGINE.startswith('mysql'):
     TINY_TYPE = TINYINT(unsigned=True)          # 0 to 255
     MEDIUM_TYPE = MEDIUMINT(unsigned=True)      # 0 to 4294967295
     HUGE_TYPE = BIGINT(unsigned=True)           # 0 to 18446744073709551615
+    PRIMARY_HUGE_TYPE = HUGE_TYPE 
     FLOAT_TYPE = DOUBLE(precision=17, scale=14, asdecimal=False)
 elif conf.DB_ENGINE.startswith('postgres'):
     from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
@@ -47,6 +48,7 @@ elif conf.DB_ENGINE.startswith('postgres'):
     TINY_TYPE = SmallInteger                    # -32768 to 32767
     MEDIUM_TYPE = Integer                       # -2147483648 to 2147483647
     HUGE_TYPE = NumInt(precision=20, scale=0)   # up to 20 digits
+    PRIMARY_HUGE_TYPE = Integer
     FLOAT_TYPE = DOUBLE_PRECISION(asdecimal=False)
 else:
     class TextInt(TypeDecorator):
@@ -62,6 +64,7 @@ else:
     TINY_TYPE = SmallInteger
     MEDIUM_TYPE = Integer
     HUGE_TYPE = TextInt
+    PRIMARY_HUGE_TYPE = HUGE_TYPE 
     FLOAT_TYPE = Float(asdecimal=False)
 
 ID_TYPE = BigInteger if conf.SPAWN_ID_INT else String(11)
@@ -400,7 +403,7 @@ class FortSighting(Base):
 class GymDefender(Base):
     __tablename__ = 'gym_defenders'
 
-    id = Column(HUGE_TYPE, primary_key=True)
+    id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
     fort_id = Column(Integer, ForeignKey('forts.id', onupdate="CASCADE", ondelete="CASCADE"), nullable=False, index=True)
     external_id = Column(HUGE_TYPE, unique=True, nullable=False)
     pokemon_id = Column(Integer)
