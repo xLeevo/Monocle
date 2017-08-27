@@ -379,7 +379,7 @@ class GymDefender(Base):
 
     id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
     fort_id = Column(Integer, ForeignKey('forts.id', onupdate="CASCADE", ondelete="CASCADE"), nullable=False, index=True)
-    external_id = Column(HUGE_TYPE, unique=True, nullable=False)
+    external_id = Column(HUGE_TYPE, nullable=False)
     pokemon_id = Column(Integer)
     owner_name = Column(String(128))
     nickname = Column(String(128))
