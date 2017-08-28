@@ -236,7 +236,7 @@ RAID_CACHE = RaidCache()
 
 Base = declarative_base()
 
-_engine = create_engine(conf.DB_ENGINE)
+_engine = create_engine(conf.DB_ENGINE, pool_recycle=conf.DB_POOL_RECYCLE)
 Session = sessionmaker(bind=_engine)
 DB_TYPE = _engine.name
 
@@ -626,7 +626,7 @@ def add_fort_sighting(session, raw_fort):
     if (not fort.name) and ('name' in raw_fort):
         fort.name = raw_fort['name']
         fort.url = raw_fort['url']
-        session.add(fort)
+        session.merge(fort)
     
     if fort.id and 'gym_defenders' in raw_fort and len(raw_fort['gym_defenders']) > 0:
         add_gym_defenders(session, fort, raw_fort['gym_defenders'])
@@ -639,7 +639,7 @@ def add_fort_sighting(session, raw_fort):
         FORT_CACHE.add(raw_fort)
         return
 
-    obj = FortSighting(
+    fort_sighting = FortSighting(
         fort=fort,
         team=raw_fort['team'],
         guard_pokemon_id=raw_fort['guard_pokemon_id'],
@@ -648,7 +648,7 @@ def add_fort_sighting(session, raw_fort):
         is_in_battle=raw_fort['is_in_battle']
     )
 
-    session.add(obj)
+    session.add(fort_sighting)
 
     FORT_CACHE.add(raw_fort)
 
@@ -663,6 +663,7 @@ def add_raid(session, raw_raid):
             raid.cp = raw_raid['cp']
             raid.move_1 = raw_raid['move_1']
             raid.move_2 = raw_raid['move_2']
+            session.merge(raid)
             RAID_CACHE.add(raw_raid)
             return
         else:

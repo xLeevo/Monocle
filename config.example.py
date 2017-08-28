@@ -4,6 +4,9 @@ DB_ENGINE = 'sqlite:///db.sqlite'
 #DB_ENGINE = 'mysql://user:pass@localhost/monocle'
 #DB_ENGINE = 'postgresql://user:pass@localhost/monocle
 
+## Reconnect db session after x seconds. It solves lost connection error if DB wait_timeout is set to lower values.
+# DB_POOL_RECYCLE = 600
+
 AREA_NAME = 'SLC'     # the city or region you are scanning
 LANGUAGE = 'EN'       # ISO 639-1 codes EN, DE, ES, FR, IT, JA, KO, PT, or ZH for Pokémon/move names
 MAX_CAPTCHAS = 100    # stop launching new visits if this many CAPTCHAs are pending
