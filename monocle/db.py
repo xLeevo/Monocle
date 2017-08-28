@@ -251,7 +251,7 @@ else:
 class Sighting(Base):
     __tablename__ = 'sightings'
 
-    id = Column(HUGE_TYPE, primary_key=True)
+    id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
     pokemon_id = Column(TINY_TYPE)
     spawn_id = Column(ID_TYPE)
     expire_timestamp = Column(Integer, index=True)
@@ -281,9 +281,9 @@ class Sighting(Base):
 class SightingUser(Base):
     __tablename__ = 'sighting_users'
 
-    id = Column(HUGE_TYPE, primary_key=True)
+    id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
     username = Column(String(32))
-    sighting_id = Column(HUGE_TYPE, ForeignKey('sightings.id', onupdate="CASCADE", ondelete="CASCADE"), nullable=False, index=True)
+    sighting_id = Column(PRIMARY_HUGE_TYPE, ForeignKey('sightings.id', onupdate="CASCADE", ondelete="CASCADE"), nullable=False, index=True)
 
     sighting = relationship("Sighting", uselist=False, back_populates="user")
 

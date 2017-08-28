@@ -29,6 +29,12 @@ else:
     from pogeo import get_cell_ids as _pogeo_cell_ids
 
 
+if conf.SB_DETECTOR:
+    from .sb import SbDetector, SbAccountException
+    sb_detector = SbDetector()
+else:
+    sb_detector = None
+
 _unit = getattr(Units, conf.SPEED_UNIT.lower())
 if conf.SPIN_POKESTOPS:
     if _unit is Units.miles:
@@ -651,6 +657,8 @@ class Worker:
         Also is capable of restarting in case an error occurs.
         """
         try:
+            if sb_detector:
+                await sb_detector.detect(self.username)
             try:
                 self.altitude = altitudes.get(point)
             except KeyError:
@@ -688,12 +696,17 @@ class Worker:
             self.error_code = 'WARN'
             self.log.warning('{} is warn', self.username)
             await sleep(1, loop=LOOP)
-            await self.remove_account(warn=True)
+            await self.remove_account(flag='warn')
         except ex.BannedAccountException:
             self.error_code = 'BANNED'
             self.log.warning('{} is banned', self.username)
             await sleep(1, loop=LOOP)
-            await self.remove_account()
+            await self.remove_account(flag='banned')
+        except SbAccountException:
+            self.error_code = 'BANNED'
+            self.log.warning('{} is shadow banned', self.username)
+            await sleep(1, loop=LOOP)
+            await self.remove_account(flag='sbanned')
         except ex.ProxyException as e:
             self.error_code = 'PROXY ERROR'
 
@@ -1247,11 +1260,14 @@ class Worker:
 
         ACCOUNTS[self.username] = self.account
 
-    async def remove_account(self, warn=False):
+    async def remove_account(self, flag='banned'):
         self.error_code = 'REMOVING'
-        if warn:
+        if flag == 'warn':
             self.account['warn'] = True
             self.log.warning('Removing {} due to warn.', self.username)
+        elif flag == 'sbanned':
+            self.account['sbanned'] = True
+            self.log.warning('Removing {} due to shadow ban.', self.username)
         else:
             self.account['banned'] = True
             self.log.warning('Removing {} due to ban.', self.username)
