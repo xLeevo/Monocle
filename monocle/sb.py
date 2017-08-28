@@ -45,23 +45,24 @@ class SbDetector:
                 'min_expire_timestamp': time() - conf.SB_QUARANTINE_SECONDS,
                 }).first()
 
-            sightings = result[1]
-            uncommon = result[2]
-            sbanned = (sightings >= conf.SB_MIN_SIGHTING_COUNT and uncommon <= conf.SB_MAX_UNCOMMON_COUNT)
+            if result:
+                sightings = result[1]
+                uncommon = result[2]
+                sbanned = (sightings >= conf.SB_MIN_SIGHTING_COUNT and uncommon <= conf.SB_MAX_UNCOMMON_COUNT)
 
-            log.debug("Username: {}, sightings: {}, uncommon: {}, sbanned: {}",
-                    result[0],
-                    sightings,
-                    uncommon,
-                    sbanned)
+                log.debug("Username: {}, sightings: {}, uncommon: {}, sbanned: {}",
+                        result[0],
+                        sightings,
+                        uncommon,
+                        sbanned)
         
-            if sbanned:
-                log.info("Account {} is determinted to be shadow banned.", username)
+                if sbanned:
+                    log.info("Account {} is determinted to be shadow banned.", username)
 
-                if self.notifier:
-                    await self.webhook(self.notifier, conf.SB_WEBHOOK, username)
+                    if self.notifier:
+                        await self.webhook(self.notifier, conf.SB_WEBHOOK, username)
 
-                raise SbAccountException()
+                    raise SbAccountException()
         except SbAccountException as e:
             raise e
         except Exception as e:
