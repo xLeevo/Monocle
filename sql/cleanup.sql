@@ -29,7 +29,7 @@ DELETE s.* FROM fort_sightings s INNER JOIN fort_sightings_temp st ON s.id=st.id
 CREATE TEMPORARY TABLE IF NOT EXISTS raids_temp AS (
   SELECT id
   FROM raids
-  WHERE time_spawn < UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 6 HOUR))
+  WHERE time_spawn < UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 48 HOUR))
   LIMIT 100000
 );
 DELETE r.* FROM raids r INNER JOIN raids_temp rt ON r.id=rt.id;
