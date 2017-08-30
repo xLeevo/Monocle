@@ -902,6 +902,11 @@ def get_pokemon_ranking(session):
     none_seen = [x for x in range(1,252) if x not in ranked]
     return none_seen + ranked
 
+def get_gym_name(session,raw_fort):
+    fort = session.query(Fort) \
+        .filter(Fort.external_id == raw_fort['external_id']) \
+        .first()
+    return fort.name
 
 def get_sightings_per_pokemon(session):
     query = session.query(Sighting.pokemon_id, func.count(Sighting.pokemon_id).label('how_many')) \
