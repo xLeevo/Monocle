@@ -773,7 +773,7 @@ class Notifier:
     async def notify_raid(self, raid, fort, time_of_day):
         with session_scope() as session:
             GymName = get_gym_name(session,fort)
-		pokemon = {
+        pokemon = {
             'raid': True,
             'pokemon_id': raid['pokemon_id'],
             'external_id': raid['external_id'],
