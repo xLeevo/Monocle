@@ -11,7 +11,9 @@ class SbAccountException(Exception):
 
 class SbDetector:
     def __init__(self):
-        self.session = Session()
+        self.ran_at = {}
+
+        self.session = Session(autocommit=True)
         if conf.SB_WEBHOOK:
             from .notification import Notifier
             self.notifier = Notifier()
@@ -20,7 +22,18 @@ class SbDetector:
         log.info("SbDetector initialized.")
 
     async def detect(self, username):
+
+        if username in self.ran_at:
+            ran_at = self.ran_at[username]
+        else:
+            ran_at = 0
+
+        if time() - ran_at < conf.SB_COOLDOWN:
+            return
+        
         log.info("Detecting sb for {}", username)
+
+        self.ran_at[username] = time()
 
         query = """
         SELECT username,
@@ -47,18 +60,16 @@ class SbDetector:
 
             if result:
                 sightings = result[1]
-                uncommon = result[2]
+                uncommon = int(result[2])
                 sbanned = (sightings >= conf.SB_MIN_SIGHTING_COUNT and uncommon <= conf.SB_MAX_UNCOMMON_COUNT)
 
-                log.debug("Username: {}, sightings: {}, uncommon: {}, sbanned: {}",
+                log.info("Username: {}, sightings: {}, uncommon: {}, sbanned: {}",
                         result[0],
                         sightings,
                         uncommon,
                         sbanned)
         
                 if sbanned:
-                    log.info("Account {} is determinted to be shadow banned.", username)
-
                     if self.notifier:
                         await self.webhook(self.notifier, conf.SB_WEBHOOK, username)
 

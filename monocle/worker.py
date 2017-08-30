@@ -14,6 +14,7 @@ from pogeo import get_distance
 from .db import FORT_CACHE, MYSTERY_CACHE, SIGHTING_CACHE, RAID_CACHE
 from .utils import round_coords, load_pickle, get_device_info, get_start_coords, Units, randomize_point, calc_pokemon_level
 from .shared import get_logger, LOOP, SessionManager, run_threaded, ACCOUNTS
+from .sb import SbDetector, SbAccountException
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
 
 if conf.NOTIFY:
@@ -28,9 +29,7 @@ if conf.CACHE_CELLS:
 else:
     from pogeo import get_cell_ids as _pogeo_cell_ids
 
-
 if conf.SB_DETECTOR:
-    from .sb import SbDetector, SbAccountException
     sb_detector = SbDetector()
 else:
     sb_detector = None
