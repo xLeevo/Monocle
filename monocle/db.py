@@ -236,7 +236,7 @@ RAID_CACHE = RaidCache()
 
 Base = declarative_base()
 
-_engine = create_engine(conf.DB_ENGINE)
+_engine = create_engine(conf.DB_ENGINE, pool_recycle=conf.DB_POOL_RECYCLE)
 Session = sessionmaker(bind=_engine)
 DB_TYPE = _engine.name
 
@@ -251,7 +251,7 @@ else:
 class Sighting(Base):
     __tablename__ = 'sightings'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
     pokemon_id = Column(TINY_TYPE)
     spawn_id = Column(ID_TYPE)
     expire_timestamp = Column(Integer, index=True)
@@ -268,6 +268,8 @@ class Sighting(Base):
     cp = Column(SmallInteger)
     level = Column(SmallInteger)
 
+    user = relationship("SightingUser", uselist=False, back_populates="sighting")
+
     __table_args__ = (
         UniqueConstraint(
             'encounter_id',
@@ -276,6 +278,22 @@ class Sighting(Base):
         ),
     )
 
+class SightingUser(Base):
+    __tablename__ = 'sighting_users'
+
+    id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
+    username = Column(String(32))
+    sighting_id = Column(PRIMARY_HUGE_TYPE, ForeignKey('sightings.id', onupdate="CASCADE", ondelete="CASCADE"), nullable=False, index=True)
+
+    sighting = relationship("Sighting", uselist=False, back_populates="user")
+
+    __table_args__ = (
+        UniqueConstraint(
+            'username',
+            'sighting_id',
+            name='ix_username_sighting_id'
+        ),
+    )
 
 class Raid(Base):
     __tablename__ = 'raids'
@@ -454,8 +472,11 @@ def add_sighting(session, pokemon):
         gender=pokemon.get('gender', 0),
         form=pokemon.get('form', 0),
         cp=pokemon.get('cp'),
-        level=pokemon.get('level')
+        level=pokemon.get('level'),
     )
+    username = pokemon.get('username', None)
+    if username:
+        obj.user = SightingUser(username=username)
     session.add(obj)
     SIGHTING_CACHE.add(pokemon)
 
@@ -605,7 +626,7 @@ def add_fort_sighting(session, raw_fort):
     if (not fort.name) and ('name' in raw_fort):
         fort.name = raw_fort['name']
         fort.url = raw_fort['url']
-        session.add(fort)
+        session.merge(fort)
     
     if fort.id and 'gym_defenders' in raw_fort and len(raw_fort['gym_defenders']) > 0:
         add_gym_defenders(session, fort, raw_fort['gym_defenders'])
@@ -618,7 +639,7 @@ def add_fort_sighting(session, raw_fort):
         FORT_CACHE.add(raw_fort)
         return
 
-    obj = FortSighting(
+    fort_sighting = FortSighting(
         fort=fort,
         team=raw_fort['team'],
         guard_pokemon_id=raw_fort['guard_pokemon_id'],
@@ -627,7 +648,7 @@ def add_fort_sighting(session, raw_fort):
         is_in_battle=raw_fort['is_in_battle']
     )
 
-    session.add(obj)
+    session.add(fort_sighting)
 
     FORT_CACHE.add(raw_fort)
 
@@ -642,6 +663,7 @@ def add_raid(session, raw_raid):
             raid.cp = raw_raid['cp']
             raid.move_1 = raw_raid['move_1']
             raid.move_2 = raw_raid['move_2']
+            session.merge(raid)
             RAID_CACHE.add(raw_raid)
             return
         else:

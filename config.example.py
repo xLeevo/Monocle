@@ -4,6 +4,9 @@ DB_ENGINE = 'sqlite:///db.sqlite'
 #DB_ENGINE = 'mysql://user:pass@localhost/monocle'
 #DB_ENGINE = 'postgresql://user:pass@localhost/monocle
 
+## Reconnect db session after x seconds. It solves lost connection error if DB wait_timeout is set to lower values.
+# DB_POOL_RECYCLE = 600
+
 AREA_NAME = 'SLC'     # the city or region you are scanning
 LANGUAGE = 'EN'       # ISO 639-1 codes EN, DE, ES, FR, IT, JA, KO, PT, or ZH for Pokémon/move names
 MAX_CAPTCHAS = 100    # stop launching new visits if this many CAPTCHAs are pending
@@ -368,3 +371,11 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #LANDMARKS.add('the University of Utah', shortname='the U of U', hashtags={'Utes'}, phrase='at', is_area=True)
 ## provide corner points to create a polygon of the area since OpenStreetMap does not have a shape for it
 #LANDMARKS.add('Yalecrest', points=((40.750263, -111.836502), (40.750377, -111.851108), (40.751515, -111.853833), (40.741212, -111.853909), (40.741188, -111.836519)), is_area=True)
+
+## Shadown ban module
+# SB_DETECTOR = False
+# SB_UNCOMMON_POKEMON_IDS = (16,19,23,27,29,32,41,43,46,52,54,60,69,72,74,77,81,98,118,120,129,161,165,167,177,183,187,191,194,198,209,218)
+# SB_MAX_UNCOMMON_COUNT = 0     # Maximum uncommon counts required to flag SB
+# SB_MIN_SIGHTING_COUNT = 20    # Minimum sightings required to flag SB
+# SB_QUARANTINE_SECONDS = 3600  # How many seconds to set as investigation period?
+# SB_WEBHOOK = None             # Define webhook end point for SB. Payload is {type: "sban", message: {username: :username}}
