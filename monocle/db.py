@@ -270,6 +270,8 @@ class Sighting(Base):
 
     user = relationship("SightingUser", uselist=False, back_populates="sighting")
 
+    user = relationship("SightingUser", uselist=False, back_populates="sighting")
+
     __table_args__ = (
         UniqueConstraint(
             'encounter_id',
