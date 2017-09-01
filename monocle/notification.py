@@ -10,7 +10,7 @@ from aiohttp import ClientError, ClientResponseError, ServerTimeoutError
 from aiopogo import json_dumps, json_loads
 
 from .utils import load_pickle, dump_pickle
-from .db import session_scope, get_pokemon_ranking, estimate_remaining_time
+from .db import session_scope, get_pokemon_ranking, estimate_remaining_time, get_gym_name
 from .names import MOVES, POKEMON
 from .shared import get_logger, SessionManager, LOOP, run_threaded
 from . import sanitized as conf
@@ -771,6 +771,8 @@ class Notifier:
 
 
     async def notify_raid(self, raid, fort, time_of_day):
+        with session_scope() as session:
+            GymName = get_gym_name(session,fort)
         pokemon = {
             'raid': True,
             'pokemon_id': raid['pokemon_id'],
@@ -786,6 +788,7 @@ class Notifier:
             'cp': raid['cp'],
             'move_1': raid['move_1'],
             'move_2': raid['move_2'],
+            'gym_name':GymName,
         }
         return await self.notify(pokemon, time_of_day)
 
@@ -812,6 +815,7 @@ class Notifier:
                     "move_2": pokemon['move_2'],
                     "raid_begin": pokemon['time_spawn'],
                     "raid_end": ts,
+                    "gym_name":pokemon['gym_name'],
                 }
             }
         else:
