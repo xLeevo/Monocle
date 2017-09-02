@@ -704,7 +704,10 @@ class Notifier:
             score_required = self.get_required_score(now)
 
         try:
-            iv_score = (pokemon['individual_attack'] + pokemon['individual_defense'] + pokemon['individual_stamina']) / 45
+            if score_required > 0:
+                iv_score = (pokemon['individual_attack'] + pokemon['individual_defense'] + pokemon['individual_stamina']) / 45
+            else:
+                iv_score = None
         except KeyError:
             if conf.IGNORE_IVS:
                 iv_score = None
@@ -773,12 +776,12 @@ class Notifier:
     async def notify_raid(self, raid, fort, time_of_day):
         with session_scope() as session:
             gym = get_gym(session,fort)
-        if gym:
-            gym_name = gym.name
-            gym_url = gym.url
-        else:
-            gym_name = None
-            gym_url = None
+            if gym:
+                gym_name = gym.name
+                gym_url = gym.url
+            else:
+                gym_name = None
+                gym_url = None
         pokemon = {
             'raid': True,
             'pokemon_id': raid['pokemon_id'],
@@ -817,20 +820,20 @@ class Notifier:
             data = {
                 'type': "raid",
                 'message': {
-                    w.get("external_id", "external_id"): pokemon['external_id'],
-                    w.get("latitude", "latitude"): pokemon['lat'],
-                    w.get("longitude", "longitude"): pokemon['lon'],
-                    w.get("level", "level"): pokemon['level'],
-                    w.get("pokemon_id", "pokemon_id"): pokemon['pokemon_id'],
-                    w.get("team", "team"): pokemon['team'],
-                    w.get("cp", "cp"): pokemon['cp'],
-                    w.get("move_1", "move_1"): pokemon['move_1'],
-                    w.get("move_2", "move_2"): pokemon['move_2'],
-                    w.get("raid_begin", "raid_begin"): pokemon['time_spawn'],
-                    w.get("raid_battle", "raid_battle"): pokemon['time_battle'],
-                    w.get("raid_end", "raid_end"): pokemon['time_end'],
-                    w.get("gym_name", "gym_name"): pokemon.get('gym_name'),
-                    w.get("gym_url", "gym_url"): pokemon.get('gym_url'),
+                    m.get("external_id", "external_id"): pokemon['external_id'],
+                    m.get("latitude", "latitude"): pokemon['lat'],
+                    m.get("longitude", "longitude"): pokemon['lon'],
+                    m.get("level", "level"): pokemon['level'],
+                    m.get("pokemon_id", "pokemon_id"): pokemon['pokemon_id'],
+                    m.get("team", "team"): pokemon['team'],
+                    m.get("cp", "cp"): pokemon['cp'],
+                    m.get("move_1", "move_1"): pokemon['move_1'],
+                    m.get("move_2", "move_2"): pokemon['move_2'],
+                    m.get("raid_begin", "raid_begin"): pokemon['time_spawn'],
+                    m.get("raid_battle", "raid_battle"): pokemon['time_battle'],
+                    m.get("raid_end", "raid_end"): pokemon['time_end'],
+                    m.get("gym_name", "gym_name"): pokemon.get('gym_name'),
+                    m.get("gym_url", "gym_url"): pokemon.get('gym_url'),
                 }
             }
         else:
