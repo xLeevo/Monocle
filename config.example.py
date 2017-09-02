@@ -327,6 +327,27 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 
 #WEBHOOKS = {'http://127.0.0.1:4000'}
 
+# Webhook formatting config
+
+#WEBHOOK_RAID_MAPPING = {}
+
+# Allows configuration of outgoing raid webhooks.
+# Defines <our field name>:<recipient's field name>
+# Add only the necessary fields.
+#
+# E.g. For PokeAlarm, add the following config.
+#WEBHOOK_RAID_MAPPING = {
+#    'external_id': 'raid_seed',
+#    'gym_name': 'name',
+#    'gym_url': 'url',
+#}
+
+# The following are all the available fields for raid webhook.
+#   "external_id", "latitude", "longitude", "level", "pokemon_id",
+#   "team", "cp", "move_1", "move_2",
+#   "raid_begin", "raid_battle", "raid_end",
+#   "gym_name", "gym_url"
+
 
 ##### Referencing landmarks in your tweets/notifications
 

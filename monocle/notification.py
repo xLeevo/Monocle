@@ -10,7 +10,7 @@ from aiohttp import ClientError, ClientResponseError, ServerTimeoutError
 from aiopogo import json_dumps, json_loads
 
 from .utils import load_pickle, dump_pickle
-from .db import session_scope, get_pokemon_ranking, estimate_remaining_time, get_gym_name
+from .db import session_scope, get_pokemon_ranking, estimate_remaining_time, get_gym
 from .names import MOVES, POKEMON
 from .shared import get_logger, SessionManager, LOOP, run_threaded
 from . import sanitized as conf
@@ -772,7 +772,13 @@ class Notifier:
 
     async def notify_raid(self, raid, fort, time_of_day):
         with session_scope() as session:
-            GymName = get_gym_name(session,fort)
+            gym = get_gym(session,fort)
+        if gym:
+            gym_name = gym.name
+            gym_url = gym.url
+        else:
+            gym_name = None
+            gym_url = None
         pokemon = {
             'raid': True,
             'pokemon_id': raid['pokemon_id'],
@@ -782,13 +788,16 @@ class Notifier:
             'level': raid['level'],
             'seen': fort['last_modified'],
             'time_spawn':  raid['time_spawn'],
+            'time_battle':  raid['time_battle'],
+            'time_end':  raid['time_end'],
             'time_till_hidden': raid['time_end'] - int(time()),
             'expire_timestamp':  raid['time_end'],
             'team': fort['team'],
             'cp': raid['cp'],
             'move_1': raid['move_1'],
             'move_2': raid['move_2'],
-            'gym_name':GymName,
+            'gym_name': gym_name,
+            'gym_url': gym_url,
         }
         return await self.notify(pokemon, time_of_day)
 
@@ -804,49 +813,50 @@ class Notifier:
             ts = pokemon['seen'] + tth
 
         if 'raid' in pokemon:
+            m = conf.WEBHOOK_RAID_MAPPING
             data = {
                 'type': "raid",
                 'message': {
-                    "external_id": pokemon['external_id'],
-                    "level": pokemon['level'],
-                    "team": pokemon['team'],
-                    "cp": pokemon['cp'],
-                    "move_1": pokemon['move_1'],
-                    "move_2": pokemon['move_2'],
-                    "raid_begin": pokemon['time_spawn'],
-                    "raid_end": ts,
-                    "gym_name":pokemon['gym_name'],
+                    w.get("external_id", "external_id"): pokemon['external_id'],
+                    w.get("latitude", "latitude"): pokemon['lat'],
+                    w.get("longitude", "longitude"): pokemon['lon'],
+                    w.get("level", "level"): pokemon['level'],
+                    w.get("pokemon_id", "pokemon_id"): pokemon['pokemon_id'],
+                    w.get("team", "team"): pokemon['team'],
+                    w.get("cp", "cp"): pokemon['cp'],
+                    w.get("move_1", "move_1"): pokemon['move_1'],
+                    w.get("move_2", "move_2"): pokemon['move_2'],
+                    w.get("raid_begin", "raid_begin"): pokemon['time_spawn'],
+                    w.get("raid_battle", "raid_battle"): pokemon['time_battle'],
+                    w.get("raid_end", "raid_end"): pokemon['time_end'],
+                    w.get("gym_name", "gym_name"): pokemon.get('gym_name'),
+                    w.get("gym_url", "gym_url"): pokemon.get('gym_url'),
                 }
             }
         else:
             data = {
                 'type': "pokemon",
                 'message': {
+                    "pokemon_id": pokemon['pokemon_id'],
                     "encounter_id": pokemon['encounter_id'],
+                    "latitude": pokemon['lat'],
+                    "longitude": pokemon['lon'],
                     "last_modified_time": pokemon['seen'] * 1000,
                     "spawnpoint_id": pokemon['spawn_id'],
+                    "disappear_time": ts,
+                    "time_until_hidden_ms": tth * 1000,
+                    "pokemon_level": pokemon.get('level'),
+                    "cp": pokemon.get('cp'),
+                    "height": pokemon.get('height'),
+                    "weight": pokemon.get('weight'),
+                    "gender": pokemon.get('gender'),
+                    "move_1": pokemon.get('move_1'),
+                    "move_2": pokemon.get('move_2'),
+                    "individual_attack": pokemon.get('individual_attack'),
+                    "individual_defense": pokemon.get('individual_defense'),
+                    "individual_stamina": pokemon.get('individual_stamina'),
                 }
             }
-
-        data['message']['pokemon_id'] = pokemon['pokemon_id']
-        data['message']['latitude'] = pokemon['lat']
-        data['message']['longitude'] = pokemon['lon']
-        data['message']['disappear_time'] = ts
-        data['message']['time_until_hidden_ms'] = tth * 1000
-
-        try:
-            data['message']['individual_attack'] = pokemon['individual_attack']
-            data['message']['individual_defense'] = pokemon['individual_defense']
-            data['message']['individual_stamina'] = pokemon['individual_stamina']
-            data['message']['move_1'] = pokemon['move_1']
-            data['message']['move_2'] = pokemon['move_2']
-            data['message']['height'] = pokemon['height']
-            data['message']['weight'] = pokemon['weight']
-            data['message']['gender'] = pokemon['gender']
-            data['message']['cp'] = pokemon['cp']
-            data['message']['pokemon_level'] = pokemon['level']
-        except KeyError:
-            pass
 
         session = SessionManager.get()
         return await self.wh_send(session, data)
