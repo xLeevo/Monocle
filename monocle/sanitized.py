@@ -239,7 +239,7 @@ _defaults = {
     'SPEED_UNIT': 'miles',
     'SPIN_COOLDOWN': 300,
     'SPIN_POKESTOPS': True,
-    'GYM_COOLDOWN': 180,
+    'GYM_COOLDOWN': 10,
     'GET_GYM_DETAILS': False,
     'STAT_REFRESH': 5,
     'STAY_WITHIN_MAP': True,
