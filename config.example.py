@@ -115,7 +115,7 @@ SPIN_COOLDOWN = 300    # spin only one PokéStop every n seconds (default 300)
 ## Gyms
 
 # Cools down for x seconds for a worker after scanning a gym details.
-#GYM_COOLDOWN = 180
+#GYM_COOLDOWN = 10
 
 # Toggles scanning for gym details. Smart throttle is applied in the same way as PokéStops.
 #GET_GYM_DETAILS = False
@@ -326,6 +326,30 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #TELEGRAM_CHAT_ID = '@your_channel'
 
 #WEBHOOKS = {'http://127.0.0.1:4000'}
+
+#####
+## Webhook formatting config
+##
+## Allows configuration of outgoing raid webhooks.
+## Defines <our field name>:<recipient's field name>
+##
+## The following are all the available fields for raid webhook.
+##   "external_id", "latitude", "longitude", "level", "pokemon_id",
+##   "team", "cp", "move_1", "move_2",
+##   "raid_begin", "raid_battle", "raid_end",
+##   "gym_name", "gym_url"
+##
+## For PokeAlarm, add the following config.
+####
+#WEBHOOK_RAID_MAPPING = {
+#    'external_id': 'raid_seed',
+#    'gym_name': 'name',
+#    'gym_url': 'url',
+#}
+
+# For others, this is the default value (no mapping defined)
+#WEBHOOK_RAID_MAPPING = {}
+
 
 
 ##### Referencing landmarks in your tweets/notifications

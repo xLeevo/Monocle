@@ -10,7 +10,7 @@ from aiohttp import ClientError, ClientResponseError, ServerTimeoutError
 from aiopogo import json_dumps, json_loads
 
 from .utils import load_pickle, dump_pickle
-from .db import session_scope, get_pokemon_ranking, estimate_remaining_time, get_gym_name
+from .db import session_scope, get_pokemon_ranking, estimate_remaining_time, get_gym
 from .names import MOVES, POKEMON
 from .shared import get_logger, SessionManager, LOOP, run_threaded
 from . import sanitized as conf
@@ -643,8 +643,6 @@ class Notifier:
 
         unique_id = self.unique_id(pokemon)
 
-        if "raid" in pokemon:
-            return unique_id not in self.cache 
         if pokemon_id in self.never_notify:
             return False
         if pokemon_id in self.always_notify:
@@ -697,8 +695,6 @@ class Notifier:
 
         now = monotonic()
         if pokemon_id in self.always_notify:
-            score_required = 0
-        elif "raid" in pokemon:
             score_required = 0
         else:
             score_required = self.get_required_score(now)
@@ -770,27 +766,39 @@ class Notifier:
             return self.cleanup(unique_id, cache_handle)
 
 
-    async def notify_raid(self, raid, fort, time_of_day):
+    async def webhook_raid(self, raid, fort):
         with session_scope() as session:
-            GymName = get_gym_name(session,fort)
-        pokemon = {
-            'raid': True,
-            'pokemon_id': raid['pokemon_id'],
-            'external_id': raid['external_id'],
-            'lat': fort['lat'],
-            'lon': fort['lon'],
-            'level': raid['level'],
-            'seen': fort['last_modified'],
-            'time_spawn':  raid['time_spawn'],
-            'time_till_hidden': raid['time_end'] - int(time()),
-            'expire_timestamp':  raid['time_end'],
-            'team': fort['team'],
-            'cp': raid['cp'],
-            'move_1': raid['move_1'],
-            'move_2': raid['move_2'],
-            'gym_name':GymName,
+            gym = get_gym(session,fort)
+            if gym:
+                gym_name = gym.name
+                gym_url = gym.url
+            else:
+                gym_name = None
+                gym_url = None
+
+        m = conf.WEBHOOK_RAID_MAPPING
+        data = {
+            'type': "raid",
+            'message': {
+                m.get("external_id", "external_id"): raid['external_id'],
+                m.get("latitude", "latitude"): fort['lat'],
+                m.get("longitude", "longitude"): fort['lon'],
+                m.get("level", "level"): raid['level'],
+                m.get("pokemon_id", "pokemon_id"): raid['pokemon_id'],
+                m.get("team", "team"): fort['team'],
+                m.get("cp", "cp"): raid['cp'],
+                m.get("move_1", "move_1"): raid['move_1'],
+                m.get("move_2", "move_2"): raid['move_2'],
+                m.get("raid_begin", "raid_begin"): raid['time_spawn'],
+                m.get("raid_battle", "raid_battle"): raid['time_battle'],
+                m.get("raid_end", "raid_end"): raid['time_end'],
+                m.get("gym_name", "gym_name"): gym_name,
+                m.get("gym_url", "gym_url"): gym_url,
+            }
         }
-        return await self.notify(pokemon, time_of_day)
+
+        session = SessionManager.get()
+        return await self.wh_send(session, data)
 
 
     async def webhook(self, pokemon):
@@ -803,53 +811,33 @@ class Notifier:
             tth = pokemon['earliest_tth']
             ts = pokemon['seen'] + tth
 
-        if 'raid' in pokemon:
-            data = {
-                'type': "raid",
-                'message': {
-                    "external_id": pokemon['external_id'],
-                    "level": pokemon['level'],
-                    "team": pokemon['team'],
-                    "cp": pokemon['cp'],
-                    "move_1": pokemon['move_1'],
-                    "move_2": pokemon['move_2'],
-                    "raid_begin": pokemon['time_spawn'],
-                    "raid_end": ts,
-                    "gym_name":pokemon['gym_name'],
-                }
+        data = {
+            'type': "pokemon",
+            'message': {
+                "pokemon_id": pokemon['pokemon_id'],
+                "encounter_id": pokemon['encounter_id'],
+                "latitude": pokemon['lat'],
+                "longitude": pokemon['lon'],
+                "last_modified_time": pokemon['seen'] * 1000,
+                "spawnpoint_id": pokemon['spawn_id'],
+                "disappear_time": ts,
+                "time_until_hidden_ms": tth * 1000,
+                "pokemon_level": pokemon.get('level'),
+                "cp": pokemon.get('cp'),
+                "height": pokemon.get('height'),
+                "weight": pokemon.get('weight'),
+                "gender": pokemon.get('gender'),
+                "move_1": pokemon.get('move_1'),
+                "move_2": pokemon.get('move_2'),
+                "individual_attack": pokemon.get('individual_attack'),
+                "individual_defense": pokemon.get('individual_defense'),
+                "individual_stamina": pokemon.get('individual_stamina'),
             }
-        else:
-            data = {
-                'type': "pokemon",
-                'message': {
-                    "encounter_id": pokemon['encounter_id'],
-                    "last_modified_time": pokemon['seen'] * 1000,
-                    "spawnpoint_id": pokemon['spawn_id'],
-                }
-            }
-
-        data['message']['pokemon_id'] = pokemon['pokemon_id']
-        data['message']['latitude'] = pokemon['lat']
-        data['message']['longitude'] = pokemon['lon']
-        data['message']['disappear_time'] = ts
-        data['message']['time_until_hidden_ms'] = tth * 1000
-
-        try:
-            data['message']['individual_attack'] = pokemon['individual_attack']
-            data['message']['individual_defense'] = pokemon['individual_defense']
-            data['message']['individual_stamina'] = pokemon['individual_stamina']
-            data['message']['move_1'] = pokemon['move_1']
-            data['message']['move_2'] = pokemon['move_2']
-            data['message']['height'] = pokemon['height']
-            data['message']['weight'] = pokemon['weight']
-            data['message']['gender'] = pokemon['gender']
-            data['message']['cp'] = pokemon['cp']
-            data['message']['pokemon_level'] = pokemon['level']
-        except KeyError:
-            pass
+        }
 
         session = SessionManager.get()
         return await self.wh_send(session, data)
+
 
     if WEBHOOK > 1:
         async def wh_send(self, session, payload):
@@ -858,6 +846,7 @@ class Notifier:
     else:
         async def wh_send(self, session, payload):
             return await self.hook_post(HOOK_POINT, session, payload)
+
 
     async def hook_post(self, w, session, payload, headers={'content-type': 'application/json'}):
         try:
