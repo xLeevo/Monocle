@@ -827,7 +827,7 @@ class Worker:
                 if is_new and (should_encounter or should_notify):
                     if conf.PGSCOUT_ENDPOINT:
                         async with ClientSession(loop=LOOP) as session:
-                            encountered = await self.pgscout(session, pokemon, spawn_id)
+                            encountered = await self.pgscout(session, normalized, pokemon.spawn_point_id)
 
                     if (not encountered and self.player_level and self.player_level >= 30):
                         try:
