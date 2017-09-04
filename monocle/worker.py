@@ -814,31 +814,33 @@ class Worker:
                 normalized = self.normalize_pokemon(pokemon, username=self.username)
                 seen_target = seen_target or normalized['spawn_id'] == spawn_id
 
-                if (normalized not in SIGHTING_CACHE and
-                        normalized not in MYSTERY_CACHE):
-                    if ((encounter_conf == 'all'
-                            or (encounter_conf == 'some'
-		            and normalized['pokemon_id'] in conf.ENCOUNTER_IDS))
-                        and self.player_level != None and self.player_level >= 30):
+                is_new = (normalized not in SIGHTING_CACHE and
+                        normalized not in MYSTERY_CACHE)
+                should_encounter = (encounter_conf == 'all'
+                        or (encounter_conf == 'some'
+                            and normalized['pokemon_id'] in conf.ENCOUNTER_IDS))
+                should_notify = (notify_conf and self.notifier.eligible(normalized))
+
+                encountered = False
+
+                if is_new and (should_encounter or should_notify):
+                    if conf.PGSCOUT_ENDPOINT:
+                        async with ClientSession(loop=LOOP) as session:
+                            encountered = await self.pgscout(session, pokemon, spawn_id)
+
+                    if (not encountered and self.player_level and self.player_level >= 30):
                         try:
                             await self.encounter(normalized, pokemon.spawn_point_id)
+                            encountered = True
                         except CancelledError:
                             db_proc.add(normalized)
                             raise
                         except Exception as e:
                             self.log.warning('{} during encounter', e.__class__.__name__)
 
-                if notify_conf and self.notifier.eligible(normalized):
-                    if (encounter_conf and 'move_1' not in normalized
-                        and self.player_level != None and self.player_level >= 30):
-                        try:
-                            await self.encounter(normalized, pokemon.spawn_point_id)
-                        except CancelledError:
-                            db_proc.add(normalized)
-                            raise
-                        except Exception as e:
-                            self.log.warning('{} during encounter', e.__class__.__name__)
+                if should_notify:
                     LOOP.create_task(self.notifier.notify(normalized, map_objects.time_of_day))
+
                 db_proc.add(normalized)
 
             priority_fort = self.prioritize_forts(map_cell.forts)
@@ -938,6 +940,38 @@ class Worker:
         self.update_accounts_dict()
         self.handle = LOOP.call_later(60, self.unset_code)
         return pokemon_seen + forts_seen + points_seen
+
+
+    async def pgscout(self, session, pokemon, spawn_id):
+        try:
+            async with session.get(
+                    conf.PGSCOUT_ENDPOINT,
+                    params={'pokemon_id': pokemon['pokemon_id'],
+                            'encounter_id': pokemon['encounter_id'],
+                            'spawn_point_id': spawn_id,
+                            'latitude': str(pokemon['lat']),
+                            'longitude': str(pokemon['lon'])},
+                    timeout=conf.PGSCOUT_TIMEOUT) as resp:
+                response = await resp.json(loads=json_loads)
+            try:
+                pokemon['move_1'] = response['move_1']
+                pokemon['move_2'] = response['move_2']
+                pokemon['individual_attack'] = response.get('iv_attack',0)
+                pokemon['individual_defense'] = response.get('iv_defense',0)
+                pokemon['individual_stamina'] = response.get('iv_stamina',0)
+                pokemon['height'] = response['height']
+                pokemon['weight'] = response['weight']
+                pokemon['gender'] = response['gender']
+                pokemon['form'] = response.get('form')
+                pokemon['cp'] = response.get('cp')
+                pokemon['level'] = calc_pokemon_level(response.get('cp_multiplier'))
+                return True
+            except KeyError:
+                self.log.error('Missing Pokemon data in PGScout response.')
+        except Exception:
+            self.log.exception('PGScout Request Error.')
+        return False
+
 
     def smart_throttle(self, requests=1):
         try:
