@@ -767,6 +767,9 @@ class Notifier:
 
 
     async def webhook_raid(self, raid, fort):
+        if not WEBHOOK:
+            return
+
         with session_scope() as session:
             gym = get_gym(session,fort)
             if gym:
