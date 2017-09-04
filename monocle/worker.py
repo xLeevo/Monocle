@@ -6,6 +6,7 @@ from itertools import cycle
 from sys import exit
 from distutils.version import StrictVersion
 
+from aiohttp import ClientSession
 from aiopogo import PGoApi, HashServer, json_loads, exceptions as ex
 from aiopogo.auth_ptc import AuthPtc
 from cyrandom import choice, randint, uniform
