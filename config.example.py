@@ -337,7 +337,7 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 ##   "external_id", "latitude", "longitude", "level", "pokemon_id",
 ##   "team", "cp", "move_1", "move_2",
 ##   "raid_begin", "raid_battle", "raid_end",
-##   "gym_name", "gym_url"
+##   "gym_id", "base64_gym_id", "gym_name", "gym_url"
 ##
 ## For PokeAlarm, add the following config.
 ####
