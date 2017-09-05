@@ -6,14 +6,16 @@ from itertools import cycle
 from sys import exit
 from distutils.version import StrictVersion
 
+from aiohttp import ClientSession
 from aiopogo import PGoApi, HashServer, json_loads, exceptions as ex
 from aiopogo.auth_ptc import AuthPtc
 from cyrandom import choice, randint, uniform
 from pogeo import get_distance
 
-from .db import FORT_CACHE, MYSTERY_CACHE, SIGHTING_CACHE
-from .utils import round_coords, load_pickle, get_device_info, get_start_coords, Units, randomize_point
+from .db import FORT_CACHE, MYSTERY_CACHE, SIGHTING_CACHE, RAID_CACHE
+from .utils import round_coords, load_pickle, get_device_info, get_start_coords, Units, randomize_point, calc_pokemon_level
 from .shared import get_logger, LOOP, SessionManager, run_threaded, ACCOUNTS
+from .sb import SbDetector, SbAccountException
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
 
 if conf.NOTIFY:
@@ -28,6 +30,10 @@ if conf.CACHE_CELLS:
 else:
     from pogeo import get_cell_ids as _pogeo_cell_ids
 
+if conf.SB_DETECTOR:
+    sb_detector = SbDetector()
+else:
+    sb_detector = None
 
 _unit = getattr(Units, conf.SPEED_UNIT.lower())
 if conf.SPIN_POKESTOPS:
@@ -125,8 +131,10 @@ class Worker:
         self.item_capacity = 350
         self.visits = 0
         self.pokestops = conf.SPIN_POKESTOPS
+        self.gyms = conf.GET_GYM_DETAILS
         self.next_spin = 0
         self.handle = HandleStub()
+        self.next_gym = 0
 
     def initialize_api(self):
         device_info = get_device_info(self.account)
@@ -213,9 +221,11 @@ class Worker:
 
             player_data = get_player.player_data
             tutorial_state = player_data.tutorial_state
+
             # API can return 0 as capacity.
             if player_data.max_item_storage != 0:
                 self.item_capacity = player_data.max_item_storage
+
             if 'created' not in self.account:
                 self.account['created'] = player_data.creation_timestamp_ms / 1000
         except (KeyError, TypeError, AttributeError):
@@ -647,6 +657,8 @@ class Worker:
         Also is capable of restarting in case an error occurs.
         """
         try:
+            if sb_detector:
+                await sb_detector.detect(self.username)
             try:
                 self.altitude = altitudes.get(point)
             except KeyError:
@@ -684,12 +696,17 @@ class Worker:
             self.error_code = 'WARN'
             self.log.warning('{} is warn', self.username)
             await sleep(1, loop=LOOP)
-            await self.remove_account(warn=True)
+            await self.remove_account(flag='warn')
         except ex.BannedAccountException:
             self.error_code = 'BANNED'
             self.log.warning('{} is banned', self.username)
             await sleep(1, loop=LOOP)
-            await self.remove_account()
+            await self.remove_account(flag='banned')
+        except SbAccountException:
+            self.error_code = 'BANNED'
+            self.log.warning('{} is shadow banned', self.username)
+            await sleep(1, loop=LOOP)
+            await self.remove_account(flag='sbanned')
         except ex.ProxyException as e:
             self.error_code = 'PROXY ERROR'
 
@@ -795,33 +812,39 @@ class Worker:
             for pokemon in map_cell.wild_pokemons:
                 pokemon_seen += 1
 
-                normalized = self.normalize_pokemon(pokemon)
+                normalized = self.normalize_pokemon(pokemon, username=self.username)
                 seen_target = seen_target or normalized['spawn_id'] == spawn_id
 
-                if (normalized not in SIGHTING_CACHE and
-                        normalized not in MYSTERY_CACHE):
-                    if (encounter_conf == 'all'
-                            or (encounter_conf == 'some'
-                            and normalized['pokemon_id'] in conf.ENCOUNTER_IDS)):
+                is_new = (normalized not in SIGHTING_CACHE and
+                        normalized not in MYSTERY_CACHE)
+                should_encounter = (encounter_conf == 'all'
+                        or (encounter_conf == 'some'
+                            and normalized['pokemon_id'] in conf.ENCOUNTER_IDS))
+                should_notify = (notify_conf and self.notifier.eligible(normalized))
+
+                encountered = False
+
+                if is_new and (should_encounter or should_notify):
+                    if conf.PGSCOUT_ENDPOINT:
+                        async with ClientSession(loop=LOOP) as session:
+                            encountered = await self.pgscout(session, normalized, pokemon.spawn_point_id)
+
+                    if (not encountered and self.player_level and self.player_level >= 30):
                         try:
                             await self.encounter(normalized, pokemon.spawn_point_id)
+                            encountered = True
                         except CancelledError:
                             db_proc.add(normalized)
                             raise
                         except Exception as e:
                             self.log.warning('{} during encounter', e.__class__.__name__)
 
-                if notify_conf and self.notifier.eligible(normalized):
-                    if encounter_conf and 'move_1' not in normalized:
-                        try:
-                            await self.encounter(normalized, pokemon.spawn_point_id)
-                        except CancelledError:
-                            db_proc.add(normalized)
-                            raise
-                        except Exception as e:
-                            self.log.warning('{} during encounter', e.__class__.__name__)
+                if should_notify:
                     LOOP.create_task(self.notifier.notify(normalized, map_objects.time_of_day))
+
                 db_proc.add(normalized)
+
+            priority_fort = self.prioritize_forts(map_cell.forts)
 
             for fort in map_cell.forts:
                 if not fort.enabled:
@@ -844,8 +867,27 @@ class Worker:
                     if fort.id not in FORT_CACHE.pokestops:
                         pokestop = self.normalize_pokestop(fort)
                         db_proc.add(pokestop)
-                elif fort not in FORT_CACHE:
-                    db_proc.add(self.normalize_gym(fort))
+                else:
+                    normalized_fort = self.normalize_gym(fort)
+                    if fort not in FORT_CACHE:
+                        if (priority_fort and
+                                self.gyms and
+                                priority_fort.id == fort.id and
+                                time() > self.next_gym and self.smart_throttle(1)):
+
+                            gym = await self.gym_get_info(normalized_fort)
+                            if gym:
+                                self.log.info('Got gym info for {}', normalized_fort["name"])
+                            db_proc.add(normalized_fort)
+                        else:
+                            db_proc.add(normalized_fort)
+                    if fort.HasField('raid_info'):
+                        if fort not in RAID_CACHE:
+                            normalized_raid = self.normalize_raid(fort)
+                            if (notify_conf and normalized_raid['pokemon_id'] > 0
+                                    and normalized_raid['time_end'] > int(time())):
+                                LOOP.create_task(self.notifier.webhook_raid(normalized_raid, normalized_fort))
+                            db_proc.add(normalized_raid)
 
             if more_points:
                 try:
@@ -890,14 +932,47 @@ class Worker:
                 (point, start, self.speed, self.total_seen,
                 self.visits, pokemon_seen))])
         self.log.info(
-            'Point processed, {} Pokemon and {} forts seen!',
+            'Point processed, {} Pokemon and {} forts seen by {}!',
             pokemon_seen,
             forts_seen,
+            self.username
         )
 
         self.update_accounts_dict()
         self.handle = LOOP.call_later(60, self.unset_code)
         return pokemon_seen + forts_seen + points_seen
+
+
+    async def pgscout(self, session, pokemon, spawn_id):
+        try:
+            async with session.get(
+                    conf.PGSCOUT_ENDPOINT,
+                    params={'pokemon_id': pokemon['pokemon_id'],
+                            'encounter_id': pokemon['encounter_id'],
+                            'spawn_point_id': spawn_id,
+                            'latitude': str(pokemon['lat']),
+                            'longitude': str(pokemon['lon'])},
+                    timeout=conf.PGSCOUT_TIMEOUT) as resp:
+                response = await resp.json(loads=json_loads)
+            try:
+                pokemon['move_1'] = response['move_1']
+                pokemon['move_2'] = response['move_2']
+                pokemon['individual_attack'] = response.get('iv_attack',0)
+                pokemon['individual_defense'] = response.get('iv_defense',0)
+                pokemon['individual_stamina'] = response.get('iv_stamina',0)
+                pokemon['height'] = response['height']
+                pokemon['weight'] = response['weight']
+                pokemon['gender'] = response['gender']
+                pokemon['form'] = response.get('form')
+                pokemon['cp'] = response.get('cp')
+                pokemon['level'] = calc_pokemon_level(response.get('cp_multiplier'))
+                return True
+            except KeyError:
+                self.log.error('Missing Pokemon data in PGScout response.')
+        except Exception:
+            self.log.exception('PGScout Request Error.')
+        return False
+
 
     def smart_throttle(self, requests=1):
         try:
@@ -910,6 +985,47 @@ class Worker:
             return hashes_left > usable_per_second * seconds_left + spare
         except (TypeError, KeyError):
             return False
+
+    async def gym_get_info(self, gym):
+        self.error_code = 'G'
+
+        # randomize location up to ~1.4 meters
+        self.simulate_jitter(amount=0.00001)
+
+        request = self.api.create_request()
+        request.gym_get_info(gym_id = gym['external_id'],
+                             player_lat_degrees = self.location[0],
+                             player_lng_degrees = self.location[1],
+                             gym_lat_degrees = gym['lat'],
+                             gym_lng_degrees = gym['lon'])
+        responses = await self.call(request, action=1)
+
+        info = responses['GYM_GET_INFO']
+        name = info.name
+        result = info.result or 0
+
+        if result == 1:
+            try:
+                gym['name'] = name
+                gym['url'] = info.url
+
+                for gym_defender in info.gym_status_and_defenders.gym_defender:
+                    normalized_defender = self.normalize_gym_defender(gym_defender)
+                    gym['gym_defenders'].append(normalized_defender)
+
+            except KeyError as e:
+                self.log.error('Missing Gym data in gym_get_info response. {}',e)
+            except Exception as e:
+                self.log.error('Unknown error: in gym_get_info: {}',e)
+
+        elif result == 2:
+            self.log.info('The server said {} was out of gym details range. {:.1f}m {:.1f}{}',
+                name, distance, self.speed, UNIT_STRING)
+
+        self.next_gym = time() + conf.GYM_COOLDOWN
+        self.error_code = '!'
+        
+        return gym 
 
     async def spin_pokestop(self, pokestop):
         self.error_code = '$'
@@ -930,6 +1046,14 @@ class Worker:
                              longitude = pokestop_location[1])
         responses = await self.call(request, action=1.2)
         name = responses['FORT_DETAILS'].name
+        try:
+            normalized = self.normalize_pokestop(pokestop)
+            normalized['name'] = name
+            normalized['url'] = responses['FORT_DETAILS'].image_urls[0]
+            if pokestop.id not in FORT_CACHE.pokestop_names:
+                db_proc.add(normalized)
+        except KeyError:
+            self.log.error("Missing Pokestop data in fort_details response. {}".format(responses))
 
         request = self.api.create_request()
         request.fort_search(fort_id = pokestop.id,
@@ -1019,6 +1143,8 @@ class Worker:
             pokemon['height'] = pdata.height_m
             pokemon['weight'] = pdata.weight_kg
             pokemon['gender'] = pdata.pokemon_display.gender
+            pokemon['cp'] = pdata.cp
+            pokemon['level'] = calc_pokemon_level(pdata.cp_multiplier)
         except KeyError:
             self.log.error('Missing encounter response.')
         self.error_code = '!'
@@ -1167,11 +1293,14 @@ class Worker:
 
         ACCOUNTS[self.username] = self.account
 
-    async def remove_account(self, warn=False):
+    async def remove_account(self, flag='banned'):
         self.error_code = 'REMOVING'
-        if warn:
+        if flag == 'warn':
             self.account['warn'] = True
             self.log.warning('Removing {} due to warn.', self.username)
+        elif flag == 'sbanned':
+            self.account['sbanned'] = True
+            self.log.warning('Removing {} due to shadow ban.', self.username)
         else:
             self.account['banned'] = True
             self.log.warning('Removing {} due to ban.', self.username)
@@ -1238,11 +1367,39 @@ class Worker:
         self.initialize_api()
         self.error_code = None
 
+    def within_distance(self, fort, max_distance=445):
+        gym_location = fort.latitude, fort.longitude
+        distance = get_distance(self.location, gym_location)
+
+        if distance > max_distance:
+            return False
+
+        return True
+
+    def prioritize_forts(self, map_cell_forts):
+
+        # Filter gyms that are nearby 
+        forts = [ x for x in map_cell_forts if x.type == 0 and self.within_distance(x, max_distance=445)]
+
+        raids_to_check = [ x for x in forts if x.HasField("raid_info") and (x not in RAID_CACHE)]
+        gyms_to_check = [ x for x in forts if not x.HasField("raid_info") and (x not in FORT_CACHE)]
+
+        # Order oldest first
+        raids_to_check.sort(key=lambda x: x.last_modified_timestamp_ms, reverse=False)
+        gyms_to_check.sort(key=lambda x: x.last_modified_timestamp_ms, reverse=False)
+
+        # Prioritize raids over normal gyms
+        forts_to_check = raids_to_check +  gyms_to_check
+
+        # Get the head
+        fort_to_check = forts_to_check[0] if len(forts_to_check) > 0 else None
+        return fort_to_check
+
     def unset_code(self):
         self.error_code = None
 
     @staticmethod
-    def normalize_pokemon(raw, spawn_int=conf.SPAWN_ID_INT):
+    def normalize_pokemon(raw, spawn_int=conf.SPAWN_ID_INT, username=None):
         """Normalizes data coming from API into something acceptable by db"""
         tsm = raw.last_modified_timestamp_ms
         tss = round(tsm / 1000)
@@ -1254,7 +1411,10 @@ class Worker:
             'lat': raw.latitude,
             'lon': raw.longitude,
             'spawn_id': int(raw.spawn_point_id, 16) if spawn_int else raw.spawn_point_id,
-            'seen': tss
+            'seen': tss,
+            'gender': raw.pokemon_data.pokemon_display.gender,
+            'form': raw.pokemon_data.pokemon_display.form,
+            'username': username,
         }
         if tth > 0 and tth <= 90000:
             norm['expire_timestamp'] = round((tsm + tth) / 1000)
@@ -1293,10 +1453,63 @@ class Worker:
             'lat': raw.latitude,
             'lon': raw.longitude,
             'team': raw.owned_by_team,
-            'prestige': raw.gym_points,
             'guard_pokemon_id': raw.guard_pokemon_id,
             'last_modified': raw.last_modified_timestamp_ms // 1000,
+            'is_in_battle': raw.is_in_battle,
+            'slots_available': raw.gym_display.slots_available,
+            'gym_defenders': [],
         }
+
+    @staticmethod
+    def normalize_raid(raw):
+        obj = {
+            'type': 'raid',
+            'external_id': raw.raid_info.raid_seed,
+            'fort_id': raw.id,
+            'level': raw.raid_info.raid_level,
+            'pokemon_id': 0,
+            'time_spawn': raw.raid_info.raid_spawn_ms // 1000,
+            'time_battle': raw.raid_info.raid_battle_ms // 1000,
+            'time_end': raw.raid_info.raid_end_ms // 1000,
+            'cp': 0,
+            'move_1': 0,
+            'move_2': 0,
+        }
+        if raw.raid_info.HasField('raid_pokemon'):
+            obj['pokemon_id'] = raw.raid_info.raid_pokemon.pokemon_id
+            obj['cp'] = raw.raid_info.raid_pokemon.cp
+            obj['move_1'] = raw.raid_info.raid_pokemon.move_1
+            obj['move_2'] = raw.raid_info.raid_pokemon.move_2
+        return obj
+
+    @staticmethod
+    def normalize_gym_defender(raw):
+        pokemon = raw.motivated_pokemon.pokemon
+
+        obj = {
+            'type': 'gym_defender',
+            'external_id': pokemon.id,
+            'pokemon_id': pokemon.pokemon_id,
+            'owner_name': pokemon.owner_name,
+            'nickname': pokemon.nickname,
+            'cp': pokemon.cp,
+            'stamina': pokemon.stamina,
+            'stamina_max': pokemon.stamina_max,
+            'atk_iv': pokemon.individual_attack,
+            'def_iv': pokemon.individual_defense,
+            'sta_iv': pokemon.individual_stamina,
+            'move_1': pokemon.move_1,
+            'move_2': pokemon.move_2,
+            'battles_attacked': pokemon.battles_attacked,
+            'battles_defended': pokemon.battles_defended,
+            'num_upgrades': 0,
+        }
+
+        if hasattr(pokemon, 'num_upgrades'):
+            obj['num_upgrades'] = pokemon.num_upgrades
+
+        return obj
+
 
     @staticmethod
     def normalize_pokestop(raw):
@@ -1304,7 +1517,9 @@ class Worker:
             'type': 'pokestop',
             'external_id': raw.id,
             'lat': raw.latitude,
-            'lon': raw.longitude
+            'lon': raw.longitude,
+            'name': None,
+            'url': None
         }
 
     @staticmethod

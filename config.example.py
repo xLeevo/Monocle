@@ -4,6 +4,9 @@ DB_ENGINE = 'sqlite:///db.sqlite'
 #DB_ENGINE = 'mysql://user:pass@localhost/monocle'
 #DB_ENGINE = 'postgresql://user:pass@localhost/monocle
 
+## Reconnect db session after x seconds. It solves lost connection error if DB wait_timeout is set to lower values.
+# DB_POOL_RECYCLE = 600
+
 AREA_NAME = 'SLC'     # the city or region you are scanning
 LANGUAGE = 'EN'       # ISO 639-1 codes EN, DE, ES, FR, IT, JA, KO, PT, or ZH for Pokémon/move names
 MAX_CAPTCHAS = 100    # stop launching new visits if this many CAPTCHAs are pending
@@ -70,8 +73,12 @@ SEARCH_SLEEP = 2.5
 #from shapely.geometry import Polygon
 #BOUNDARIES = Polygon(((40.799609, -111.948556), (40.792749, -111.887341), (40.779264, -111.838078), (40.761410, -111.817908), (40.728636, -111.805293), (40.688833, -111.785564), (40.689768, -111.919389), (40.750461, -111.949938)))
 
-# key for Bossland's hashing server, otherwise the old hashing lib will be used
+# key for Bossland's hashing server, needed if you're not using Go Hash.
 #HASH_KEY = '9d87af14461b93cb3605'  # this key is fake
+
+GO_HASH = False
+# key for Go Hash a new hashing service that acts as a hash surge buffer on top of Bosslands hash server with a pay per hash model. Needed if you're not using a key direct from Bossland
+#GO_HASH_KEY = 'PH7B03W1LSD4S2LHY8UH' # this is a fake key
 
 # Skip PokéStop spinning and egg incubation if your request rate is too high
 # for your hashing subscription.
@@ -104,6 +111,14 @@ ENCOUNTER = None
 # PokéStops
 SPIN_POKESTOPS = True  # spin all PokéStops that are within range
 SPIN_COOLDOWN = 300    # spin only one PokéStop every n seconds (default 300)
+
+## Gyms
+
+# Cools down for x seconds for a worker after scanning a gym details.
+#GYM_COOLDOWN = 10
+
+# Toggles scanning for gym details. Smart throttle is applied in the same way as PokéStops.
+#GET_GYM_DETAILS = False
 
 # minimum number of each item to keep if the bag is cleaned
 # bag cleaning is disabled if this is not present or is commented out
@@ -231,6 +246,7 @@ LOAD_CUSTOM_JS_FILE = False   # File path MUST be 'static/js/custom.js'
 #TELEGRAM_USERNAME = None  # Username withouth '@' char
 
 ## Variables below will be used as default values on frontend
+#RAIDS_FILTER = (1, 2, 3, 4, 5)  # Levels shown by default on map
 FIXED_OPACITY = False  # Make marker opacity independent of remaining time
 SHOW_TIMER = False  # Show remaining time on a label under each pokemon marker
 
@@ -311,6 +327,30 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 
 #WEBHOOKS = {'http://127.0.0.1:4000'}
 
+#####
+## Webhook formatting config
+##
+## Allows configuration of outgoing raid webhooks.
+## Defines <our field name>:<recipient's field name>
+##
+## The following are all the available fields for raid webhook.
+##   "external_id", "latitude", "longitude", "level", "pokemon_id",
+##   "team", "cp", "move_1", "move_2",
+##   "raid_begin", "raid_battle", "raid_end",
+##   "gym_id", "base64_gym_id", "gym_name", "gym_url"
+##
+## For PokeAlarm, add the following config.
+####
+#WEBHOOK_RAID_MAPPING = {
+#    'external_id': 'raid_seed',
+#    'gym_name': 'name',
+#    'gym_url': 'url',
+#}
+
+# For others, this is the default value (no mapping defined)
+#WEBHOOK_RAID_MAPPING = {}
+
+
 
 ##### Referencing landmarks in your tweets/notifications
 
@@ -355,3 +395,36 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #LANDMARKS.add('the University of Utah', shortname='the U of U', hashtags={'Utes'}, phrase='at', is_area=True)
 ## provide corner points to create a polygon of the area since OpenStreetMap does not have a shape for it
 #LANDMARKS.add('Yalecrest', points=((40.750263, -111.836502), (40.750377, -111.851108), (40.751515, -111.853833), (40.741212, -111.853909), (40.741188, -111.836519)), is_area=True)
+
+## Shadown ban module
+# SB_DETECTOR = False
+# SB_UNCOMMON_POKEMON_IDS = (16,19,23,27,29,32,41,43,46,52,54,60,69,72,74,77,81,98,118,120,129,161,165,167,177,183,187,191,194,198,209,218)
+# SB_MAX_UNCOMMON_COUNT = 0     # Maximum uncommon counts required to flag SB
+# SB_MIN_SIGHTING_COUNT = 30    # Minimum sightings required to flag SB
+# SB_QUARANTINE_SECONDS = 2700 # How many seconds to set as investigation period?
+# SB_COOLDOWN = 300             # How many seconds to wait before next sb detection for the account
+# SB_WEBHOOK = None             # Define webhook end point for SB. Payload is {type: "sban", message: {username: :username}}
+
+####
+### PgScout (Credit to Avatar690)
+## MUST MATCH YOUR PGSCOUT CONFIG.JSON.  Will encounter based on ENCOUNTER_IDs above.  
+## If encounter fails, worker.py will attempt to encounter with the running acount (if lv > 30)
+## If it fails, sighting will be saved without additional encounter info.
+
+### Enter in your address for PGSCOUT hook endpoint including hostname, port (if any) and path.
+### If set to a url, PGSCOUT will be used. If None, normal Monocle encounter will be used. 
+#
+#PGSCOUT_ENDPOINT = None
+#
+## Example,
+#PGSCOUT_ENDPOINT = "http://127.0.0.1:1234/iv"
+#
+## *Take note that /iv is needed at the end for PGScout. Do not remove it.*
+
+## Set the connection timeout to wait on a response from PGScout.  Default is 40 seconds.
+## Timeout will be connection dependent, proxy dependent, etc.  I recommend keeping it at the default.
+## Going too high will certainly guarantee a response from a Scout but will lead to greater inefficiency
+## and instability for Monocle
+#
+#PGSCOUT_TIMEOUT = 40 
+#

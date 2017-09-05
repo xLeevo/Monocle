@@ -16,6 +16,7 @@ class DatabaseProcessor(Thread):
         self.running = True
         self.count = 0
         self._commit = False
+        self.session = None
 
     def __len__(self):
         return self.queue.qsize()
@@ -30,6 +31,7 @@ class DatabaseProcessor(Thread):
 
     def run(self):
         session = db.Session()
+        self.session = session
         LOOP.call_soon_threadsafe(self.commit)
 
         while self.running or not self.queue.empty():
@@ -45,6 +47,8 @@ class DatabaseProcessor(Thread):
                 elif item_type == 'mystery':
                     db.add_mystery(session, item)
                     self.count += 1
+                elif item_type == 'raid':
+                    db.add_raid(session, item)
                 elif item_type == 'fort':
                     db.add_fort_sighting(session, item)
                 elif item_type == 'pokestop':

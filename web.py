@@ -45,9 +45,10 @@ def render_map():
         css_js += '<script type="text/javascript" src="static/js/custom.js"></script>'
 
     js_vars = Markup(
+        "_defaultSettings['RAIDS_FILTER'] = [{}];"
         "_defaultSettings['FIXED_OPACITY'] = '{:d}'; "
         "_defaultSettings['SHOW_TIMER'] = '{:d}'; "
-        "_defaultSettings['TRASH_IDS'] = [{}]; ".format(conf.FIXED_OPACITY, conf.SHOW_TIMER, ', '.join(str(p_id) for p_id in conf.TRASH_IDS)))
+        "_defaultSettings['TRASH_IDS'] = [{}]; ".format(', '.join(str(p_id) for p_id in conf.RAIDS_FILTER), conf.FIXED_OPACITY, conf.SHOW_TIMER, ', '.join(str(p_id) for p_id in conf.TRASH_IDS)))
 
     template = app.jinja_env.get_template('custom.html' if conf.LOAD_CUSTOM_HTML_FILE else 'newmap.html')
     return template.render(
@@ -81,6 +82,11 @@ def fullmap(map_html=render_map()):
 def pokemon_data():
     last_id = request.args.get('last_id', 0)
     return jsonify(get_pokemarkers(last_id))
+
+
+@app.route('/raids')
+def get_raids():
+    return jsonify(get_raid_markers())
 
 
 @app.route('/gym_data')

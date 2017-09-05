@@ -4,7 +4,7 @@ from multiprocessing.managers import BaseManager, RemoteError
 from time import time
 
 from monocle import sanitized as conf
-from monocle.db import get_forts, Pokestop, session_scope, Sighting, Spawnpoint
+from monocle.db import get_forts, Pokestop, session_scope, Sighting, Spawnpoint, Raid, Fort
 from monocle.utils import Units, get_address
 from monocle.names import DAMAGE, MOVES, POKEMON
 
@@ -94,6 +94,8 @@ def sighting_to_marker(pokemon, names=POKEMON, moves=MOVES, damage=DAMAGE):
         'lat': pokemon.lat,
         'lon': pokemon.lon,
         'expires_at': pokemon.expire_timestamp,
+        'gender': pokemon.gender,
+        'form': pokemon.form
     }
     move1 = pokemon.move_1
     if pokemon.move_1:
@@ -105,6 +107,8 @@ def sighting_to_marker(pokemon, names=POKEMON, moves=MOVES, damage=DAMAGE):
         marker['move2'] = moves[move2]
         marker['damage1'] = damage[move1]
         marker['damage2'] = damage[move2]
+        marker['cp'] = pokemon.cp
+        marker['level'] = pokemon.level
     return marker
 
 
@@ -118,18 +122,44 @@ def get_pokemarkers(after_id=0):
         return tuple(map(sighting_to_marker, pokemons))
 
 
+def get_raid_markers(names=POKEMON):
+    with session_scope() as session:
+        markers = []
+        raids = session.query(Raid) \
+            .filter(Raid.time_end > time())
+        for raid in raids:
+            fort_id = raid.fort_id
+            fort = session.query(Fort) \
+                .filter(Fort.id == fort_id) \
+                .scalar()
+            markers.append({
+                'id': 'raid-' + str(raid.id),
+                'level': raid.level,
+                'pokemon_id': raid.pokemon_id,
+                'pokemon_name': names[raid.pokemon_id],
+                'lat': fort.lat,
+                'lon': fort.lon,
+                'time_spawn': raid.time_spawn,
+                'time_battle': raid.time_battle,
+                'time_end': raid.time_end
+                })
+
+        return markers
+
+
 def get_gym_markers(names=POKEMON):
     with session_scope() as session:
         forts = get_forts(session)
     return [{
             'id': 'fort-' + str(fort['fort_id']),
             'sighting_id': fort['id'],
-            'prestige': fort['prestige'],
             'pokemon_id': fort['guard_pokemon_id'],
             'pokemon_name': names[fort['guard_pokemon_id']],
             'team': fort['team'],
             'lat': fort['lat'],
-            'lon': fort['lon']
+            'lon': fort['lon'],
+            'slots_available': fort['slots_available'],
+            'last_modified': fort['last_modified']
     } for fort in forts]
 
 

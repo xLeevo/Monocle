@@ -43,10 +43,10 @@ def render_map():
         css_js += '<script type="text/javascript" src="static/js/custom.js"></script>'
 
     js_vars = Markup(
+        "_defaultSettings['RAIDS_FILTER'] = [{}]; "
         "_defaultSettings['FIXED_OPACITY'] = '{:d}'; "
         "_defaultSettings['SHOW_TIMER'] = '{:d}'; "
-        "_defaultSettings['TRASH_IDS'] = [{}]; ".format(conf.FIXED_OPACITY, conf.SHOW_TIMER, ', '.join(str(p_id) for p_id in conf.TRASH_IDS)))
-
+        "_defaultSettings['TRASH_IDS'] = [{}]; ".format(', '.join(str(p_id) for p_id in conf.RAIDS_FILTER), conf.FIXED_OPACITY, conf.SHOW_TIMER, ', '.join(str(p_id) for p_id in conf.TRASH_IDS)))
     template = env.get_template('custom.html' if conf.LOAD_CUSTOM_HTML_FILE else 'newmap.html')
     return html(template.render(
         area_name=conf.AREA_NAME,
@@ -97,7 +97,7 @@ async def pokemon_data(request, _time=time):
     last_id = request.args.get('last_id', 0)
     async with app.pool.acquire() as conn:
         results = await conn.fetch('''
-            SELECT id, pokemon_id, expire_timestamp, lat, lon, atk_iv, def_iv, sta_iv, move_1, move_2
+            SELECT id, pokemon_id, expire_timestamp, lat, lon, atk_iv, def_iv, sta_iv, move_1, move_2, cp, level
             FROM sightings
             WHERE expire_timestamp > {} AND id > {}
         '''.format(_time(), last_id))
@@ -112,7 +112,6 @@ async def gym_data(request, names=POKEMON, _str=str):
                 fs.fort_id,
                 fs.id,
                 fs.team,
-                fs.prestige,
                 fs.guard_pokemon_id,
                 fs.last_modified,
                 f.lat,
@@ -128,7 +127,6 @@ async def gym_data(request, names=POKEMON, _str=str):
     return json([{
             'id': 'fort-' + _str(fort['fort_id']),
             'sighting_id': fort['id'],
-            'prestige': fort['prestige'],
             'pokemon_id': fort['guard_pokemon_id'],
             'pokemon_name': names[fort['guard_pokemon_id']],
             'team': fort['team'],
@@ -177,6 +175,8 @@ def sighting_to_marker(pokemon, names=POKEMON, moves=MOVES, damage=DAMAGE, trash
         marker['move2'] = moves[move2]
         marker['damage1'] = damage[move1]
         marker['damage2'] = damage[move2]
+        marker['cp'] = pokemon['cp']
+        marker['level'] = pokemon['level']
     return marker
 
 
