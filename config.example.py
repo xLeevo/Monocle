@@ -418,6 +418,8 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #
 ## Example,
 #PGSCOUT_ENDPOINT = "http://127.0.0.1:1234/iv"
+#
+## *Take note that /iv is needed at the end for PGScout. Do not remove it.*
 
 ## Set the connection timeout to wait on a response from PGScout.  Default is 40 seconds.
 ## Timeout will be connection dependent, proxy dependent, etc.  I recommend keeping it at the default.
