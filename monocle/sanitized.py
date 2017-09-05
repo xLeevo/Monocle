@@ -92,6 +92,8 @@ _valid_types = {
     'PASS': str,
     'PB_API_KEY': str,
     'PB_CHANNEL': int,
+    'PGSCOUT_ENDPOINT': str,
+    'PGSCOUT_TIMEOUT': int,
     'PLAYER_LOCALE': dict,
     'PROVIDER': str,
     'PROXIES': set_sequence,
@@ -139,7 +141,8 @@ _valid_types = {
     'TWITTER_SCREEN_NAME': str,
     'TZ_OFFSET': Number,
     'UVLOOP': bool,
-    'WEBHOOKS': set_sequence
+    'WEBHOOKS': set_sequence,
+    'WEBHOOK_RAID_MAPPING': dict, 
 }
 
 _defaults = {
@@ -209,6 +212,8 @@ _defaults = {
     'PASS': None,
     'PB_API_KEY': None,
     'PB_CHANNEL': None,
+    'PGSCOUT_ENDPOINT': None,
+    'PGSCOUT_TIMEOUT': 40,
     'PLAYER_LOCALE': {'country': 'US', 'language': 'en', 'timezone': 'America/Denver'},
     'PROVIDER': None,
     'PROXIES': None,
@@ -222,8 +227,8 @@ _defaults = {
     'SB_DETECTOR': False,
     'SB_UNCOMMON_POKEMON_IDS': (16,19,23,27,29,32,41,43,46,52,54,60,69,72,74,77,81,98,118,120,129,161,165,167,177,183,187,191,194,198,209,218),
     'SB_MAX_UNCOMMON_COUNT': 0,
-    'SB_MIN_SIGHTING_COUNT': 30,
-    'SB_QUARANTINE_SECONDS': 2700,
+    'SB_MIN_SIGHTING_COUNT': 40,
+    'SB_QUARANTINE_SECONDS': 3600,
     'SB_COOLDOWN': 300,
     'SB_WEBHOOK': None,
     'SCAN_DELAY': 10,
@@ -238,7 +243,7 @@ _defaults = {
     'SPEED_UNIT': 'miles',
     'SPIN_COOLDOWN': 300,
     'SPIN_POKESTOPS': True,
-    'GYM_COOLDOWN': 180,
+    'GYM_COOLDOWN': 10,
     'GET_GYM_DETAILS': False,
     'STAT_REFRESH': 5,
     'STAY_WITHIN_MAP': True,
@@ -256,7 +261,8 @@ _defaults = {
     'TWITTER_SCREEN_NAME': None,
     'TZ_OFFSET': None,
     'UVLOOP': True,
-    'WEBHOOKS': None
+    'WEBHOOKS': None,
+    'WEBHOOK_RAID_MAPPING': {},
 }
 
 

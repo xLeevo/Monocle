@@ -476,9 +476,10 @@ def add_sighting(session, pokemon):
         cp=pokemon.get('cp'),
         level=pokemon.get('level'),
     )
-    username = pokemon.get('username', None)
-    if username:
-        obj.user = SightingUser(username=username)
+    if conf.SB_DETECTOR:
+        username = pokemon.get('username', None)
+        if username:
+            obj.user = SightingUser(username=username)
     session.add(obj)
     SIGHTING_CACHE.add(pokemon)
 
@@ -902,6 +903,11 @@ def get_pokemon_ranking(session):
     none_seen = [x for x in range(1,252) if x not in ranked]
     return none_seen + ranked
 
+def get_gym(session,raw_fort):
+    fort = session.query(Fort) \
+        .filter(Fort.external_id == raw_fort['external_id']) \
+        .first()
+    return fort
 
 def get_sightings_per_pokemon(session):
     query = session.query(Sighting.pokemon_id, func.count(Sighting.pokemon_id).label('how_many')) \
