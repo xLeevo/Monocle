@@ -476,9 +476,10 @@ def add_sighting(session, pokemon):
         cp=pokemon.get('cp'),
         level=pokemon.get('level'),
     )
-    username = pokemon.get('username', None)
-    if username:
-        obj.user = SightingUser(username=username)
+    if conf.SB_DETECTOR:
+        username = pokemon.get('username', None)
+        if username:
+            obj.user = SightingUser(username=username)
     session.add(obj)
     SIGHTING_CACHE.add(pokemon)
 

@@ -337,7 +337,7 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 ##   "external_id", "latitude", "longitude", "level", "pokemon_id",
 ##   "team", "cp", "move_1", "move_2",
 ##   "raid_begin", "raid_battle", "raid_end",
-##   "gym_name", "gym_url"
+##   "gym_id", "base64_gym_id", "gym_name", "gym_url"
 ##
 ## For PokeAlarm, add the following config.
 ####
@@ -404,3 +404,25 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 # SB_QUARANTINE_SECONDS = 2700 # How many seconds to set as investigation period?
 # SB_COOLDOWN = 300             # How many seconds to wait before next sb detection for the account
 # SB_WEBHOOK = None             # Define webhook end point for SB. Payload is {type: "sban", message: {username: :username}}
+
+####
+### PgScout (Credit to Avatar690)
+## MUST MATCH YOUR PGSCOUT CONFIG.JSON.  Will encounter based on ENCOUNTER_IDs above.  
+## If encounter fails, worker.py will attempt to encounter with the running acount (if lv > 30)
+## If it fails, sighting will be saved without additional encounter info.
+
+### Enter in your address for PGSCOUT hook endpoint including hostname, port (if any) and path.
+### If set to a url, PGSCOUT will be used. If None, normal Monocle encounter will be used. 
+#
+#PGSCOUT_ENDPOINT = None
+#
+## Example,
+#PGSCOUT_ENDPOINT = "http://127.0.0.1:1234/iv"
+
+## Set the connection timeout to wait on a response from PGScout.  Default is 40 seconds.
+## Timeout will be connection dependent, proxy dependent, etc.  I recommend keeping it at the default.
+## Going too high will certainly guarantee a response from a Scout but will lead to greater inefficiency
+## and instability for Monocle
+#
+#PGSCOUT_TIMEOUT = 40 
+#
