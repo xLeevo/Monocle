@@ -824,7 +824,7 @@ class Worker:
 
                 encountered = False
 
-                if is_new and (should_encounter or should_notify):
+                if is_new and should_encounter:
                     if conf.PGSCOUT_ENDPOINT:
                         async with ClientSession(loop=LOOP) as session:
                             encountered = await self.pgscout(session, normalized, pokemon.spawn_point_id)
@@ -839,7 +839,7 @@ class Worker:
                         except Exception as e:
                             self.log.warning('{} during encounter', e.__class__.__name__)
 
-                if should_notify:
+                if is_new and should_notify:
                     LOOP.create_task(self.notifier.notify(normalized, map_objects.time_of_day))
 
                 db_proc.add(normalized)
