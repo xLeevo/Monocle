@@ -833,6 +833,7 @@ class Notifier:
                 "height": pokemon.get('height'),
                 "weight": pokemon.get('weight'),
                 "gender": pokemon.get('gender'),
+                "form_id": pokemon.get('form'),
                 "move_1": pokemon.get('move_1'),
                 "move_2": pokemon.get('move_2'),
                 "individual_attack": pokemon.get('individual_attack'),
