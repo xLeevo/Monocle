@@ -11,12 +11,12 @@ from aiopogo.auth_ptc import AuthPtc
 from cyrandom import choice, randint, uniform
 from pogeo import get_distance
 
-from .db import FORT_CACHE, MYSTERY_CACHE, SIGHTING_CACHE
+from .db import FORT_CACHE, MYSTERY_CACHE, SIGHTING_CACHE, RAID_CACHE
 from .utils import round_coords, load_pickle, get_device_info, get_start_coords, Units, randomize_point
 from .shared import get_logger, LOOP, SessionManager, run_threaded, ACCOUNTS
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
 
-if conf.NOTIFY:
+if conf.NOTIFY or conf.NOTIFY_RAIDS:
     from .notification import Notifier
 
 if conf.CACHE_CELLS:
@@ -77,7 +77,7 @@ class Worker:
     else:
         proxies = None
 
-    if conf.NOTIFY:
+    if conf.NOTIFY or conf.NOTIFY_RAIDS:
         notifier = Notifier()
 
     def __init__(self, worker_no):
@@ -844,8 +844,15 @@ class Worker:
                     if fort.id not in FORT_CACHE.pokestops:
                         pokestop = self.normalize_pokestop(fort)
                         db_proc.add(pokestop)
-                elif fort not in FORT_CACHE:
-                    db_proc.add(self.normalize_gym(fort))
+                else:
+                    if fort not in FORT_CACHE:
+                        db_proc.add(self.normalize_gym(fort))
+                    if fort.HasField('raid_info'):
+                        if fort not in RAID_CACHE:
+                            if conf.NOTIFY_RAIDS:
+                                LOOP.create_task(self.notifier.notify_raid(fort))
+                            raid = self.normalize_raid(fort)
+                            db_proc.add(raid)
 
             if more_points:
                 try:
@@ -1296,6 +1303,24 @@ class Worker:
             'prestige': raw.gym_points,
             'guard_pokemon_id': raw.guard_pokemon_id,
             'last_modified': raw.last_modified_timestamp_ms // 1000,
+            'slots_available': raw.gym_display.slots_available
+        }
+
+    @staticmethod
+    def normalize_raid(raw):
+        return {
+            'type': 'raid',
+            'external_id': raw.raid_info.raid_seed,
+            'fort_external_id': raw.id,
+            'lat': raw.latitude,
+            'lon': raw.longitude,
+            'level': raw.raid_info.raid_level,
+            'pokemon_id': raw.raid_info.raid_pokemon.pokemon_id if raw.raid_info.raid_pokemon else 0,
+            'move_1': raw.raid_info.raid_pokemon.move_1 if raw.raid_info.raid_pokemon else 0,
+            'move_2': raw.raid_info.raid_pokemon.move_2 if raw.raid_info.raid_pokemon else 0,
+            'time_spawn': raw.raid_info.raid_spawn_ms // 1000,
+            'time_battle': raw.raid_info.raid_battle_ms // 1000,
+            'time_end': raw.raid_info.raid_end_ms // 1000
         }
 
     @staticmethod

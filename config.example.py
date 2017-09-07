@@ -231,6 +231,7 @@ LOAD_CUSTOM_JS_FILE = False   # File path MUST be 'static/js/custom.js'
 #TELEGRAM_USERNAME = None  # Username withouth '@' char
 
 ## Variables below will be used as default values on frontend
+#RAIDS_FILTER = (1, 2, 3, 4, 5)  # Levels shown by default on map
 FIXED_OPACITY = False  # Make marker opacity independent of remaining time
 SHOW_TIMER = False  # Show remaining time on a label under each pokemon marker
 
@@ -306,8 +307,19 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 ## 1) '@channel_name' for channels
 ## 2) Your chat_id if you will use your own account. To retrieve your ID, write to your bot and check this URL:
 ##     https://api.telegram.org/bot<BOT_TOKEN_HERE>/getUpdates
+##
+## TELEGRAM_MESSAGE_TYPE can be 0 or 1:
+## => 0 you'll receive notifications as venue (as you already seen before in Monocle)
+## => 1 you'll receive notifications as text message with GMaps link
 #TELEGRAM_BOT_TOKEN = '123456789:AA12345qT6QDd12345RekXSQeoZBXVt-AAA'
 #TELEGRAM_CHAT_ID = '@your_channel'
+#TELEGRAM_MESSAGE_TYPE = 0
+
+NOTIFY_RAIDS = False  # enable raid notifications
+RAIDS_LVL_MIN = 4
+#RAIDS_IDS = {143, 248}
+#RAIDS_DISCORD_URL = "https://discordapp.com/api/webhooks/xxxxxxxxxxxx/xxxxxxxxxxxx"
+#TELEGRAM_RAIDS_CHAT_ID = '@your_channel'
 
 #WEBHOOKS = {'http://127.0.0.1:4000'}
 
