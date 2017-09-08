@@ -48,7 +48,7 @@ elif conf.DB_ENGINE.startswith('postgres'):
     TINY_TYPE = SmallInteger                    # -32768 to 32767
     MEDIUM_TYPE = Integer                       # -2147483648 to 2147483647
     HUGE_TYPE = NumInt(precision=20, scale=0)   # up to 20 digits
-    PRIMARY_HUGE_TYPE = Integer
+    PRIMARY_HUGE_TYPE = BigInteger
     FLOAT_TYPE = DOUBLE_PRECISION(asdecimal=False)
 else:
     class TextInt(TypeDecorator):
@@ -317,7 +317,7 @@ class Raid(Base):
 class Mystery(Base):
     __tablename__ = 'mystery_sightings'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
     pokemon_id = Column(TINY_TYPE)
     spawn_id = Column(ID_TYPE, index=True)
     encounter_id = Column(HUGE_TYPE, index=True)
@@ -386,7 +386,7 @@ class Fort(Base):
 class FortSighting(Base):
     __tablename__ = 'fort_sightings'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
     fort_id = Column(Integer, ForeignKey('forts.id'))
     last_modified = Column(Integer, index=True)
     team = Column(TINY_TYPE)
