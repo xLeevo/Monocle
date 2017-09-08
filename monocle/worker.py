@@ -1076,7 +1076,7 @@ class Worker:
                 inventory_items = responses['GET_INVENTORY'].inventory_delta.inventory_items
                 for item in inventory_items:
                     level = item.inventory_item_data.player_stats.level
-                    if level and level > self.player_level:
+                    if level and self.player_level and level > self.player_level:
                         # level_up_rewards if level has changed
                         request = self.api.create_request()
                         request.level_up_rewards(level=level)
