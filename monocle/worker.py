@@ -884,8 +884,7 @@ class Worker:
                     if fort.HasField('raid_info'):
                         if fort not in RAID_CACHE:
                             normalized_raid = self.normalize_raid(fort)
-                            if (notify_conf and normalized_raid['pokemon_id'] > 0
-                                    and normalized_raid['time_end'] > int(time())):
+                            if (notify_conf and normalized_raid['time_end'] > int(time())):
                                 LOOP.create_task(self.notifier.webhook_raid(normalized_raid, normalized_fort))
                             db_proc.add(normalized_raid)
 
