@@ -884,8 +884,7 @@ class Worker:
                     if fort.HasField('raid_info'):
                         if fort not in RAID_CACHE:
                             normalized_raid = self.normalize_raid(fort)
-                            if (notify_conf and normalized_raid['pokemon_id'] > 0
-                                    and normalized_raid['time_end'] > int(time())):
+                            if (notify_conf and normalized_raid['time_end'] > int(time())):
                                 LOOP.create_task(self.notifier.webhook_raid(normalized_raid, normalized_fort))
                             db_proc.add(normalized_raid)
 
@@ -1076,7 +1075,7 @@ class Worker:
                 inventory_items = responses['GET_INVENTORY'].inventory_delta.inventory_items
                 for item in inventory_items:
                     level = item.inventory_item_data.player_stats.level
-                    if level and level > self.player_level:
+                    if level and self.player_level and level > self.player_level:
                         # level_up_rewards if level has changed
                         request = self.api.create_request()
                         request.level_up_rewards(level=level)
