@@ -2,7 +2,7 @@
 CREATE TEMPORARY TABLE IF NOT EXISTS sightings_temp AS (
   SELECT id
   FROM sightings
-  WHERE expire_timestamp < UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 3 HOUR))
+  WHERE expire_timestamp < UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 6 HOUR))
   LIMIT 100000
 );
 DELETE s.* FROM sightings s INNER JOIN sightings_temp st ON s.id=st.id;
@@ -11,7 +11,7 @@ DELETE s.* FROM sightings s INNER JOIN sightings_temp st ON s.id=st.id;
 CREATE TEMPORARY TABLE IF NOT EXISTS mystery_sightings_temp AS (
   SELECT id
   FROM mystery_sightings
-  WHERE first_seen < UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 3 HOUR))
+  WHERE first_seen < UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 6 HOUR))
   LIMIT 100000
 );
 DELETE s.* FROM mystery_sightings s INNER JOIN mystery_sightings_temp st ON s.id=st.id;
@@ -20,7 +20,7 @@ DELETE s.* FROM mystery_sightings s INNER JOIN mystery_sightings_temp st ON s.id
 CREATE TEMPORARY TABLE IF NOT EXISTS fort_sightings_temp AS (
   SELECT id
   FROM fort_sightings
-  WHERE last_modified < UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 3 HOUR))
+  WHERE last_modified < UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 6 HOUR))
   LIMIT 100000
 );
 DELETE s.* FROM fort_sightings s INNER JOIN fort_sightings_temp st ON s.id=st.id;
@@ -29,7 +29,7 @@ DELETE s.* FROM fort_sightings s INNER JOIN fort_sightings_temp st ON s.id=st.id
 CREATE TEMPORARY TABLE IF NOT EXISTS raids_temp AS (
   SELECT id
   FROM raids
-  WHERE time_spawn < UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 3 HOUR))
+  WHERE time_spawn < UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 6 HOUR))
   LIMIT 100000
 );
 DELETE r.* FROM raids r INNER JOIN raids_temp rt ON r.id=rt.id;
