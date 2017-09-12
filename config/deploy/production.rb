@@ -13,7 +13,7 @@ unless ENV["SERVER_HOST"].nil?
     bootstrap: ENV["BOOTSTRAP"] || "",
     no_pickle: ENV["NO_PICKLE"] || ""
 else
-  all_servers = ["pgous3.pgous", "pgous4.pgous", "pgous5.pgous"]
+  all_servers = ["pgous2.pgous", "pgous3.pgous", "pgous4.pgous", "pgous5.pgous"]
   role :app, all_servers + ["cron.pgous"]
   role :maintenance, all_servers
   role :db, "cron.pgous"
