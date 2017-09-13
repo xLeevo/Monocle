@@ -806,8 +806,8 @@ class Notifier:
                 m.get("raid_begin", "raid_begin"): raid['time_spawn'],
                 m.get("raid_battle", "raid_battle"): raid['time_battle'],
                 m.get("raid_end", "raid_end"): raid['time_end'],
-                m.get("gym_id", "gym_id"): raid["fort_id"],
-                m.get("base64_gym_id", "base64_gym_id"): b64encode(raid['fort_id'].encode('utf-8')),
+                m.get("gym_id", "gym_id"): raid["fort_external_id"],
+                m.get("base64_gym_id", "base64_gym_id"): b64encode(raid['fort_external_id'].encode('utf-8')),
                 m.get("gym_name", "gym_name"): gym_name,
                 m.get("gym_url", "gym_url"): gym_url,
             }

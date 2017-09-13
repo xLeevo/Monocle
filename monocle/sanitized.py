@@ -213,7 +213,7 @@ _defaults = {
     'NAME_FONT': 'sans-serif',
     'NEVER_NOTIFY_IDS': (),
     'NOTIFY': False,
-    'NOTIFY_RAIDS': False,
+    'NOTIFY_RAIDS': True,
     'NOTIFY_IDS': None,
     'NOTIFY_RANKING': None,
     'PASS': None,

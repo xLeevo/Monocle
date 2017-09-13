@@ -5,7 +5,7 @@ from enum import Enum
 from time import time, mktime
 
 from sqlalchemy import Column, Boolean, Integer, String, Float, SmallInteger, BigInteger, ForeignKey, Index, UniqueConstraint, create_engine, cast, func, desc, asc, and_, exists
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker, relationship, eagerload
 from sqlalchemy.types import TypeDecorator, Numeric, Text
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -307,28 +307,12 @@ class Raid(Base):
     fort_id = Column(Integer, ForeignKey('forts.id'))
     level = Column(TINY_TYPE)
     pokemon_id = Column(TINY_TYPE)
-    time_spawn = Column(Integer, index=True)
-    time_battle = Column(Integer)
-    time_end = Column(Integer)
-    cp = Column(Integer)
-    move_1 = Column(Integer)
-    move_2 = Column(Integer)
-
-
-
-class Raid(Base):
-    __tablename__ = 'raids'
-
-    id = Column(Integer, primary_key=True)
-    external_id = Column(String(35), unique=True)
-    fort_id = Column(Integer, ForeignKey('forts.id'))
-    level = Column(TINY_TYPE)
-    pokemon_id = Column(TINY_TYPE)
     move_1 = Column(SmallInteger)
     move_2 = Column(SmallInteger)
     time_spawn = Column(Integer, index=True)
     time_battle = Column(Integer)
     time_end = Column(Integer)
+    cp = Column(Integer)
 
 
 class Mystery(Base):
@@ -697,7 +681,7 @@ def add_raid(session, raw_raid):
         return
 
     fort = session.query(Fort) \
-        .filter(Fort.external_id == raw_raid['fort_id']) \
+        .filter(Fort.external_id == raw_raid['fort_external_id']) \
         .first()
 
     if fort:
@@ -1044,12 +1028,16 @@ def get_all_spawn_coords(session, pokemon_id=None):
 
 # Preloading from db
 with session_scope() as session:
+
     raids = session.query(Raid) \
-        .filter(Raid.time_end > time())
+        .options(eagerload(Raid.fort)) \
+        .join(Fort, Fort.id == Raid.fort_id) \
+        .filter(Raid.time_end > time()) \
+        .filter(Fort.lat.between(bounds.south,bounds.north),
+                Fort.lon.between(bounds.west,bounds.east))
+
     for raid in raids:
-        fort = session.query(Fort) \
-            .filter(Fort.id == raid.fort_id) \
-            .scalar()
+        fort = raid.fort
         r = {}
         r['fort_external_id'] = fort.external_id
         r['time_end'] = raid.time_end

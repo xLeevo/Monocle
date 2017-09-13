@@ -330,8 +330,8 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #TELEGRAM_CHAT_ID = '@your_channel'
 #TELEGRAM_MESSAGE_TYPE = 0
 
-NOTIFY_RAIDS = False  # enable raid notifications
-RAIDS_LVL_MIN = 4
+#NOTIFY_RAIDS = True # enable raid notifications. Default True. Will be false if WEBHOOKS is not defined.
+#RAIDS_LVL_MIN = 1
 #RAIDS_IDS = {143, 248}
 #RAIDS_DISCORD_URL = "https://discordapp.com/api/webhooks/xxxxxxxxxxxx/xxxxxxxxxxxx"
 #TELEGRAM_RAIDS_CHAT_ID = '@your_channel'
