@@ -94,6 +94,8 @@ def sighting_to_marker(pokemon, names=POKEMON, moves=MOVES, damage=DAMAGE):
         'lat': pokemon.lat,
         'lon': pokemon.lon,
         'expires_at': pokemon.expire_timestamp,
+        'gender': pokemon.gender,
+        'form': pokemon.form
     }
     move1 = pokemon.move_1
     if pokemon.move_1:
@@ -105,6 +107,8 @@ def sighting_to_marker(pokemon, names=POKEMON, moves=MOVES, damage=DAMAGE):
         marker['move2'] = moves[move2]
         marker['damage1'] = damage[move1]
         marker['damage2'] = damage[move2]
+        marker['cp'] = pokemon.cp
+        marker['level'] = pokemon.level
     return marker
 
 
@@ -155,7 +159,6 @@ def get_gym_markers(names=POKEMON):
     return [{
             'id': 'fort-' + str(fort['fort_id']),
             'sighting_id': fort['id'],
-            'prestige': fort['prestige'],
             'pokemon_id': fort['guard_pokemon_id'],
             'pokemon_name': names[fort['guard_pokemon_id']],
             'team': fort['team'],

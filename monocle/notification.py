@@ -5,12 +5,13 @@ from time import monotonic, time
 from pkg_resources import resource_stream
 from tempfile import TemporaryFile
 from asyncio import gather, CancelledError, TimeoutError
+from base64 import b64encode
 
 from aiohttp import ClientError, ClientResponseError, ServerTimeoutError
 from aiopogo import json_dumps, json_loads
 
 from .utils import load_pickle, dump_pickle
-from .db import session_scope, get_pokemon_ranking, estimate_remaining_time
+from .db import session_scope, get_pokemon_ranking, estimate_remaining_time, get_gym
 from .names import MOVES, POKEMON
 from .shared import get_logger, SessionManager, LOOP, run_threaded
 from . import sanitized as conf
@@ -238,12 +239,15 @@ class Notification:
             self.move2 = None
 
         try:
-            if self.score == 1:
-                self.description = 'perfect'
-            elif self.score > .83:
-                self.description = 'great'
-            elif self.score > .6:
-                self.description = 'good'
+            if 'raid' in pokemon:
+                self.description = 'raid'
+            else:
+                if self.score == 1:
+                    self.description = 'perfect'
+                elif self.score > .83:
+                    self.description = 'great'
+                elif self.score > .6:
+                    self.description = 'good'
         except TypeError:
             pass
 
@@ -647,23 +651,24 @@ class Notifier:
 
     def eligible(self, pokemon):
         pokemon_id = pokemon['pokemon_id']
-        encounter_id = pokemon['encounter_id']
+
+        unique_id = self.unique_id(pokemon)
 
         if pokemon_id in self.never_notify:
             return False
         if pokemon_id in self.always_notify:
-            return encounter_id not in self.cache
+            return unique_id not in self.cache
         if (pokemon_id not in self.notify_ids
                 and pokemon_id not in self.rarity_override):
             return False
         if conf.IGNORE_RARITY:
-            return encounter_id not in self.cache
+            return unique_id not in self.cache
         try:
             if pokemon['time_till_hidden'] < conf.TIME_REQUIRED:
                 return False
         except KeyError:
             pass
-        if encounter_id in self.cache:
+        if unique_id in self.cache:
             return False
 
         rareness = self.get_rareness_score(pokemon_id)
@@ -671,10 +676,17 @@ class Notifier:
         score_required = self.get_required_score()
         return highest_score > score_required
 
-    def cleanup(self, encounter_id, handle):
-        self.cache.remove(encounter_id)
+    def cleanup(self, unique_id, handle):
+        self.cache.remove(unique_id)
         handle.cancel()
         return False
+
+    def unique_id(self, obj):
+        if 'encounter_id' in obj:
+            unique_id = obj['encounter_id']
+        elif 'external_id' in obj:
+            unique_id = "e{}".format(obj['external_id'])
+        return unique_id 
 
     async def notify(self, pokemon, time_of_day):
         """Send a PushBullet notification and/or a Tweet, depending on if their
@@ -686,8 +698,9 @@ class Notifier:
         pokemon_id = pokemon['pokemon_id']
         name = POKEMON[pokemon_id]
 
-        encounter_id = pokemon['encounter_id']
-        if encounter_id in self.cache:
+        unique_id = self.unique_id(pokemon)
+
+        if unique_id in self.cache:
             self.log.info("{} was already notified about.", name)
             return False
 
@@ -728,7 +741,7 @@ class Notifier:
 
         if 'time_till_hidden' not in pokemon:
             seen = pokemon['seen'] % 3600
-            cache_handle = self.cache.store.add(pokemon['encounter_id'])
+            cache_handle = self.cache.store.add(unique_id)
             try:
                 with session_scope() as session:
                     tth = await run_threaded(estimate_remaining_time, session, pokemon['spawn_id'], seen)
@@ -736,7 +749,7 @@ class Notifier:
                 self.log.exception('An exception occurred while trying to estimate remaining time.')
                 now_epoch = time()
                 tth = (pokemon['seen'] + 90 - now_epoch, pokemon['seen'] + 3600 - now_epoch)
-            LOOP.call_later(tth[1], self.cache.remove, pokemon['encounter_id'])
+            LOOP.call_later(tth[1], self.cache.remove, unique_id)
             if pokemon_id not in self.always_notify:
                 mean = sum(tth) / 2
                 if mean < conf.TIME_REQUIRED:
@@ -744,7 +757,7 @@ class Notifier:
                     return False
             pokemon['earliest_tth'], pokemon['latest_tth'] = tth
         else:
-            cache_handle = self.cache.add(pokemon['encounter_id'], pokemon['time_till_hidden'])
+            cache_handle = self.cache.add(unique_id, pokemon['time_till_hidden'])
 
         if WEBHOOK and NATIVE:
             notified, whpushed = await gather(
@@ -761,7 +774,48 @@ class Notifier:
             self.sent += 1
             return True
         else:
-            return self.cleanup(encounter_id, cache_handle)
+            return self.cleanup(unique_id, cache_handle)
+
+
+    async def webhook_raid(self, raid, fort):
+        if not WEBHOOK:
+            return
+
+        with session_scope() as session:
+            gym = get_gym(session,fort)
+            if gym:
+                gym_name = gym.name
+                gym_url = gym.url
+            else:
+                gym_name = None
+                gym_url = None
+
+        m = conf.WEBHOOK_RAID_MAPPING
+        data = {
+            'type': "raid",
+            'message': {
+                m.get("external_id", "external_id"): raid['external_id'],
+                m.get("latitude", "latitude"): fort['lat'],
+                m.get("longitude", "longitude"): fort['lon'],
+                m.get("level", "level"): raid['level'],
+                m.get("pokemon_id", "pokemon_id"): raid['pokemon_id'],
+                m.get("team", "team"): fort['team'],
+                m.get("cp", "cp"): raid['cp'],
+                m.get("move_1", "move_1"): raid['move_1'],
+                m.get("move_2", "move_2"): raid['move_2'],
+                m.get("raid_begin", "raid_begin"): raid['time_spawn'],
+                m.get("raid_battle", "raid_battle"): raid['time_battle'],
+                m.get("raid_end", "raid_end"): raid['time_end'],
+                m.get("gym_id", "gym_id"): raid["fort_id"],
+                m.get("base64_gym_id", "base64_gym_id"): b64encode(raid['fort_id'].encode('utf-8')),
+                m.get("gym_name", "gym_name"): gym_name,
+                m.get("gym_url", "gym_url"): gym_url,
+            }
+        }
+
+        session = SessionManager.get()
+        return await self.wh_send(session, data)
+
 
     async def notify_raid(self, fort):
         discord = False
@@ -863,31 +917,31 @@ class Notifier:
         data = {
             'type': "pokemon",
             'message': {
-                "encounter_id": pokemon['encounter_id'],
                 "pokemon_id": pokemon['pokemon_id'],
-                "last_modified_time": pokemon['seen'] * 1000,
-                "spawnpoint_id": pokemon['spawn_id'],
+                "encounter_id": pokemon['encounter_id'],
                 "latitude": pokemon['lat'],
                 "longitude": pokemon['lon'],
+                "last_modified_time": pokemon['seen'] * 1000,
+                "spawnpoint_id": pokemon['spawn_id'],
                 "disappear_time": ts,
-                "time_until_hidden_ms": tth * 1000
+                "time_until_hidden_ms": tth * 1000,
+                "pokemon_level": pokemon.get('level'),
+                "cp": pokemon.get('cp'),
+                "height": pokemon.get('height'),
+                "weight": pokemon.get('weight'),
+                "gender": pokemon.get('gender'),
+                "form": pokemon.get('form'),
+                "move_1": pokemon.get('move_1'),
+                "move_2": pokemon.get('move_2'),
+                "individual_attack": pokemon.get('individual_attack'),
+                "individual_defense": pokemon.get('individual_defense'),
+                "individual_stamina": pokemon.get('individual_stamina'),
             }
         }
 
-        try:
-            data['message']['individual_attack'] = pokemon['individual_attack']
-            data['message']['individual_defense'] = pokemon['individual_defense']
-            data['message']['individual_stamina'] = pokemon['individual_stamina']
-            data['message']['move_1'] = pokemon['move_1']
-            data['message']['move_2'] = pokemon['move_2']
-            data['message']['height'] = pokemon['height']
-            data['message']['weight'] = pokemon['weight']
-            data['message']['gender'] = pokemon['gender']
-        except KeyError:
-            pass
-
         session = SessionManager.get()
         return await self.wh_send(session, data)
+
 
     if WEBHOOK > 1:
         async def wh_send(self, session, payload):
@@ -896,6 +950,7 @@ class Notifier:
     else:
         async def wh_send(self, session, payload):
             return await self.hook_post(HOOK_POINT, session, payload)
+
 
     async def hook_post(self, w, session, payload, headers={'content-type': 'application/json'}, timeout=4):
         try:
