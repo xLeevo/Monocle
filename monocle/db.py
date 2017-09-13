@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from enum import Enum
 from time import time, mktime
 
-from sqlalchemy import Column, Boolean, Integer, String, Float, SmallInteger, BigInteger, ForeignKey, UniqueConstraint, create_engine, cast, func, desc, asc, and_, exists
+from sqlalchemy import Column, Boolean, Integer, String, Float, SmallInteger, BigInteger, ForeignKey, Index, UniqueConstraint, create_engine, cast, func, desc, asc, and_, exists
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.types import TypeDecorator, Numeric, Text
 from sqlalchemy.ext.declarative import declarative_base
@@ -382,6 +382,9 @@ class Fort(Base):
         cascade="save-update, merge, delete"
     )
 
+    __table_args__ = (
+        Index('ix_coords', "lat", "lon"),
+    )
 
 class FortSighting(Base):
     __tablename__ = 'fort_sightings'
