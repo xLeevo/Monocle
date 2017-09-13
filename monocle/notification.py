@@ -784,7 +784,7 @@ class Notifier:
         data = {
             'type': "raid",
             'message': {
-                m.get("external_id", "external_id"): raid['external_id'],
+                m.get("raid_seed", "raid_seed"): raid['external_id'],
                 m.get("latitude", "latitude"): fort['lat'],
                 m.get("longitude", "longitude"): fort['lon'],
                 m.get("level", "level"): raid['level'],
