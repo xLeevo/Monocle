@@ -883,7 +883,7 @@ class Worker:
                     if fort.HasField('raid_info'):
                         if fort not in RAID_CACHE:
                             normalized_raid = self.normalize_raid(fort)
-                            if conf.normalized_raid['time_end'] > int(time()):
+                            if normalized_raid['time_end'] > int(time()):
                                 if conf.NOTIFY_RAIDS:
                                     LOOP.create_task(self.notifier.notify_raid(fort))
                                 if conf.NOTIFY_RAIDS_WEBHOOK:

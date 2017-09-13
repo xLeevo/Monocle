@@ -330,7 +330,8 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #TELEGRAM_CHAT_ID = '@your_channel'
 #TELEGRAM_MESSAGE_TYPE = 0
 
-### NOTIFY_RAIDS only applies to Chrale's version of raids notification (no webhook support, only Telegram and Discord)
+### The following raid notification related configs
+### only apply to Chrale's version of raids notification (no webhook support, only Telegram and Discord)
 ### For webhook raids notification, see below for NOTIFY_RAIDS_WEBHOOK
 ###
 #NOTIFY_RAIDS = False # Enable raid notifications. Default False
