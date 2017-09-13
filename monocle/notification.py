@@ -784,7 +784,7 @@ class Notifier:
         data = {
             'type': "raid",
             'message': {
-                m.get("external_id", "external_id"): raid['external_id'],
+                m.get("raid_seed", "raid_seed"): raid['external_id'],
                 m.get("latitude", "latitude"): fort['lat'],
                 m.get("longitude", "longitude"): fort['lon'],
                 m.get("level", "level"): raid['level'],
@@ -793,8 +793,7 @@ class Notifier:
                 m.get("cp", "cp"): raid['cp'],
                 m.get("move_1", "move_1"): raid['move_1'],
                 m.get("move_2", "move_2"): raid['move_2'],
-                m.get("raid_begin", "raid_begin"): raid['time_spawn'],
-                m.get("raid_battle", "raid_battle"): raid['time_battle'],
+                m.get("raid_begin", "raid_begin"): raid['time_battle'],
                 m.get("raid_end", "raid_end"): raid['time_end'],
                 m.get("gym_id", "gym_id"): raid["fort_id"],
                 m.get("base64_gym_id", "base64_gym_id"): b64encode(raid['fort_id'].encode('utf-8')),
