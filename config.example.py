@@ -339,7 +339,7 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 ##   "raid_begin", "raid_battle", "raid_end",
 ##   "gym_id", "base64_gym_id", "gym_name", "gym_url"
 ##
-## For PokeAlarm, now config is needed since it is supported out of the box.
+## For PokeAlarm, no config is needed since it is supported out of the box.
 #
 #WEBHOOK_RAID_MAPPING = {}
 #
