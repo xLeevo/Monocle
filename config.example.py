@@ -339,17 +339,17 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 ##   "raid_begin", "raid_battle", "raid_end",
 ##   "gym_id", "base64_gym_id", "gym_name", "gym_url"
 ##
-## For PokeAlarm, add the following config.
-####
+## For PokeAlarm, no config is needed since it is supported out of the box.
+#
+#WEBHOOK_RAID_MAPPING = {}
+#
+## For others, the following is an example to map rename the field `raid_seed` to `external_id`.
+#
 #WEBHOOK_RAID_MAPPING = {
-#    'external_id': 'raid_seed',
+#    'raid_seed': 'external_id',
 #    'gym_name': 'name',
 #    'gym_url': 'url',
 #}
-
-# For others, this is the default value (no mapping defined)
-#WEBHOOK_RAID_MAPPING = {}
-
 
 
 ##### Referencing landmarks in your tweets/notifications
