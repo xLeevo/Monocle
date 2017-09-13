@@ -1028,18 +1028,18 @@ def get_all_spawn_coords(session, pokemon_id=None):
 
 # Preloading from db
 with session_scope() as session:
-
-    raids = session.query(Raid) \
-        .options(eagerload(Raid.fort)) \
-        .join(Fort, Fort.id == Raid.fort_id) \
-        .filter(Raid.time_end > time()) \
-        .filter(Fort.lat.between(bounds.south,bounds.north),
-                Fort.lon.between(bounds.west,bounds.east))
-
-    for raid in raids:
-        fort = raid.fort
-        r = {}
-        r['fort_external_id'] = fort.external_id
-        r['time_end'] = raid.time_end
-        r['pokemon_id'] = raid.pokemon_id
-        RAID_CACHE.add(r)
+    if _engine.dialect.has_table(session.connection(), "raids"):
+        raids = session.query(Raid) \
+            .options(eagerload(Raid.fort)) \
+            .join(Fort, Fort.id == Raid.fort_id) \
+            .filter(Raid.time_end > time()) \
+            .filter(Fort.lat.between(bounds.south,bounds.north),
+                    Fort.lon.between(bounds.west,bounds.east))
+    
+        for raid in raids:
+            fort = raid.fort
+            r = {}
+            r['fort_external_id'] = fort.external_id
+            r['time_end'] = raid.time_end
+            r['pokemon_id'] = raid.pokemon_id
+            RAID_CACHE.add(r)
