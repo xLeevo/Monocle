@@ -330,7 +330,10 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #TELEGRAM_CHAT_ID = '@your_channel'
 #TELEGRAM_MESSAGE_TYPE = 0
 
-#NOTIFY_RAIDS = True # enable raid notifications. Default True. Will be false if WEBHOOKS is not defined.
+### NOTIFY_RAIDS only applies to Chrale's version of raids notification (no webhook support, only Telegram and Discord)
+### For webhook raids notification, see below for NOTIFY_RAIDS_WEBHOOK
+###
+#NOTIFY_RAIDS = False # Enable raid notifications. Default False
 #RAIDS_LVL_MIN = 1
 #RAIDS_IDS = {143, 248}
 #RAIDS_DISCORD_URL = "https://discordapp.com/api/webhooks/xxxxxxxxxxxx/xxxxxxxxxxxx"
@@ -352,15 +355,19 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 ##
 ## For PokeAlarm, add the following config.
 ####
+#
 #WEBHOOK_RAID_MAPPING = {
 #    'external_id': 'raid_seed',
 #    'gym_name': 'name',
 #    'gym_url': 'url',
 #}
 
-# For others, this is the default value (no mapping defined)
+### For others, this is the default value (no mapping defined)
 #WEBHOOK_RAID_MAPPING = {}
 
+### Set this to False to disable webhook raids notifications. Monkey fork property.
+#NOTIFY_RAIDS_WEBHOOK = True
+#
 
 
 ##### Referencing landmarks in your tweets/notifications

@@ -18,7 +18,7 @@ from .shared import get_logger, LOOP, SessionManager, run_threaded, ACCOUNTS
 from .sb import SbDetector, SbAccountException
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
 
-if conf.NOTIFY or conf.NOTIFY_RAIDS:
+if conf.NOTIFY or conf.NOTIFY_RAIDS or conf.NOTIFY_RAIDS_WEBHOOK:
     from .notification import Notifier
 
 if conf.CACHE_CELLS:
@@ -83,7 +83,7 @@ class Worker:
     else:
         proxies = None
 
-    if conf.NOTIFY or conf.NOTIFY_RAIDS:
+    if conf.NOTIFY or conf.NOTIFY_RAIDS or conf.NOTIFY_RAIDS_WEBHOOK:
         notifier = Notifier()
 
     def __init__(self, worker_no):
@@ -883,8 +883,11 @@ class Worker:
                     if fort.HasField('raid_info'):
                         if fort not in RAID_CACHE:
                             normalized_raid = self.normalize_raid(fort)
-                            if (conf.NOTIFY_RAIDS and normalized_raid['time_end'] > int(time())):
-                                LOOP.create_task(self.notifier.webhook_raid(normalized_raid, normalized_fort))
+                            if conf.normalized_raid['time_end'] > int(time()):
+                                if conf.NOTIFY_RAIDS:
+                                    LOOP.create_task(self.notifier.notify_raid(fort))
+                                if conf.NOTIFY_RAIDS_WEBHOOK:
+                                    LOOP.create_task(self.notifier.webhook_raid(normalized_raid, normalized_fort))
                             db_proc.add(normalized_raid)
 
             if more_points:

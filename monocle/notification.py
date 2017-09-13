@@ -813,8 +813,10 @@ class Notifier:
             }
         }
 
-        session = SessionManager.get()
-        return await self.wh_send(session, data)
+        result = await self.wh_send(SessionManager.get(), data)
+        self.last_notification = monotonic()
+        self.sent += 1
+        return result
 
 
     async def notify_raid(self, fort):
