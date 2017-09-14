@@ -1,0 +1,7 @@
+LOCK TABLES `mystery_sightings`;
+ALTER TABLE mystery_sightings ADD gender SMALLINT(6) NULL, ADD form SMALLINT(6) NULL;
+UNLOCK TABLES;
+
+LOCK TABLES `sightings`;
+ALTER TABLE sightings ADD gender SMALLINT(6) NULL, ADD form SMALLINT(6) NULL;
+UNLOCK TABLES;
