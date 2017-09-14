@@ -189,6 +189,21 @@ class RaidCache:
         except KeyError:
             return False
 
+    # Preloading from db
+    def preload(self):
+        with session_scope() as session:
+            raids = session.query(Raid) \
+                .filter(Raid.time_end > time())
+            for raid in raids:
+                fort = session.query(Fort) \
+                    .filter(Fort.id == raid.fort_id) \
+                    .scalar()
+                r = {}
+                r['fort_external_id'] = fort.external_id
+                r['time_end'] = raid.time_end
+                r['pokemon_id'] = raid.pokemon_id
+                self.add(r)
+
 
 class FortCache:
     """Simple cache for storing fort sightings"""
@@ -261,6 +276,7 @@ class Sighting(Base):
     sta_iv = Column(TINY_TYPE)
     move_1 = Column(SmallInteger)
     move_2 = Column(SmallInteger)
+    display = Column(SmallInteger)
 
     __table_args__ = (
         UniqueConstraint(
@@ -412,7 +428,8 @@ def add_sighting(session, pokemon):
         def_iv=pokemon.get('individual_defense'),
         sta_iv=pokemon.get('individual_stamina'),
         move_1=pokemon.get('move_1'),
-        move_2=pokemon.get('move_2')
+        move_2=pokemon.get('move_2'),
+        display=pokemon.get('display')
     )
     session.add(obj)
     SIGHTING_CACHE.add(pokemon)
@@ -889,17 +906,3 @@ def get_all_spawn_coords(session, pokemon_id=None):
     if conf.REPORT_SINCE:
         points = points.filter(Sighting.expire_timestamp > SINCE_TIME)
     return points.all()
-
-# Preloading from db
-with session_scope() as session:
-    raids = session.query(Raid) \
-        .filter(Raid.time_end > time())
-    for raid in raids:
-        fort = session.query(Fort) \
-            .filter(Fort.id == raid.fort_id) \
-            .scalar()
-        r = {}
-        r['fort_external_id'] = fort.external_id
-        r['time_end'] = raid.time_end
-        r['pokemon_id'] = raid.pokemon_id
-        RAID_CACHE.add(r)

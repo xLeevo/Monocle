@@ -98,6 +98,10 @@ function getPopupContent (item) {
     var seconds = parseInt(diff - (minutes * 60));
     var expires_at = minutes + 'm ' + seconds + 's';
     var content = '<b>' + item.name + '</b> - <a href="https://pokemongo.gamepress.gg/pokemon/' + item.pokemon_id + '">#' + item.pokemon_id + '</a>';
+    // unown form display
+    if (item.display != undefined && item.pokemon_id === 201) {
+        content += ' - ' + String.fromCharCode(64 + item.display);
+    }
     if(item.atk != undefined){
         var totaliv = 100 * (item.atk + item.def + item.sta) / 45;
         content += ' - <b>' + totaliv.toFixed(2) + '%</b><br>';
@@ -243,7 +247,10 @@ function RaidMarker (raw) {
     else if (raw.level === 3 || raw.level === 4) {
         rarity = 'rare';
     }
-    var team_color = 'mystic';
+    var team_color = 'empty';
+    if (raw.team === 1) {
+        team_color = 'mystic';
+    }
     if (raw.team === 2) {
         team_color = 'valor';
     }

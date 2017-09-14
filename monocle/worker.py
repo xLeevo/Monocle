@@ -1275,6 +1275,9 @@ class Worker:
                 norm['inferred'] = True
             else:
                 norm['type'] = 'mystery'
+        if raw.pokemon_data.pokemon_display:
+            if raw.pokemon_data.pokemon_display.form:
+                norm['display'] = raw.pokemon_data.pokemon_display.form
         return norm
 
     @staticmethod
