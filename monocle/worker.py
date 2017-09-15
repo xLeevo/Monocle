@@ -822,10 +822,11 @@ class Worker:
                         or (encounter_conf == 'some'
                             and normalized['pokemon_id'] in conf.ENCOUNTER_IDS))
                 should_notify = (notify_conf and self.notifier.eligible(normalized))
+                should_notify_with_iv = (should_notify and not conf.IGNORE_IVS)
 
                 encountered = False
 
-                if is_new and should_encounter:
+                if is_new and (should_encounter or should_notify_with_iv):
                     if conf.PGSCOUT_ENDPOINT:
                         async with ClientSession(loop=LOOP) as session:
                             encountered = await self.pgscout(session, normalized, pokemon.spawn_point_id)
