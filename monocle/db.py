@@ -5,7 +5,7 @@ from enum import Enum
 from time import time, mktime
 
 from sqlalchemy import Column, Boolean, Integer, String, Float, SmallInteger, BigInteger, ForeignKey, Index, UniqueConstraint, create_engine, cast, func, desc, asc, and_, exists
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker, relationship, eagerload
 from sqlalchemy.types import TypeDecorator, Numeric, Text
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -171,8 +171,8 @@ class RaidCache:
         return len(self.store)
 
     def add(self, raid):
-        self.store[raid['fort_id']] = raid
-        call_at(raid['time_end'], self.remove, raid['fort_id'])
+        self.store[raid['fort_external_id']] = raid
+        call_at(raid['time_end'], self.remove, raid['fort_external_id'])
 
     def remove(self, cache_id):
         try:
@@ -183,12 +183,32 @@ class RaidCache:
     def __contains__(self, raw_fort):
         try:
             raid = self.store[raw_fort.id]
-            return (
-                raid['time_end'] > raw_fort.raid_info.raid_end_ms // 1000 - 2 and
-                raid['time_end'] < raw_fort.raid_info.raid_end_ms // 1000 + 2 and
-                raid['pokemon_id'] == raw_fort.raid_info.raid_pokemon.pokemon_id)
+            if raw_fort.raid_info.raid_pokemon:
+                return (
+                    raid['time_end'] > raw_fort.raid_info.raid_end_ms // 1000 - 2 and
+                    raid['time_end'] < raw_fort.raid_info.raid_end_ms // 1000 + 2 and
+                    raid['pokemon_id'] == raw_fort.raid_info.raid_pokemon.pokemon_id)
+            return True
         except KeyError:
             return False
+
+    # Preloading from db
+    def preload(self):
+        with session_scope() as session:
+            raids = session.query(Raid) \
+                .options(eagerload(Raid.fort)) \
+                .join(Fort, Fort.id == Raid.fort_id) \
+                .filter(Raid.time_end > time()) \
+                .filter(Fort.lat.between(bounds.south,bounds.north),
+                        Fort.lon.between(bounds.west,bounds.east))
+    
+            for raid in raids:
+                fort = raid.fort
+                r = {}
+                r['fort_external_id'] = fort.external_id
+                r['time_end'] = raid.time_end
+                r['pokemon_id'] = raid.pokemon_id
+                self.add(r)
 
 
 class FortCache:
@@ -270,8 +290,6 @@ class Sighting(Base):
 
     user = relationship("SightingUser", uselist=False, back_populates="sighting")
 
-    user = relationship("SightingUser", uselist=False, back_populates="sighting")
-
     __table_args__ = (
         UniqueConstraint(
             'encounter_id',
@@ -305,13 +323,12 @@ class Raid(Base):
     fort_id = Column(Integer, ForeignKey('forts.id'))
     level = Column(TINY_TYPE)
     pokemon_id = Column(TINY_TYPE)
+    move_1 = Column(SmallInteger)
+    move_2 = Column(SmallInteger)
     time_spawn = Column(Integer, index=True)
     time_battle = Column(Integer)
     time_end = Column(Integer)
     cp = Column(Integer)
-    move_1 = Column(Integer)
-    move_2 = Column(Integer)
-
 
 
 class Mystery(Base):
@@ -373,6 +390,12 @@ class Fort(Base):
         'FortSighting',
         backref='fort',
         order_by='FortSighting.last_modified'
+    )
+
+    raids = relationship(
+        'Raid',
+        backref='fort',
+        order_by='Raid.time_end'
     )
 
     gym_defenders = relationship(
@@ -651,7 +674,7 @@ def add_fort_sighting(session, raw_fort):
         guard_pokemon_id=raw_fort['guard_pokemon_id'],
         last_modified=raw_fort['last_modified'],
         slots_available=raw_fort['slots_available'],
-        is_in_battle=raw_fort['is_in_battle']
+        is_in_battle=raw_fort['is_in_battle'],
     )
 
     session.add(fort_sighting)
@@ -670,15 +693,11 @@ def add_raid(session, raw_raid):
             raid.move_1 = raw_raid['move_1']
             raid.move_2 = raw_raid['move_2']
             session.merge(raid)
-            RAID_CACHE.add(raw_raid)
-            return
-        else:
-            # Why is it not in the cache? It should be there!
-            RAID_CACHE.add(raw_raid)
-            return
+        RAID_CACHE.add(raw_raid)
+        return
 
     fort = session.query(Fort) \
-        .filter(Fort.external_id == raw_raid['fort_id']) \
+        .filter(Fort.external_id == raw_raid['fort_external_id']) \
         .first()
 
     if fort:

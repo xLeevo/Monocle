@@ -322,8 +322,23 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 ## 1) '@channel_name' for channels
 ## 2) Your chat_id if you will use your own account. To retrieve your ID, write to your bot and check this URL:
 ##     https://api.telegram.org/bot<BOT_TOKEN_HERE>/getUpdates
+##
+## TELEGRAM_MESSAGE_TYPE can be 0 or 1:
+## => 0 you'll receive notifications as venue (as you already seen before in Monocle)
+## => 1 you'll receive notifications as text message with GMaps link
 #TELEGRAM_BOT_TOKEN = '123456789:AA12345qT6QDd12345RekXSQeoZBXVt-AAA'
 #TELEGRAM_CHAT_ID = '@your_channel'
+#TELEGRAM_MESSAGE_TYPE = 0
+
+### The following raid notification related configs
+### only apply to Chrale's version of raids notification (no webhook support, only Telegram and Discord)
+### For webhook raids notification, see below for NOTIFY_RAIDS_WEBHOOK
+###
+#NOTIFY_RAIDS = False # Enable raid notifications. Default False
+#RAIDS_LVL_MIN = 1
+#RAIDS_IDS = {143, 248}
+#RAIDS_DISCORD_URL = "https://discordapp.com/api/webhooks/xxxxxxxxxxxx/xxxxxxxxxxxx"
+#TELEGRAM_RAIDS_CHAT_ID = '@your_channel'
 
 #WEBHOOKS = {'http://127.0.0.1:4000'}
 

@@ -32,6 +32,7 @@ var RaidIcon = L.Icon.extend({
               '<div class="raidimg">' +
                    '<img class="leaflet-marker-icon raid_egg" src="' + this.options.iconUrl + '" />' +
               '</div>' +
+              '<div class="number_marker ' + this.options.team_color + '">' + this.options.level + '</div>' +
               '<div class="number_marker">' + this.options.level + '</div>' +
               '<div class="remaining_text" data-expire="' + this.options.expires_at + '">' + calculateRemainingTime(this.options.expires_at) + '</div>' +
             '</div>';
@@ -90,7 +91,7 @@ monitor(overlays.Pokemon, false)
 monitor(overlays.Trash, true)
 monitor(overlays.Raids, true)
 monitor(overlays.Gyms, true)
-monitor(overlays.Workers, false)
+monitor(overlays.Workers, true)
 
 function getPopupContent (item) {
     var diff = (item.expires_at - new Date().getTime() / 1000);
@@ -134,6 +135,8 @@ function getRaidPopupContent (raw) {
     	var seconds = parseInt(diff - (minutes * 60));
 		content += 'Raid Battle: ' + minutes + 'm ' + seconds + 's<br>';
 	}else{
+    content += 'Move 1: ' + raw.move1 + '<br>';
+    content += 'Move 2: ' + raw.move2 + '<br>';
 		var diff = (raw.time_end - new Date().getTime() / 1000);
 		var minutes = parseInt(diff / 60);
     	var seconds = parseInt(diff - (minutes * 60));
@@ -261,11 +264,21 @@ function RaidMarker (raw) {
     else if (raw.level === 3 || raw.level === 4) {
         rarity = 'rare';
     }
+    var team_color = 'empty';
+    if (raw.team === 1) {
+        team_color = 'mystic';
+    }
+    if (raw.team === 2) {
+        team_color = 'valor';
+    }
+    else if (raw.team === 3) {
+        team_color = 'instinct';
+    }
 	var icon = null;
 	if (raw.pokemon_id === 0){
-		icon = new RaidIcon({iconUrl: '/static/monocle-icons/raids/' + rarity + '.png', level: raw.level, expires_at: raw.time_battle});
+		icon = new RaidIcon({iconUrl: '/static/monocle-icons/raids/' + rarity + '.png', level: raw.level, team_color: team_color, expires_at: raw.time_battle});
 	}else{
-		icon = new RaidIcon({iconUrl: '/static/monocle-icons/icons/' + raw.pokemon_id + '.png', level: raw.level, expires_at: raw.time_end});
+		icon = new RaidIcon({iconUrl: '/static/monocle-icons/icons/' + raw.pokemon_id + '.png', level: raw.level, team_color: team_color, expires_at: raw.time_end});
 	}
 
     var marker = L.marker([raw.lat, raw.lon], {icon: icon});
@@ -531,8 +544,8 @@ map.whenReady(function () {
     setInterval(getWorkers, 14000);
     getPokemon();
     setInterval(getPokemon, 30000);
-    setInterval(getRaids, 110000)
-    setInterval(getGyms, 110000)
+    setInterval(getRaids, 60000);
+    setInterval(getGyms, 110000);
 });
 
 $("#settings>ul.nav>li>a").on('click', function(){

@@ -18,7 +18,7 @@ from .shared import get_logger, LOOP, SessionManager, run_threaded, ACCOUNTS
 from .sb import SbDetector, SbAccountException
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
 
-if conf.NOTIFY:
+if conf.NOTIFY or conf.NOTIFY_RAIDS or conf.NOTIFY_RAIDS_WEBHOOK:
     from .notification import Notifier
 
 if conf.CACHE_CELLS:
@@ -83,7 +83,7 @@ class Worker:
     else:
         proxies = None
 
-    if conf.NOTIFY:
+    if conf.NOTIFY or conf.NOTIFY_RAIDS or conf.NOTIFY_RAIDS_WEBHOOK:
         notifier = Notifier()
 
     def __init__(self, worker_no):
@@ -879,14 +879,16 @@ class Worker:
                             gym = await self.gym_get_info(normalized_fort)
                             if gym:
                                 self.log.info('Got gym info for {}', normalized_fort["name"])
-                            db_proc.add(normalized_fort)
-                        else:
-                            db_proc.add(normalized_fort)
+                        db_proc.add(normalized_fort)
+
                     if fort.HasField('raid_info'):
                         if fort not in RAID_CACHE:
                             normalized_raid = self.normalize_raid(fort)
-                            if (notify_conf and normalized_raid['time_end'] > int(time())):
-                                LOOP.create_task(self.notifier.webhook_raid(normalized_raid, normalized_fort))
+                            if normalized_raid['time_end'] > int(time()):
+                                if conf.NOTIFY_RAIDS:
+                                    LOOP.create_task(self.notifier.notify_raid(fort))
+                                if conf.NOTIFY_RAIDS_WEBHOOK:
+                                    LOOP.create_task(self.notifier.webhook_raid(normalized_raid, normalized_fort))
                             db_proc.add(normalized_raid)
 
             if more_points:
@@ -1428,6 +1430,9 @@ class Worker:
                 norm['inferred'] = True
             else:
                 norm['type'] = 'mystery'
+        if raw.pokemon_data.pokemon_display:
+            if raw.pokemon_data.pokemon_display.form:
+                norm['display'] = raw.pokemon_data.pokemon_display.form
         return norm
 
     @staticmethod
@@ -1465,7 +1470,9 @@ class Worker:
         obj = {
             'type': 'raid',
             'external_id': raw.raid_info.raid_seed,
-            'fort_id': raw.id,
+            'fort_external_id': raw.id,
+            'lat': raw.latitude,
+            'lon': raw.longitude,
             'level': raw.raid_info.raid_level,
             'pokemon_id': 0,
             'time_spawn': raw.raid_info.raid_spawn_ms // 1000,
