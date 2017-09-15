@@ -204,3 +204,15 @@
     background: black;
     color: white;
 }
+.empty {
+    background: #727272;
+}
+.mystic {
+    background: #0099ff;
+}
+.valor {
+    background: #f61b1b;
+}
+.instinct {
+    background: #fe9c0a;
+}

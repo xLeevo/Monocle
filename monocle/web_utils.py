@@ -4,7 +4,7 @@ from multiprocessing.managers import BaseManager, RemoteError
 from time import time
 
 from monocle import sanitized as conf
-from monocle.db import get_forts, Pokestop, session_scope, Sighting, Spawnpoint, Raid, Fort
+from monocle.db import get_forts, Pokestop, session_scope, Sighting, Spawnpoint, Raid, Fort, FortSighting
 from monocle.utils import Units, get_address
 from monocle.names import DAMAGE, MOVES, POKEMON
 
@@ -109,6 +109,8 @@ def sighting_to_marker(pokemon, names=POKEMON, moves=MOVES, damage=DAMAGE):
         marker['damage2'] = damage[move2]
         marker['cp'] = pokemon.cp
         marker['level'] = pokemon.level
+    if pokemon.form and pokemon.form > 0:
+        marker['form'] = pokemon.form
     return marker
 
 
@@ -122,21 +124,27 @@ def get_pokemarkers(after_id=0):
         return tuple(map(sighting_to_marker, pokemons))
 
 
-def get_raid_markers(names=POKEMON):
+def get_raid_markers(names=POKEMON, moves=MOVES):
     with session_scope() as session:
         markers = []
         raids = session.query(Raid) \
             .filter(Raid.time_end > time())
         for raid in raids:
-            fort_id = raid.fort_id
             fort = session.query(Fort) \
-                .filter(Fort.id == fort_id) \
+                .filter(Fort.id == raid.fort_id) \
                 .scalar()
+            fortsighting = session.query(FortSighting) \
+                .filter(FortSighting.fort_id == fort.id) \
+                .order_by(FortSighting.last_modified.desc()) \
+                .first()
             markers.append({
                 'id': 'raid-' + str(raid.id),
                 'level': raid.level,
+                'team': fortsighting.team,
                 'pokemon_id': raid.pokemon_id,
                 'pokemon_name': names[raid.pokemon_id],
+                'move1': moves[raid.move_1],
+                'move2': moves[raid.move_2],
                 'lat': fort.lat,
                 'lon': fort.lon,
                 'time_spawn': raid.time_spawn,

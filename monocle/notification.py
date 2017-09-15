@@ -329,7 +329,6 @@ class Notification:
 
     async def sendToTelegram(self):
         session = SessionManager.get()
-        TELEGRAM_BASE_URL = "https://api.telegram.org/bot{token}/sendVenue".format(token=conf.TELEGRAM_BOT_TOKEN)
         title = self.name
         try:
             minutes, seconds = divmod(self.tth, 60)
@@ -342,13 +341,24 @@ class Notification:
         except AttributeError:
             pass
 
-        payload = {
-            'chat_id': conf.TELEGRAM_CHAT_ID,
-            'latitude': self.coordinates[0],
-            'longitude': self.coordinates[1],
-            'title' : title,
-            'address' : description,
-        }
+        if conf.TELEGRAM_MESSAGE_TYPE == 0:
+            TELEGRAM_BASE_URL = "https://api.telegram.org/bot{token}/sendVenue".format(token=conf.TELEGRAM_BOT_TOKEN)
+            payload = {
+                'chat_id': conf.TELEGRAM_CHAT_ID,
+		        'latitude': self.coordinates[0],
+		        'longitude': self.coordinates[1],
+		        'title' : title,
+		        'address' : description,
+		    }
+        else:
+            TELEGRAM_BASE_URL = "https://api.telegram.org/bot{token}/sendMessage".format(token=conf.TELEGRAM_BOT_TOKEN)
+            map_link = '<a href="http://maps.google.com/maps?q={},{}">Open GMaps</a>'.format(self.coordinates[0], self.coordinates[1])
+            payload = {
+                'chat_id': conf.TELEGRAM_RAIDS_CHAT_ID,
+                'parse_mode': 'HTML',
+                'text' : title + '\n' + description + '\n\n' + map_link
+            }
+
 
         try:
             async with session.post(TELEGRAM_BASE_URL, data=payload) as resp:
@@ -795,16 +805,105 @@ class Notifier:
                 m.get("move_2", "move_2"): raid['move_2'],
                 m.get("raid_begin", "raid_begin"): raid['time_battle'],
                 m.get("raid_end", "raid_end"): raid['time_end'],
-                m.get("gym_id", "gym_id"): raid["fort_id"],
-                m.get("base64_gym_id", "base64_gym_id"): b64encode(raid['fort_id'].encode('utf-8')),
+                m.get("gym_id", "gym_id"): raid["fort_external_id"],
+                m.get("base64_gym_id", "base64_gym_id"): b64encode(raid['fort_external_id'].encode('utf-8')),
                 m.get("gym_name", "gym_name"): gym_name,
                 m.get("gym_url", "gym_url"): gym_url,
             }
         }
 
-        session = SessionManager.get()
-        return await self.wh_send(session, data)
+        result = await self.wh_send(SessionManager.get(), data)
+        self.last_notification = monotonic()
+        self.sent += 1
+        return result
 
+
+    async def notify_raid(self, fort):
+        discord = False
+        telegram = False
+        if conf.RAIDS_DISCORD_URL:
+            discord = await self.notify_raid_to_discord(fort)
+        if conf.TELEGRAM_BOT_TOKEN and conf.TELEGRAM_RAIDS_CHAT_ID:
+            telegram = await self.notify_raid_to_telegram(fort)
+        if discord or telegram:
+            self.last_notification = monotonic()
+            self.sent += 1
+
+    async def notify_raid_to_discord(self, fort):
+        raid = fort.raid_info
+
+        if raid.raid_pokemon.pokemon_id not in conf.RAIDS_IDS:
+            if raid.raid_level < conf.RAIDS_LVL_MIN:
+                return
+
+        tth = raid.raid_battle_ms // 1000 if raid.raid_pokemon.pokemon_id == 0 else raid.raid_end_ms // 1000
+        timer_end = datetime.fromtimestamp(tth, None)
+        time_left = timedelta(seconds=tth - time())
+
+        payload = {
+            'username': 'Egg' if raid.raid_pokemon.pokemon_id == 0 else POKEMON[raid.raid_pokemon.pokemon_id],
+            'embeds': [{
+                'title': 'Raid{}'.format(raid.raid_level),
+                'url': self.get_gmaps_link(fort.latitude, fort.longitude),
+                'description': '{} ({}h {}mn {}s)'.format(timer_end.strftime("%H:%M:%S"), time_left.seconds // 3600, (time_left.seconds // 60) % 60, time_left.seconds % 60),
+                'thumbnail': {'url': "https://raw.githubusercontent.com/Imaginum/monocle-icons/larger-outlined/larger-icons/{}.png".format(raid.raid_pokemon.pokemon_id)},
+                'image': {'url': self.get_static_map_url(fort.latitude, fort.longitude)}
+            }]
+        }
+
+        session = SessionManager.get()
+        return await self.hook_post(conf.RAIDS_DISCORD_URL, session, payload)
+
+    async def notify_raid_to_telegram(self, fort):
+        raid = fort.raid_info
+
+        if raid.raid_pokemon.pokemon_id not in conf.RAIDS_IDS:
+            if raid.raid_level < conf.RAIDS_LVL_MIN:
+                return
+
+        
+        title = '[Raid lvl.{}] {}'.format(raid.raid_level, 'Egg' if raid.raid_pokemon.pokemon_id == 0 else POKEMON[raid.raid_pokemon.pokemon_id])
+        tth = raid.raid_battle_ms // 1000 if raid.raid_pokemon.pokemon_id == 0 else raid.raid_end_ms // 1000
+        timer_end = datetime.fromtimestamp(tth, None)
+        time_left = timedelta(seconds=tth - time())
+        description = '{} ({}h {}mn {}s)'.format(timer_end.strftime("%H:%M:%S"), time_left.seconds // 3600, (time_left.seconds // 60) % 60, time_left.seconds % 60)
+
+        if conf.TELEGRAM_MESSAGE_TYPE == 0:
+            TELEGRAM_BASE_URL = "https://api.telegram.org/bot{token}/sendVenue".format(token=conf.TELEGRAM_BOT_TOKEN)
+            payload = {
+                'chat_id': conf.TELEGRAM_RAIDS_CHAT_ID,
+                'latitude': fort.latitude,
+                'longitude': fort.longitude,
+                'title' : title,
+                'address' : description,
+            }
+        else:
+            TELEGRAM_BASE_URL = "https://api.telegram.org/bot{token}/sendMessage".format(token=conf.TELEGRAM_BOT_TOKEN)
+            map_link = '<a href="{}">Open GMaps</a>'.format(self.get_gmaps_link(fort.latitude, fort.longitude))
+            payload = {
+                'chat_id': conf.TELEGRAM_RAIDS_CHAT_ID,
+                'parse_mode': 'HTML',
+                'text' : title + '\n' + description + '\n\n' + map_link
+            }
+        
+        session = SessionManager.get()
+        return await self.hook_post(TELEGRAM_BASE_URL, session, payload, timeout=8)
+
+    def get_gmaps_link(self, lat, lng):
+        return 'http://maps.google.com/maps?q={},{}'.format(repr(lat), repr(lng))
+
+    def get_static_map_url(self, lat, lng):
+        center = '{},{}'.format(lat, lng)
+        query_center = 'center={}'.format(center)
+        query_markers = 'markers=color:red%7C{}'.format(center)
+        query_size = 'size={}x{}'.format('250', '125')
+        query_zoom = 'zoom={}'.format('15')
+        query_maptype = 'maptype={}'.format('roadmap')
+
+        url = ('https://maps.googleapis.com/maps/api/staticmap?' +
+                query_center + '&' + query_markers + '&' +
+                query_maptype + '&' + query_size + '&' + query_zoom)
+        return url
 
     async def webhook(self, pokemon):
         """ Send a notification via webhook
@@ -854,9 +953,9 @@ class Notifier:
             return await self.hook_post(HOOK_POINT, session, payload)
 
 
-    async def hook_post(self, w, session, payload, headers={'content-type': 'application/json'}):
+    async def hook_post(self, w, session, payload, headers={'content-type': 'application/json'}, timeout=4):
         try:
-            async with session.post(w, json=payload, timeout=4, headers=headers) as resp:
+            async with session.post(w, json=payload, timeout=timeout, headers=headers) as resp:
                 return True
         except ClientResponseError as e:
             self.log.error('Error {} from webook {}: {}', e.code, w, e.message)
