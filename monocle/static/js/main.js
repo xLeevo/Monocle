@@ -33,7 +33,7 @@ var RaidIcon = L.Icon.extend({
                    '<img class="leaflet-marker-icon raid_egg" src="' + this.options.iconUrl + '" />' +
               '</div>' +
               '<div class="number_marker ' + this.options.team_color + '">' + this.options.level + '</div>' +
-              '<div class="remaining_text" data-expire="' + this.options.expires_at + '">' + calculateRemainingTime(this.options.expires_at) + '</div>' +
+              '<div class="remaining_text_raids" data-expire="' + this.options.expires_at + '">' + calculateRemainingTime(this.options.expires_at) + '</div>' +
             '</div>';
         return div;
     }
@@ -732,13 +732,18 @@ function updateTime() {
             $(this).css('visibility', 'visible');
             this.innerHTML = calculateRemainingTime($(this).data('expire'));
         });
-    }else if (getPreference("SHOW_TIMER_RAIDS") === "1"){
+    }else{
+        $(".remaining_text").each(function() {
+            $(this).css('visibility', 'hidden');
+        });
+    }
+    if (getPreference("SHOW_TIMER_RAIDS") === "1"){
         $(".remaining_text_raids").each(function() {
             $(this).css('visibility', 'visible');
             this.innerHTML = calculateRemainingTime($(this).data('expire'));
         });
     }else{
-        $(".remaining_text").each(function() {
+        $(".remaining_text_raids").each(function() {
             $(this).css('visibility', 'hidden');
         });
     }
