@@ -732,6 +732,11 @@ function updateTime() {
             $(this).css('visibility', 'visible');
             this.innerHTML = calculateRemainingTime($(this).data('expire'));
         });
+    }else if (getPreference("SHOW_TIMER_RAIDS") === "1"){
+        $(".remaining_text_raids").each(function() {
+            $(this).css('visibility', 'visible');
+            this.innerHTML = calculateRemainingTime($(this).data('expire'));
+        });
     }else{
         $(".remaining_text").each(function() {
             $(this).css('visibility', 'hidden');
