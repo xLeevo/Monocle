@@ -130,7 +130,7 @@
         width: 1%;
     }
 }
-.remaining_text {
+.remaining_text, .remaining_text_raids {
     border-radius: 25px;
     background-color: black;
     text-align: center;
