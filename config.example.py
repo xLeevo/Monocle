@@ -167,6 +167,9 @@ TRASH_IDS = (
     161, 163, 167, 177, 183, 191, 194
 )
 
+#Prevent these pokemon from being inserted to the database and thus visible on the map; at all
+#NO_DB_INSERT_IDS = TRASH_IDS
+
 # include these Pokémon on the "rare" report
 RARE_IDS = (3, 6, 9, 45, 62, 71, 80, 85, 87, 89, 91, 94, 114, 130, 131, 134)
 

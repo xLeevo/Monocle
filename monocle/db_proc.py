@@ -40,13 +40,17 @@ class DatabaseProcessor(Thread):
                 item_type = item['type']
 
                 if item_type == 'pokemon':
-                    if item['pokemon_id'] in conf.TRASH_IDS:
-                         self.count += 1
+                    if conf.NO_DB_INSERT_IDS:
+					    if item['pokemon_id'] in conf.NO_DB_INSERT_IDS:
+                            self.count += 1
+						else:
+						    db.add_sighting(session, item)
+							self.count += 1
                     else:
-                         db.add_sighting(session, item)
-                         self.count += 1
+                        db.add_sighting(session, item)
+                        self.count += 1
                     if not item['inferred']:
-                         db.add_spawnpoint(session, item)
+                        db.add_spawnpoint(session, item)
                 elif item_type == 'mystery':
                     db.add_mystery(session, item)
                     self.count += 1
