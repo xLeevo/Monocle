@@ -94,7 +94,7 @@ _valid_types = {
     'PASS': str,
     'PB_API_KEY': str,
     'PB_CHANNEL': int,
-    'PGSCOUT_ENDPOINT': str,
+    'PGSCOUT_ENDPOINT': set_sequence,
     'PGSCOUT_TIMEOUT': int,
     'PLAYER_LOCALE': dict,
     'PROVIDER': str,

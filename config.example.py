@@ -433,7 +433,7 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #PGSCOUT_ENDPOINT = None
 #
 ## Example,
-#PGSCOUT_ENDPOINT = "http://127.0.0.1:1234/iv"
+#PGSCOUT_ENDPOINT = {"http://127.0.0.1:1234/iv","http://127.0.0.1:1235/iv"}
 #
 ## *Take note that /iv is needed at the end for PGScout. Do not remove it.*
 
