@@ -128,7 +128,8 @@ def exception_handler(loop, context):
 
 def cleanup(overseer, manager):
     try:
-        overseer.print_handle.cancel()
+        if hasattr(overseer, 'print_handle'):
+            overseer.print_handle.cancel()
         overseer.running = False
         print('Exiting, please wait until all tasks finish')
 
