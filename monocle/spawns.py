@@ -18,6 +18,7 @@ class BaseSpawns:
         self.known = OrderedDict()
         # {spawn_id: despawn_seconds}
         self.despawn_times = {}
+        self.updated_at = {}
 
         ## Spawns with unknown times
         # {(lat, lon)}
