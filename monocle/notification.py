@@ -791,7 +791,7 @@ class Notifier:
                 'title': 'Raid{}'.format(raid.raid_level),
                 'url': self.get_gmaps_link(fort.latitude, fort.longitude),
                 'description': '{} ({}h {}mn {}s)'.format(timer_end.strftime("%H:%M:%S"), time_left.seconds // 3600, (time_left.seconds // 60) % 60, time_left.seconds % 60),
-                'thumbnail': {'url': "https://raw.githubusercontent.com/Imaginum/monocle-icons/larger-outlined/larger-icons/{}.png".format(raid.raid_pokemon.pokemon_id)},
+                'thumbnail': {'url': conf.ICONS_URL.format(raid.raid_pokemon.pokemon_id)},
                 'image': {'url': self.get_static_map_url(fort.latitude, fort.longitude)}
             }]
         }

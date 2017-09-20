@@ -322,6 +322,8 @@ RAIDS_LVL_MIN = 4
 #RAIDS_DISCORD_URL = "https://discordapp.com/api/webhooks/xxxxxxxxxxxx/xxxxxxxxxxxx"
 #TELEGRAM_RAIDS_CHAT_ID = '@your_channel'
 
+#ICONS_URL = "https://raw.githubusercontent.com/ZeChrales/monocle-icons/larger-outlined/larger-icons/{}.png"
+
 #WEBHOOKS = {'http://127.0.0.1:4000'}
 
 
