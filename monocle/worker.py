@@ -818,6 +818,20 @@ class Worker:
                 normalized = self.normalize_pokemon(pokemon, username=self.username)
                 seen_target = seen_target or normalized['spawn_id'] == spawn_id
 
+                # Check against insert list
+                sp_discovered = ('inferred' in normalized and normalized['inferred'])
+                is_in_insert_blacklist = (conf.NO_DB_INSERT_IDS is not None and 
+                        normalized['pokemon_id'] in conf.NO_DB_INSERT_IDS)
+                skip_insert = (sp_discovered and is_in_insert_blacklist)
+
+                self.log.debug('Pokemon: {}, sp: {}, sp_discovered: {}, in_blacklist: {}, skip_insert: {}',
+                        normalized['pokemon_id'], spawn_id, sp_discovered, is_in_insert_blacklist, skip_insert)
+
+                # Do not insert to db for this pokemon 
+                if skip_insert:
+                    db_proc.count += 1
+                    continue
+
                 is_new = (normalized not in SIGHTING_CACHE and
                         normalized not in MYSTERY_CACHE)
                 should_encounter = (encounter_conf == 'all'

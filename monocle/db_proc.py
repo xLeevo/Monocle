@@ -4,7 +4,7 @@ from queue import Queue
 from threading import Thread
 from time import sleep
 
-from . import db
+from . import db, sanitized as conf
 from .shared import get_logger, LOOP
 
 class DatabaseProcessor(Thread):
