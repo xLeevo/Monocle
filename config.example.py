@@ -249,6 +249,7 @@ LOAD_CUSTOM_JS_FILE = False   # File path MUST be 'static/js/custom.js'
 #RAIDS_FILTER = (1, 2, 3, 4, 5)  # Levels shown by default on map
 FIXED_OPACITY = False  # Make marker opacity independent of remaining time
 SHOW_TIMER = False  # Show remaining time on a label under each pokemon marker
+SHOW_TIMER_RAIDS = True  # Show remaining time on a label under each raid marker
 
 ### OPTIONS BELOW THIS POINT ARE ONLY NECESSARY FOR NOTIFICATIONS ###
 NOTIFY = False  # enable notifications
@@ -432,7 +433,7 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #PGSCOUT_ENDPOINT = None
 #
 ## Example,
-#PGSCOUT_ENDPOINT = "http://127.0.0.1:1234/iv"
+#PGSCOUT_ENDPOINT = {"http://127.0.0.1:1234/iv","http://127.0.0.1:1235/iv"}
 #
 ## *Take note that /iv is needed at the end for PGScout. Do not remove it.*
 

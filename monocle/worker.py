@@ -86,6 +86,9 @@ class Worker:
     if conf.NOTIFY or conf.NOTIFY_RAIDS or conf.NOTIFY_RAIDS_WEBHOOK:
         notifier = Notifier()
 
+    if conf.PGSCOUT_ENDPOINT:
+	    PGScout_cycle=cycle(conf.PGSCOUT_ENDPOINT)
+
     def __init__(self, worker_no):
         self.worker_no = worker_no
         self.log = get_logger('worker-{}'.format(worker_no))
@@ -947,9 +950,10 @@ class Worker:
 
 
     async def pgscout(self, session, pokemon, spawn_id):
+        PGScout_address=next(self.PGScout_cycle)
         try:
             async with session.get(
-                    conf.PGSCOUT_ENDPOINT,
+                    PGScout_address,
                     params={'pokemon_id': pokemon['pokemon_id'],
                             'encounter_id': pokemon['encounter_id'],
                             'spawn_point_id': spawn_id,
