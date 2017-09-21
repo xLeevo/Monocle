@@ -161,13 +161,18 @@ LOGIN_TIMEOUT = 2.5
 # Set to True to kill the scanner when a newer version is forced
 #FORCED_KILL = False
 
-# exclude these Pokémon from the map by default (only visible in trash layer)
+### Exclude these Pokémon from the map by default (only visible in trash layer) 
+### DB insert is not affected. The will still be inserted to DB as normal. See NO_DB_INSERT_IDS config below.
 TRASH_IDS = (
     16, 19, 21, 29, 32, 41, 46, 48, 50, 52, 56, 74, 77, 96, 111, 133,
     161, 163, 167, 177, 183, 191, 194
 )
 
-#Prevent these pokemon from being inserted to the database and thus visible on the map; at all
+### Prevent these pokemon from being inserted to the database and thus visible on the map; at all
+### Default is None (Everything is inserted)
+#NO_DB_INSERT_IDS = None
+
+### To set it the same as TRASH_IDS do the following.
 #NO_DB_INSERT_IDS = TRASH_IDS
 
 # include these Pokémon on the "rare" report

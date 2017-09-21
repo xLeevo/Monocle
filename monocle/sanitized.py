@@ -86,7 +86,7 @@ _valid_types = {
     'MOVE_FONT': str,
     'NAME_FONT': str,
     'NEVER_NOTIFY_IDS': set_sequence_range,
-	'NO_DB_INSERT_IDS': set_sequence_range,
+    'NO_DB_INSERT_IDS': set_sequence_range,
     'NOTIFY': bool,
     'NOTIFY_RAIDS': bool,
     'NOTIFY_RAIDS_WEBHOOK': bool,
