@@ -580,6 +580,14 @@ def add_spawnpoint(session, pokemon):
         ))
 
 
+def touch_spawnpoint(session, spawn_id):
+    now = int(time())
+    spawnpoint = session.query(Spawnpoint) \
+        .filter(Spawnpoint.spawn_id == spawn_id) \
+        .update({'updated': now})
+    return now
+
+
 def add_mystery_spawnpoint(session, pokemon):
     # Check if the same entry already exists
     spawn_id = pokemon['spawn_id']
