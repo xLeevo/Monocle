@@ -94,6 +94,8 @@ setInterval(function() {
   for (var sid in deadProcesses) {
     var lastAlive = deadProcesses[sid];
     if (lastAlive < (Date.now() - (RestartSeconds * 1000))) {
+      Parser.deinitSid(sid);
+      Parser.initSid(sid);
       Restart.restartMonocle(sid, function(err, o) {
         if (err) {
           console.log(err);
@@ -101,8 +103,6 @@ setInterval(function() {
       });
     }
   }
-  //console.log('Process stats: ', stats.processStats);
-  //console.log('Dead processes: ', stats.deadProcesses);
 }, 10 * 1000);
 
 nodeCleanup(function(exitCode, signal) {

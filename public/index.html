@@ -85,6 +85,10 @@
                 <button class="sort" data-sort="captcha">
               </th>
               <th>
+                Hashing
+                <button class="sort" data-sort="hashing_timeout">
+              </th>
+              <th>
                 Dead
                 <button class="sort" data-sort="dead_at">
               </th>
@@ -200,6 +204,8 @@
                     o.pokemon_ph = parseInt(stats.pokemonPh);
                     o.spin_ph = parseInt(stats.spinPh);
                     o.captcha_ph = parseInt(stats.captchaPh);
+                    o.hashing_timeout = parseInt(stats.hashingTimeout);
+                    o.hashing_timeout_ph = parseInt(stats.hashingTimeoutPh);
                   }
                 }
               });
@@ -217,6 +223,8 @@
                   'pokemon_ph',
                   'spin_ph',
                   'captcha_ph',
+                  'hashing_timeout',
+                  'hashing_timeout_ph',
                   {data: ['id','dead_data','captcha_enc_data']},
                   {name: 'logs_url', attr: 'href'},
                   {name: 'workers_url', attr: 'href'},
@@ -230,6 +238,7 @@
                 <td><span class="pokemon"></span> (<span class="pokemon_ph"></span>/hr)</td>\
                 <td><span class="spin"></span> (<span class="spin_ph"></span>/hr)</td>\
                 <td><span class="captcha"></span> (<span class="captcha_ph"></span>/hr)</td>\
+                <td><span class="hashing_timeout"></span> (<span class="hashing_timeout_ph"></span>/hr)</td>\
                 <td class="dead"></td>\
                 <td><a class="gear_url" target="map" href="">\
                   <span class="glyphicon glyphicon-cog"></span>\

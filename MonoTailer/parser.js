@@ -27,6 +27,8 @@ var initTimeslice = function(sliceId) {
     pokemonPh: 0.0,
     captcha: 0,
     captchaPh: 0.0,
+    hashingTimeout: 0,
+    hashingTimeoutPh: 0.0,
   };
 };
 
@@ -34,22 +36,10 @@ var initProcess = function(sid) {
   return {
     sid: sid,
     lastUpdated: 0,
-    hashingTimeout: 0,
     currentTimeSlice: initTimeslice(getCurrentT()),
     timeSlices: {},
   };
 };
-
-//var updateCurrentTimeslices = function () {
-//  for (var k in workers) {
-//    var worker = workers[k];
-//    var sid = worker.sid;
-//
-//    processes[sid].currentTimeSlice.spin += worker.spin;
-//    processes[sid].currentTimeSlice.pokemon += worker.pokemon;
-//    processes[sid].currentTimeSlice.captcha += worker.captcha;
-//  }
-//};
 
 var updateTimeslices = function() {
   for (var sid in processes) {
@@ -74,6 +64,7 @@ var updateTimeslices = function() {
     timeSlice.spinPh = timeSlice.spin * numSlices;
     timeSlice.pokemonPh = timeSlice.pokemon * numSlices;
     timeSlice.captchaPh = timeSlice.captcha * numSlices;
+    timeSlice.hashingTimeoutPh = timeSlice.hashingTimeout * numSlices;
 
     var timeSliceValues = [];
     for (var k in timeSlices) {
@@ -85,11 +76,13 @@ var updateTimeslices = function() {
         spin: s.spin + o.spin,
         pokemon: s.pokemon + o.pokemon,
         captcha: s.captcha + o.captcha,
+        hashingTimeout: s.hashingTimeout + o.hashingTimeout,
       };
     }, {
       spin: 0,
       pokemon: 0,
       captcha: 0,
+      hashingTimeout: 0,
     });
 
     var sliceCount = Object.keys(timeSlices).length;
@@ -97,6 +90,7 @@ var updateTimeslices = function() {
     stats.spinPh = (stats.spin / sliceCount) * numSlices;
     stats.pokemonPh = (stats.pokemon / sliceCount) * numSlices;
     stats.captchaPh = (stats.captcha / sliceCount) * numSlices;
+    stats.hashingTimeoutPh = (stats.hashingTimeout / sliceCount) * numSlices;
 
     proc.stats = stats;
   }
@@ -175,9 +169,6 @@ var updateWorker = function(str, sid) {
     }
 
     if (matches = str.match(/Point processed, (\d+) Pokemon/)) {
-      //var pokemonCount = parseInt(matches[1]);
-      //worker.pokemon += pokemonCount;
-      //processes[sid].currentTimeSlice.pokemon += pokemonCount;
       worker.pokemon += 1;
       processes[sid].currentTimeSlice.pokemon += 1;
     }
@@ -191,7 +182,7 @@ var updateProcess = function(str, sid) {
     if (!processes[sid]) {
       processes[sid] = initProcess(sid);
     }
-    processes[sid].hashingError += 1;
+    processes[sid].currentTimeSlice.hashingTimeout += 1;
   }
 };
 
@@ -199,8 +190,12 @@ var deadProcesses = function() {
   var dead = {};
   var cutoff = Date.now() - (30 * 1000);
   for (var sid in processes) {
-    if (processes[sid].lastUpdated < cutoff) {
-      dead[sid] = processes[sid].lastUpdated;
+    var proc = processes[sid];
+    var currentTS = proc.currentTimeslice;
+    if (proc.lastUpdated < cutoff) {
+      dead[sid] = proc.lastUpdated;
+    } else if (currentTS && currentTS.pokemon === 0 && currentTS.hashingTimeout > 15) {
+      dead[sid] = 0;
     }
   }
   return dead;
@@ -222,9 +217,11 @@ module.exports.initSid = function(sid) {
 };
 
 module.exports.parse = function(str, sid) {
-  updateProcess(str, sid);
-  updateWorker(str, sid);
-  updateAccount(str, sid);
+  if (processes[sid]) {
+    updateProcess(str, sid);
+    updateWorker(str, sid);
+    updateAccount(str, sid);
+  }
 };
 
 module.exports.stats = function() {
