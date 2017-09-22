@@ -69,6 +69,11 @@ var restartMonocle = function(sid, callback) {
   console.log("Getting svid for sid: %d", sid);
   exec("supervisorctl status | grep -E '_"+sid+"\\s+(EXITED|FATAL|RUNNING)'", function(e,stdout){
     if (e) {
+      if (e.code === 1) {
+        console.log("Command failed: %s", e.cmd);
+      } else {
+        console.log("Unknown error", e);
+      }
       callback(e);
 
     } else if (svid = stdout.split(" ")[0]) {

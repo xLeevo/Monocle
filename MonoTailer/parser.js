@@ -191,7 +191,7 @@ var deadProcesses = function() {
   var cutoff = Date.now() - (30 * 1000);
   for (var sid in processes) {
     var proc = processes[sid];
-    var currentTS = proc.currentTimeslice;
+    var currentTS = proc.currentTimeSlice;
     if (proc.lastUpdated < cutoff) {
       dead[sid] = proc.lastUpdated;
     } else if (currentTS && currentTS.pokemon === 0 && currentTS.hashingTimeout > 15) {
@@ -228,8 +228,19 @@ module.exports.stats = function() {
 
   var dead = deadProcesses();
 
+  var procs = {};
+  for (var k in processes) {
+    var o = processes[k];
+    procs[k] = {
+      currentTimeSlice: o.currentTimeSlice,
+      lastUpdated: o.lastUpdated,
+      sid: o.sid,
+      stats: o.stats,
+    };
+  }
+
   return {
-    processStats: processes,
+    processStats: procs,
     processCount: Object.keys(processes).length,
     deadProcessCount: Object.keys(dead).length,
     deadProcesses: dead,
