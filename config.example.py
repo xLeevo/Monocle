@@ -49,6 +49,10 @@ ACCOUNTS_CSV = 'accounts.csv'
 # defaults to working directory if not set
 #DIRECTORY = None
 
+# Allows you to specify how many log files to keep before recycling
+# Monocle defaults to scan.log plus 4 for a total of 5
+#LOGGED_FILES = 4
+
 # Limit the number of simultaneous logins to this many at a time.
 # Lower numbers will increase the amount of time it takes for all workers to
 # get started but are recommended to avoid suddenly flooding the servers with
