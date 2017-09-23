@@ -2,9 +2,9 @@ import sys
 
 from queue import Queue
 from threading import Thread
-from time import sleep
+from time import sleep, time
 
-from . import db
+from . import db, spawns
 from .shared import get_logger, LOOP
 
 class DatabaseProcessor(Thread):
@@ -16,6 +16,7 @@ class DatabaseProcessor(Thread):
         self.running = True
         self.count = 0
         self._commit = False
+        self.session = None
 
     def __len__(self):
         return self.queue.qsize()
@@ -30,6 +31,7 @@ class DatabaseProcessor(Thread):
 
     def run(self):
         session = db.Session()
+        self.session = session
         LOOP.call_soon_threadsafe(self.commit)
 
         while self.running or not self.queue.empty():
@@ -40,11 +42,21 @@ class DatabaseProcessor(Thread):
                 if item_type == 'pokemon':
                     db.add_sighting(session, item)
                     self.count += 1
+                    spawn_id = item['spawn_id']
                     if not item['inferred']:
                         db.add_spawnpoint(session, item)
+                        spawns.updated_at[spawn_id] = int(time())
+                    else:
+                        # touch every 6 hours
+                        if spawn_id not in spawns.updated_at or spawns.updated_at[spawn_id] < (time() - 21600):
+                            updated_at = db.touch_spawnpoint(session, spawn_id)
+                            spawns.updated_at[spawn_id] = updated_at
+
                 elif item_type == 'mystery':
                     db.add_mystery(session, item)
                     self.count += 1
+                elif item_type == 'raid':
+                    db.add_raid(session, item)
                 elif item_type == 'fort':
                     db.add_fort_sighting(session, item)
                 elif item_type == 'pokestop':

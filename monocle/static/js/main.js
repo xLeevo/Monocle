@@ -1,5 +1,7 @@
 var _last_pokemon_id = 0;
 var _pokemon_count = 251;
+var _raids_count = 5;
+var _raids_labels = ['Normal', 'Normal', 'Rare', 'Rare', 'Legendary'];
 var _WorkerIconUrl = 'static/monocle-icons/assets/ball.png';
 var _PokestopIconUrl = 'static/monocle-icons/assets/stop.png';
 
@@ -19,7 +21,23 @@ var PokemonIcon = L.Icon.extend({
         return div;
     }
 });
-
+var RaidIcon = L.Icon.extend({
+    options: {
+        popupAnchor: [0, -10]
+    },
+    createIcon: function() {
+        var div = document.createElement('div');
+        div.innerHTML =
+            '<div class="pokemarker">' +
+              '<div class="raidimg">' +
+                   '<img class="leaflet-marker-icon raid_egg" src="' + this.options.iconUrl + '" />' +
+              '</div>' +
+              '<div class="number_marker ' + this.options.team_color + '">' + this.options.level + '</div>' +
+              '<div class="remaining_text" data-expire="' + this.options.expires_at + '">' + calculateRemainingTime(this.options.expires_at) + '</div>' +
+            '</div>';
+        return div;
+    }
+});
 var FortIcon = L.Icon.extend({
     options: {
         iconSize: [20, 20],
@@ -46,6 +64,7 @@ var markers = {};
 var overlays = {
     Pokemon: L.layerGroup([]),
     Trash: L.layerGroup([]),
+    Raids: L.layerGroup([]),
     Gyms: L.layerGroup([]),
     Pokestops: L.layerGroup([]),
     Workers: L.layerGroup([]),
@@ -69,22 +88,26 @@ function monitor (group, initial) {
 
 monitor(overlays.Pokemon, false)
 monitor(overlays.Trash, true)
+monitor(overlays.Raids, true)
 monitor(overlays.Gyms, true)
-monitor(overlays.Workers, false)
+monitor(overlays.Workers, true)
 
 function getPopupContent (item) {
     var diff = (item.expires_at - new Date().getTime() / 1000);
     var minutes = parseInt(diff / 60);
     var seconds = parseInt(diff - (minutes * 60));
+    var gender = getGender(item.gender);
+    var form = getForm(item.form);
     var expires_at = minutes + 'm ' + seconds + 's';
-    var content = '<b>' + item.name + '</b> - <a href="https://pokemongo.gamepress.gg/pokemon/' + item.pokemon_id + '">#' + item.pokemon_id + '</a>';
+    var content = '<b>' + item.name + gender + form + '</b> - <a href="https://pokemongo.gamepress.gg/pokemon/' + item.pokemon_id + '">#' + item.pokemon_id + '</a>';
     if(item.atk != undefined){
         var totaliv = 100 * (item.atk + item.def + item.sta) / 45;
         content += ' - <b>' + totaliv.toFixed(2) + '%</b><br>';
         content += 'Disappears in: ' + expires_at + '<br>';
         content += 'Move 1: ' + item.move1 + ' ( ' + item.damage1 + ' dps )<br>';
         content += 'Move 2: ' + item.move2 + ' ( ' + item.damage2 + ' dps )<br>';
-        content += 'IV: ' + item.atk + ' atk, ' + item.def + ' def, ' + item.sta + ' sta<br>'
+        content += 'IV: ' + item.atk + ' atk, ' + item.def + ' def, ' + item.sta + ' sta<br>';
+        content += 'CP: ' + item.cp + ' | Lvl: ' + item.level + '<br>';
     } else {
         content += '<br>Disappears in: ' + expires_at + '<br>';
     }
@@ -99,6 +122,44 @@ function getPopupContent (item) {
     }
     content += '<br>=&gt; <a href="https://www.google.com/maps/?daddr='+ item.lat + ','+ item.lon +'" target="_blank" title="See in Google Maps">Get directions</a>';
     return content;
+}
+
+function getRaidPopupContent (raw) {
+	var content = '<b>Raid level ' + raw.level + '</b><br>';
+	var info_link = (raw.pokemon_id === 0) ? '' : ' - <a href="https://pokemongo.gamepress.gg/pokemon/' + raw.pokemon_id + '">#' + raw.pokemon_id + '</a>';
+	content += 'Pokemon: ' + raw.pokemon_name + info_link + '<br>';
+	if (raw.pokemon_id === 0){
+		var diff = (raw.time_battle - new Date().getTime() / 1000);
+		var minutes = parseInt(diff / 60);
+    	var seconds = parseInt(diff - (minutes * 60));
+		content += 'Raid Battle: ' + minutes + 'm ' + seconds + 's<br>';
+	}else{
+    content += 'Move 1: ' + raw.move1 + '<br>';
+    content += 'Move 2: ' + raw.move2 + '<br>';
+		var diff = (raw.time_end - new Date().getTime() / 1000);
+		var minutes = parseInt(diff / 60);
+    	var seconds = parseInt(diff - (minutes * 60));
+		content += 'Raid End: ' + minutes + 'm ' + seconds + 's<br>';
+	}
+    content += '<br>=&gt; <a href="https://www.google.com/maps/?daddr='+ raw.lat + ','+ raw.lon +'" target="_blank" title="See in Google Maps">Get directions</a>';
+    return content;
+}
+
+function getGender (g) {
+    if (g === 1) {
+        return " (Male)";
+    }
+    if (g === 2) {
+        return " (Female)";
+    }
+    return "";
+}
+
+function getForm (f) {
+    if ((f !== null) && f !== 0) {
+        return " (" + String.fromCharCode(f + 64) + ")";
+    }
+    return "";
 }
 
 function getOpacity (diff) {
@@ -181,12 +242,79 @@ function FortMarker (raw) {
             else if (raw.team === 3 ) {
                 content = '<b>Team Instinct</b>'
             }
-            content += '<br>Prestige: ' + raw.prestige +
+            var last_modified = new Date(raw.last_modified * 1000);
+
+            content += '<br><span style="font-size: smaller">Last Modified: ' + last_modified.toLocaleString() + '</span>' +
+                       '<br>Slots occupied: '+ (6 - raw.slots_available) + '/6' +
                        '<br>Guarding Pokemon: ' + raw.pokemon_name + ' (#' + raw.pokemon_id + ')';
         }
         content += '<br>=&gt; <a href=https://www.google.com/maps/?daddr='+ raw.lat + ','+ raw.lon +' target="_blank" title="See in Google Maps">Get directions</a>';
         event.popup.setContent(content);
     });
+    marker.bindPopup();
+    return marker;
+}
+
+function RaidMarker (raw) {
+    var rarity = 'legendary';
+    if (raw.level === 1 || raw.level === 2) {
+        rarity = 'normal';
+    }
+    else if (raw.level === 3 || raw.level === 4) {
+        rarity = 'rare';
+    }
+    var team_color = 'empty';
+    if (raw.team === 1) {
+        team_color = 'mystic';
+    }
+    if (raw.team === 2) {
+        team_color = 'valor';
+    }
+    else if (raw.team === 3) {
+        team_color = 'instinct';
+    }
+	var icon = null;
+	if (raw.pokemon_id === 0){
+		icon = new RaidIcon({iconUrl: '/static/monocle-icons/raids/' + rarity + '.png', level: raw.level, team_color: team_color, expires_at: raw.time_battle});
+	}else{
+		icon = new RaidIcon({iconUrl: '/static/monocle-icons/icons/' + raw.pokemon_id + '.png', level: raw.level, team_color: team_color, expires_at: raw.time_end});
+	}
+
+    var marker = L.marker([raw.lat, raw.lon], {icon: icon});
+	marker.raw = raw;
+	marker.opacityInterval = setInterval(function () {
+        if (overlays.Raids.hidden) {
+            return;
+        }
+        var diff = marker.raw.time_end - new Date().getTime() / 1000;
+        if (diff <= 0) {
+            marker.removeFrom(overlays.Raids);
+            markers[marker.raw.id] = undefined;
+            clearInterval(marker.opacityInterval);
+        }
+    }, 2500);
+
+    var userPreference = getPreference('raids-'+raw.level);
+    if (userPreference === 'show'){
+        marker.overlay = 'Raids';
+    }else if (userPreference === 'hide'){
+        marker.overlay = 'Hidden';
+    }
+
+	markers[raw.id] = marker;
+    
+ 	marker.on('popupopen',function popupopen (event) {
+        event.popup.options.autoPan = true; // Pan into view once
+        event.popup.setContent(getRaidPopupContent(event.target.raw));
+        event.target.popupInterval = setInterval(function () {
+            event.popup.setContent(getRaidPopupContent(event.target.raw));
+            event.popup.options.autoPan = false; // Don't fight user panning
+        }, 1000);
+    });
+    marker.on('popupclose', function (event) {
+        clearInterval(event.target.popupInterval);
+    });
+
     marker.bindPopup();
     return marker;
 }
@@ -215,6 +343,25 @@ function addPokemonToMap (data, map) {
     if (_updateTimeInterval === null){
         _updateTimeInterval = setInterval(updateTime, 1000);
     }
+}
+
+function addRaidsToMap (data, map) {
+    data.forEach(function (item) {
+        // Already placed? No need to do anything, then
+        if (item.id in markers) {
+            if (item.pokemon_id == markers[item.id].raw.pokemon_id){
+				return;
+			}
+			markers[item.id].removeFrom(overlays.Raids);
+            clearInterval(markers[item.id].opacityInterval);
+            markers[item.id] = undefined;
+        }
+        var marker = RaidMarker(item);
+        
+		if (marker.overlay !== "Hidden"){
+            marker.addTo(overlays[marker.overlay])
+        }
+    });
 }
 
 function addGymsToMap (data, map) {
@@ -294,6 +441,19 @@ function getPokemon () {
     });
 }
 
+function getRaids () {
+    if (overlays.Raids.hidden) {
+        return;
+    }
+    new Promise(function (resolve, reject) {
+        $.get('/raids', function (response) {
+            resolve(response);
+        });
+    }).then(function (data) {
+        addRaidsToMap(data, map);
+    });
+}
+
 function getGyms () {
     if (overlays.Gyms.hidden) {
         return;
@@ -364,6 +524,9 @@ map.whenReady(function () {
     $('.my-location').on('click', function () {
         map.locate({ enableHighAccurracy: true, setView: true });
     });
+    overlays.Raids.once('add', function(e) {
+        getRaids();
+    })
     overlays.Gyms.once('add', function(e) {
         getGyms();
     })
@@ -374,12 +537,14 @@ map.whenReady(function () {
         getPokestops();
     })
     getScanAreaCoords();
-    getWorkers();
-    overlays.Workers.hidden = true;
+    overlays.Workers.once('add', function(e) {
+        getWorkers();
+    })
     setInterval(getWorkers, 14000);
     getPokemon();
     setInterval(getPokemon, 30000);
-    setInterval(getGyms, 110000)
+    setInterval(getRaids, 60000);
+    setInterval(getGyms, 110000);
 });
 
 $("#settings>ul.nav>li>a").on('click', function(){
@@ -436,31 +601,50 @@ $('#settings').on('click', '.settings-panel button', function () {
 
     if (key.indexOf('filter-') > -1){
         // This is a pokemon's filter button
-        moveToLayer(id, value);
+        moveToLayer(id, value, 'filter');
+    }else if (key.indexOf('raids-') > -1){
+        // This is a raid's filter button
+        moveToLayer(id, value, 'raids');		
     }else{
         setPreference(key, value);
     }
 });
 
-function moveToLayer(id, layer){
-    setPreference("filter-"+id, layer);
+function moveToLayer(id, layer, type){
+    setPreference(type+"-"+id, layer);
     layer = layer.toLowerCase();
-    for(var k in markers) {
-        var m = markers[k];
-        if ((k.indexOf("pokemon-") > -1) && (m !== undefined) && (m.raw.pokemon_id === id)){
-            m.removeFrom(overlays[m.overlay]);
-            if (layer === 'pokemon'){
-                m.overlay = "Pokemon";
-                m.addTo(overlays.Pokemon);
-            }else if (layer === 'trash') {
-                m.overlay = "Trash";
-                m.addTo(overlays.Trash);
-            }
-        }
+    if (type === 'filter'){
+		for(var k in markers) {
+		    var m = markers[k];
+		    if ((k.indexOf("pokemon-") > -1) && (m !== undefined) && (m.raw.pokemon_id === id)){
+		        m.removeFrom(overlays[m.overlay]);
+		        if (layer === 'pokemon'){
+		            m.overlay = "Pokemon";
+		            m.addTo(overlays.Pokemon);
+		        }else if (layer === 'trash') {
+		            m.overlay = "Trash";
+		            m.addTo(overlays.Trash);
+		        }
+		    }
+		}
+    }else if (type === 'raids'){
+        for(var k in markers) {
+		    var m = markers[k];
+		    if ((k.indexOf("raid-") > -1) && (m !== undefined) && (m.raw.level === id)){
+		        m.removeFrom(overlays[m.overlay]);
+		        if (layer === 'show'){
+		            m.overlay = "Raids";
+		            m.addTo(overlays.Raids);
+		        }else{
+		            m.overlay = "Hidden";
+                }
+		    }
+		}
     }
 }
 
 function populateSettingsPanels(){
+    // Filters
     var container = $('.settings-panel[data-panel="filters"]').children('.panel-body');
     var newHtml = '';
     for (var i = 1; i <= _pokemon_count; i++){
@@ -478,11 +662,32 @@ function populateSettingsPanels(){
     }
     newHtml += '</div>';
     container.html(newHtml);
+
+    // Raids
+    container = $('.settings-panel[data-panel="raids"]').children('.panel-body');
+    newHtml = '';
+    for (var i = 1; i <= _raids_count; i++){
+        var partHtml = `<div class="text-center">
+                <span class="raid-label">Level ` + i + ` (` + _raids_labels[i-1] + `)` + `</span>
+                <div class="btn-group" role="group" data-group="raids-`+i+`">
+                  <button type="button" class="btn btn-default" data-id="`+i+`" data-value="show">Show</button>
+                  <button type="button" class="btn btn-default" data-id="`+i+`" data-value="hide">Hide</button>
+                </div>
+            </div>
+        `;
+
+        newHtml += partHtml
+    }
+    newHtml += '</div>';
+    container.html(newHtml);
 }
 
 function setSettingsDefaults(){
     for (var i = 1; i <= _pokemon_count; i++){
         _defaultSettings['filter-'+i] = (_defaultSettings['TRASH_IDS'].indexOf(i) > -1) ? "trash" : "pokemon";
+    };
+    for (var i = 1; i <= _raids_count; i++){
+        _defaultSettings['raids-'+i] = (_defaultSettings['RAIDS_FILTER'].indexOf(i) > -1) ? "show" : "hide";
     };
 
     $("#settings div.btn-group").each(function(){
@@ -545,6 +750,16 @@ function updateTime() {
         });
     }else{
         $(".remaining_text").each(function() {
+            $(this).css('visibility', 'hidden');
+        });
+    }
+    if (getPreference("SHOW_TIMER_RAIDS") === "1"){
+        $(".remaining_text_raids").each(function() {
+            $(this).css('visibility', 'visible');
+            this.innerHTML = calculateRemainingTime($(this).data('expire'));
+        });
+    }else{
+        $(".remaining_text_raids").each(function() {
             $(this).css('visibility', 'hidden');
         });
     }

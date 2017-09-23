@@ -82,7 +82,7 @@ class Overseer:
 
         for username, account in ACCOUNTS.items():
             account['username'] = username
-            if account.get('banned'):
+            if account.get('banned') or account.get('warn') or account.get('sbanned'):
                 continue
             if account.get('captcha'):
                 self.captcha_queue.put(account)
@@ -231,7 +231,7 @@ class Overseer:
             # Set changed size during iteration
             self.coroutines_count = '-1'
 
-    def _print_status(self, _ansi=ANSI, _start=datetime.now(), _notify=conf.NOTIFY):
+    def _print_status(self, _ansi=ANSI, _start=datetime.now(), _notify=conf.NOTIFY or conf.NOTIFY_RAIDS):
         running_for = datetime.now() - _start
 
         seconds_since_start = running_for.seconds - self.idle_seconds or 0.1
