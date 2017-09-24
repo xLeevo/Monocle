@@ -25,7 +25,8 @@ if conf.DB_ENGINE.startswith('mysql'):
 
     TINY_TYPE = TINYINT(unsigned=True)          # 0 to 255
     MEDIUM_TYPE = MEDIUMINT(unsigned=True)      # 0 to 4294967295
-    HUGE_TYPE = BIGINT(unsigned=True)           # 0 to 18446744073709551615
+    UNSIGNED_HUGE_TYPE = BIGINT(unsigned=True)           # 0 to 18446744073709551615
+    HUGE_TYPE = BigInteger
     PRIMARY_HUGE_TYPE = HUGE_TYPE 
     FLOAT_TYPE = DOUBLE(precision=17, scale=14, asdecimal=False)
 elif conf.DB_ENGINE.startswith('postgres'):
@@ -47,8 +48,9 @@ elif conf.DB_ENGINE.startswith('postgres'):
 
     TINY_TYPE = SmallInteger                    # -32768 to 32767
     MEDIUM_TYPE = Integer                       # -2147483648 to 2147483647
-    HUGE_TYPE = NumInt(precision=20, scale=0)   # up to 20 digits
-    PRIMARY_HUGE_TYPE = Integer
+    UNSIGNED_HUGE_TYPE = NumInt(precision=20, scale=0)   # up to 20 digits
+    HUGE_TYPE = BigInteger
+    PRIMARY_HUGE_TYPE = HUGE_TYPE 
     FLOAT_TYPE = DOUBLE_PRECISION(asdecimal=False)
 else:
     class TextInt(TypeDecorator):
@@ -63,7 +65,8 @@ else:
 
     TINY_TYPE = SmallInteger
     MEDIUM_TYPE = Integer
-    HUGE_TYPE = TextInt
+    UNSIGNED_HUGE_TYPE = TextInt
+    HUGE_TYPE = Integer
     PRIMARY_HUGE_TYPE = HUGE_TYPE 
     FLOAT_TYPE = Float(asdecimal=False)
 
@@ -275,7 +278,7 @@ class Sighting(Base):
     pokemon_id = Column(TINY_TYPE)
     spawn_id = Column(ID_TYPE)
     expire_timestamp = Column(Integer, index=True)
-    encounter_id = Column(HUGE_TYPE, index=True)
+    encounter_id = Column(UNSIGNED_HUGE_TYPE, index=True)
     lat = Column(FLOAT_TYPE)
     lon = Column(FLOAT_TYPE)
     atk_iv = Column(TINY_TYPE)
@@ -303,7 +306,7 @@ class SightingUser(Base):
 
     id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
     username = Column(String(32))
-    sighting_id = Column(PRIMARY_HUGE_TYPE, ForeignKey('sightings.id', onupdate="CASCADE", ondelete="CASCADE"), nullable=False, index=True)
+    sighting_id = Column(HUGE_TYPE, ForeignKey('sightings.id', onupdate="CASCADE", ondelete="CASCADE"), nullable=False, index=True)
 
     sighting = relationship("Sighting", uselist=False, back_populates="user")
 
@@ -337,7 +340,7 @@ class Mystery(Base):
     id = Column(Integer, primary_key=True)
     pokemon_id = Column(TINY_TYPE)
     spawn_id = Column(ID_TYPE, index=True)
-    encounter_id = Column(HUGE_TYPE, index=True)
+    encounter_id = Column(UNSIGNED_HUGE_TYPE, index=True)
     lat = Column(FLOAT_TYPE)
     lon = Column(FLOAT_TYPE)
     first_seen = Column(Integer, index=True)
@@ -374,6 +377,10 @@ class Spawnpoint(Base):
     updated = Column(Integer, index=True)
     duration = Column(TINY_TYPE)
     failures = Column(TINY_TYPE)
+
+    __table_args__ = (
+        Index('ix_coords_sp', "lat", "lon"),
+    )
 
 
 class Fort(Base):
@@ -433,7 +440,7 @@ class GymDefender(Base):
 
     id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
     fort_id = Column(Integer, ForeignKey('forts.id', onupdate="CASCADE", ondelete="CASCADE"), nullable=False, index=True)
-    external_id = Column(HUGE_TYPE, nullable=False)
+    external_id = Column(UNSIGNED_HUGE_TYPE, nullable=False)
     pokemon_id = Column(Integer)
     owner_name = Column(String(128))
     nickname = Column(String(128))
