@@ -1325,7 +1325,7 @@ class Worker:
             self.account['banned'] = True
             self.log.warning('Removing {} due to ban.', self.username)
         self.update_accounts_dict()
-        await self.new_account()
+        await self.new_account(after_remove=True)
 
     async def bench_account(self):
         self.error_code = 'BENCHING'
@@ -1355,7 +1355,7 @@ class Worker:
         self.extra_queue.put(self.account)
         await self.new_account()
 
-    async def new_account(self):
+    async def new_account(self, after_remove=False):
         if (conf.CAPTCHA_KEY
                 and (conf.FAVOR_CAPTCHA or self.extra_queue.empty())
                 and not self.captcha_queue.empty()):
@@ -1363,8 +1363,11 @@ class Worker:
         else:
             try:
                 self.account = self.extra_queue.get_nowait()
-            except Empty:
-                self.account = await run_threaded(self.extra_queue.get)
+            except Empty as e:
+                if after_remove:
+                    raise ValueError("No more accounts available to replace removed account") from e
+                else:
+                    self.account = await run_threaded(self.extra_queue.get)
         self.username = self.account['username']
         try:
             self.location = self.account['location'][:2]

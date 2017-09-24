@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from enum import Enum
 from time import time, mktime
 
-from sqlalchemy import Column, Boolean, Integer, String, Float, SmallInteger, BigInteger, ForeignKey, Index, UniqueConstraint, create_engine, cast, func, desc, asc, and_, exists
+from sqlalchemy import Column, Boolean, Integer, String, Float, SmallInteger, BigInteger, ForeignKey, Index, UniqueConstraint, create_engine, cast, func, desc, asc, desc, and_, exists
 from sqlalchemy.orm import sessionmaker, relationship, eagerload
 from sqlalchemy.types import TypeDecorator, Numeric, Text
 from sqlalchemy.ext.declarative import declarative_base
@@ -291,7 +291,10 @@ class Sighting(Base):
     cp = Column(SmallInteger)
     level = Column(SmallInteger)
 
-    user = relationship("SightingUser", uselist=False, back_populates="sighting")
+    user = relationship("SightingUser",
+            uselist=False,
+            back_populates="sighting",
+            cascade="all, delete-orphan")
 
     __table_args__ = (
         UniqueConstraint(
@@ -492,28 +495,40 @@ def add_sighting(session, pokemon):
             ).scalar():
         SIGHTING_CACHE.add(pokemon)
         return
-    obj = Sighting(
-        pokemon_id=pokemon['pokemon_id'],
-        spawn_id=pokemon['spawn_id'],
-        encounter_id=pokemon['encounter_id'],
-        expire_timestamp=pokemon['expire_timestamp'],
-        lat=pokemon['lat'],
-        lon=pokemon['lon'],
-        atk_iv=pokemon.get('individual_attack'),
-        def_iv=pokemon.get('individual_defense'),
-        sta_iv=pokemon.get('individual_stamina'),
-        move_1=pokemon.get('move_1'),
-        move_2=pokemon.get('move_2'),
-        gender=pokemon.get('gender', 0),
-        form=pokemon.get('form', 0),
-        cp=pokemon.get('cp'),
-        level=pokemon.get('level'),
-    )
+
+    if conf.KEEP_SPAWNPOINT_HISTORY or pokemon['spawn_id'] == 0:
+        sighting = None
+    else:
+        sighting = session.query(Sighting) \
+                .filter(Sighting.spawn_id==pokemon['spawn_id']) \
+                .order_by(desc(Sighting.id)) \
+                .first()
+
+    if not sighting:
+        sighting = Sighting()
+
+    sighting.pokemon_id = pokemon['pokemon_id']
+    sighting.spawn_id = pokemon['spawn_id']
+    sighting.encounter_id = pokemon['encounter_id']
+    sighting.expire_timestamp = pokemon['expire_timestamp']
+    sighting.lat = pokemon['lat']
+    sighting.lon = pokemon['lon']
+    sighting.atk_iv = pokemon.get('individual_attack')
+    sighting.def_iv = pokemon.get('individual_defense')
+    sighting.sta_iv = pokemon.get('individual_stamina')
+    sighting.move_1 = pokemon.get('move_1')
+    sighting.move_2 = pokemon.get('move_2')
+    sighting.gender = pokemon.get('gender', 0)
+    sighting.form = pokemon.get('form', 0)
+    sighting.cp = pokemon.get('cp')
+    sighting.level = pokemon.get('level')
+
     if conf.SB_DETECTOR:
         username = pokemon.get('username', None)
         if username:
-            obj.user = SightingUser(username=username)
-    session.add(obj)
+            sighting.user = SightingUser(username=username)
+
+    session.merge(sighting)
     SIGHTING_CACHE.add(pokemon)
 
 def add_gym_defenders(session, fort, gym_defenders):
@@ -683,16 +698,25 @@ def add_fort_sighting(session, raw_fort):
         FORT_CACHE.add(raw_fort)
         return
 
-    fort_sighting = FortSighting(
-        fort=fort,
-        team=raw_fort['team'],
-        guard_pokemon_id=raw_fort['guard_pokemon_id'],
-        last_modified=raw_fort['last_modified'],
-        slots_available=raw_fort['slots_available'],
-        is_in_battle=raw_fort['is_in_battle'],
-    )
+    if conf.KEEP_GYM_HISTORY:
+        fort_sighting = None
+    else:
+        fort_sighting = session.query(FortSighting) \
+                .filter(FortSighting.fort_id==fort.id) \
+                .order_by(desc(FortSighting.id)) \
+                .first()
 
-    session.add(fort_sighting)
+    if not fort_sighting:
+        fort_sighting = FortSighting()
+    
+    fort_sighting.fort = fort
+    fort_sighting.team = raw_fort['team']
+    fort_sighting.guard_pokemon_id = raw_fort['guard_pokemon_id']
+    fort_sighting.last_modified = raw_fort['last_modified']
+    fort_sighting.slots_available = raw_fort['slots_available']
+    fort_sighting.is_in_battle = raw_fort['is_in_battle']
+
+    session.merge(fort_sighting)
 
     FORT_CACHE.add(raw_fort)
 
@@ -716,19 +740,29 @@ def add_raid(session, raw_raid):
         .first()
 
     if fort:
-        raid = Raid(
-            external_id=raw_raid['external_id'],
-            fort_id=fort.id,
-            level=raw_raid['level'],
-            pokemon_id=raw_raid['pokemon_id'],
-            time_spawn=raw_raid['time_spawn'],
-            time_battle=raw_raid['time_battle'],
-            time_end=raw_raid['time_end'],
-            cp=raw_raid['cp'],
-            move_1=raw_raid['move_1'],
-            move_2=raw_raid['move_2']
-        )
-        session.add(raid)
+        if conf.KEEP_GYM_HISTORY:
+            raid = None
+        else:
+            raid = session.query(Raid) \
+                    .filter(Raid.fort_id==fort.id) \
+                    .order_by(desc(Raid.id)) \
+                    .first()
+
+        if not raid:
+            raid = Raid()
+    
+        raid.external_id = raw_raid['external_id']
+        raid.fort_id = fort.id
+        raid.level = raw_raid['level']
+        raid.pokemon_id = raw_raid['pokemon_id']
+        raid.time_spawn = raw_raid['time_spawn']
+        raid.time_battle = raw_raid['time_battle']
+        raid.time_end = raw_raid['time_end']
+        raid.cp = raw_raid['cp']
+        raid.move_1 = raw_raid['move_1']
+        raid.move_2 = raw_raid['move_2']
+
+        session.merge(raid)
         RAID_CACHE.add(raw_raid)
 
 
