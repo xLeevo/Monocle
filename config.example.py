@@ -49,6 +49,10 @@ ACCOUNTS_CSV = 'accounts.csv'
 # defaults to working directory if not set
 #DIRECTORY = None
 
+# Allows you to specify how many log files to keep before recycling
+# Monocle defaults to scan.log plus 4 for a total of 5
+#LOGGED_FILES = 4
+
 # Limit the number of simultaneous logins to this many at a time.
 # Lower numbers will increase the amount of time it takes for all workers to
 # get started but are recommended to avoid suddenly flooding the servers with
@@ -454,3 +458,15 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #
 #PGSCOUT_TIMEOUT = 40 
 #
+
+
+### Record keeping settings
+###
+### If True, new fort_sightings and raids will be inserted. Else, existing records for the same fort will be updated (if found).
+### Default is False
+#KEEP_GYM_HISTORY = False
+#
+### If True, new sightings inserted. Else, existing sighting for the same spawnpoint will be updated (if found).
+### Default is True
+#KEEP_SPAWNPOINT_HISTORY = True 
+
