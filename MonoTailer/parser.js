@@ -36,6 +36,7 @@ var initProcess = function(sid) {
   return {
     sid: sid,
     lastUpdated: 0,
+    lastPokemon: 0,
     currentTimeSlice: initTimeslice(getCurrentT()),
     timeSlices: {},
   };
@@ -171,6 +172,7 @@ var updateWorker = function(str, sid) {
     if (matches = str.match(/Point processed, (\d+) Pokemon/)) {
       worker.pokemon += 1;
       processes[sid].currentTimeSlice.pokemon += 1;
+      processes[sid].lastPokemon = Date.now();
     }
   }
 };
@@ -196,6 +198,8 @@ var deadProcesses = function() {
       dead[sid] = proc.lastUpdated;
     } else if (currentTS && currentTS.pokemon === 0 && currentTS.hashingTimeout > 15) {
       dead[sid] = 0;
+    } else if ((proc.lastUpdated - proc.lastPokemon) > (7 * 60 * 1000)) {
+      dead[sid] = proc.lastPokemon;
     }
   }
   return dead;
