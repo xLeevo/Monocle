@@ -458,3 +458,15 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #
 #PGSCOUT_TIMEOUT = 40 
 #
+
+
+### Record keeping settings
+###
+### If True, new fort_sightings and raids will be inserted. Else, existing records for the same fort will be updated (if found).
+### Default is False
+#KEEP_GYM_HISTORY = False
+#
+### If True, new sightings inserted. Else, existing sighting for the same spawnpoint will be updated (if found).
+### Default is True
+#KEEP_SPAWNPOINT_HISTORY = True 
+
