@@ -89,7 +89,13 @@ class Overseer:
             else:
                 self.extra_queue.put(account)
 
-        self.workers = tuple(Worker(worker_no=x) for x in range(conf.GRID[0] * conf.GRID[1]))
+        for x in range(conf.GRID[0] * conf.GRID[1]):
+            try:
+                self.workers.append(Worker(worker_no=x))
+            except Exception as e:
+                self.log.error("Worker initialization error: {}", e)
+        self.log.info("Worker count: ({}/{})", len(self.workers), conf.GRID[0] * conf.GRID[1])
+
         db_proc.start()
         LOOP.call_later(10, self.update_count)
         LOOP.call_later(max(conf.SWAP_OLDEST, conf.MINIMUM_RUNTIME), self.swap_oldest)
