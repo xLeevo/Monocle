@@ -98,7 +98,7 @@ setInterval(function() {
       Parser.initSid(sid);
       Restart.restartMonocle(sid, function(err, o) {
         if (err) {
-          console.log(err);
+          console.log("Failed restart monocle in index.js");
         }
       });
     }

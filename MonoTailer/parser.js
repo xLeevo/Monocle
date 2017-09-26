@@ -179,6 +179,9 @@ var updateWorker = function(str, sid) {
 
 var updateProcess = function(str, sid) {
   processes[sid].lastUpdated = Date.now();
+  if (processes[sid].lastPokemon === 0) {
+    processes[sid].lastPokemon = Date.now();
+  }
 
   if (matches = str.match(/Hashing request timed out/)) {
     if (!processes[sid]) {
@@ -195,10 +198,13 @@ var deadProcesses = function() {
     var proc = processes[sid];
     var currentTS = proc.currentTimeSlice;
     if (proc.lastUpdated < cutoff) {
+      console.log("%d is dead due to inactivity", sid);
       dead[sid] = proc.lastUpdated;
     } else if (currentTS && currentTS.pokemon === 0 && currentTS.hashingTimeout > 15) {
+      console.log("%d is dead due to hashingTimeout", sid);
       dead[sid] = 0;
-    } else if ((proc.lastUpdated - proc.lastPokemon) > (7 * 60 * 1000)) {
+    } else if (proc.lastUpdated > 0 && proc.lastPokemon > 0 && (proc.lastUpdated - proc.lastPokemon) > (7 * 60 * 1000)) {
+      console.log("%d is dead due to no pokemon found for more than 7 mins, lastUpdated: %s, lastPokemon: %s", sid, proc.lastUpdated, proc.lastPokemon);
       dead[sid] = proc.lastPokemon;
     }
   }
