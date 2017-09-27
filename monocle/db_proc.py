@@ -77,6 +77,9 @@ class DatabaseProcessor(Thread):
                 if self._commit:
                     session.commit()
                     self._commit = False
+            except IntegrityError as e:
+                session.rollback()
+                self.log.error('A wild {} appeared in the DB processor!: {}', e.__class__.__name__, e.args[0])
             except Exception as e:
                 session.rollback()
                 self.log.exception('A wild {} appeared in the DB processor!', e.__class__.__name__)
