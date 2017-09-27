@@ -832,8 +832,12 @@ class Worker:
                     db_proc.count += 1
                     continue
 
-                is_new = (normalized not in SIGHTING_CACHE and
-                        normalized not in MYSTERY_CACHE)
+                if normalized in SIGHTING_CACHE:
+                    continue
+                        
+                if 'expire_timestamp' in normalized:
+                    SIGHTING_CACHE.add(normalized)
+
                 should_encounter = (encounter_conf == 'all'
                         or (encounter_conf == 'some'
                             and normalized['pokemon_id'] in conf.ENCOUNTER_IDS))
@@ -842,7 +846,7 @@ class Worker:
 
                 encountered = False
 
-                if is_new and (should_encounter or should_notify_with_iv):
+                if (should_encounter or should_notify_with_iv):
                     if conf.PGSCOUT_ENDPOINT:
                         async with ClientSession(loop=LOOP) as session:
                             encountered = await self.pgscout(session, normalized, pokemon.spawn_point_id)
@@ -857,12 +861,15 @@ class Worker:
                         except Exception as e:
                             self.log.warning('{} during encounter', e.__class__.__name__)
 
-                if is_new and should_notify:
+                if should_notify:
                     LOOP.create_task(self.notifier.notify(normalized, map_objects.time_of_day))
 
                 db_proc.add(normalized)
 
-            priority_fort = self.prioritize_forts(map_cell.forts)
+            if self.gyms:
+                priority_fort = self.prioritize_forts(map_cell.forts)
+            else:
+                priority_fort = None
 
             for fort in map_cell.forts:
                 if not fort.enabled:
@@ -873,6 +880,7 @@ class Worker:
                         norm = self.normalize_lured(fort, request_time_ms)
                         pokemon_seen += 1
                         if norm not in SIGHTING_CACHE:
+                            SIGHTING_CACHE.add(norm)
                             db_proc.add(norm)
                     if (self.pokestops and
                             self.bag_items < self.item_capacity
@@ -888,8 +896,8 @@ class Worker:
                 else:
                     normalized_fort = self.normalize_gym(fort)
                     if fort not in FORT_CACHE:
+                        FORT_CACHE.add(normalized_fort)
                         if (priority_fort and
-                                self.gyms and
                                 priority_fort.id == fort.id and
                                 time() > self.next_gym and self.smart_throttle(1)):
 
@@ -901,6 +909,7 @@ class Worker:
                     if fort.HasField('raid_info'):
                         if fort not in RAID_CACHE:
                             normalized_raid = self.normalize_raid(fort)
+                            RAID_CACHE.add(normalized_raid)
                             if normalized_raid['time_end'] > int(time()):
                                 if conf.NOTIFY_RAIDS:
                                     LOOP.create_task(self.notifier.notify_raid(fort))
@@ -1027,7 +1036,7 @@ class Worker:
         if result == 1:
             try:
                 gym['name'] = name
-                gym['url'] = info.url
+                gym['url'] = info.url.replace('http:','https:')
 
                 for gym_defender in info.gym_status_and_defenders.gym_defender:
                     normalized_defender = self.normalize_gym_defender(gym_defender)
@@ -1069,11 +1078,13 @@ class Worker:
         try:
             normalized = self.normalize_pokestop(pokestop)
             normalized['name'] = name
-            normalized['url'] = responses['FORT_DETAILS'].image_urls[0]
+            normalized['url'] = responses['FORT_DETAILS'].image_urls[0].replace('http:','https:')
             if pokestop.id not in FORT_CACHE.pokestop_names:
                 db_proc.add(normalized)
         except KeyError:
             self.log.error("Missing Pokestop data in fort_details response. {}".format(responses))
+        except Exception as e:
+            self.log.error("Unexpector error in spin_pokestop! {}", e)
 
         request = self.api.create_request()
         request.fort_search(fort_id = pokestop.id,
@@ -1483,6 +1494,8 @@ class Worker:
             'last_modified': raw.last_modified_timestamp_ms // 1000,
             'is_in_battle': raw.is_in_battle,
             'slots_available': raw.gym_display.slots_available,
+            'name': None,
+            'url': None,
             'gym_defenders': [],
         }
 
