@@ -4,6 +4,8 @@ from queue import Queue
 from threading import Thread
 from time import sleep, time
 
+from sqlalchemy.exc import IntegrityError
+
 from . import db, spawns
 from .shared import get_logger, LOOP
 
@@ -50,7 +52,7 @@ class DatabaseProcessor(Thread):
                         spawns.updated_at[spawn_id] = int(time())
                     else:
                         # touch every 6 hours
-                        if (spawn_id not in spawns.updated_at or spawns.updated_at[spawn_id] < (time() - 21600)):
+                        if (spawn_id > 0 and (spawn_id not in spawns.updated_at or spawns.updated_at[spawn_id] < (time() - 21600))):
                             updated_at = db.touch_spawnpoint(session, spawn_id)
                             spawns.updated_at[spawn_id] = updated_at
                     db.add_sighting(session, item)
@@ -77,7 +79,6 @@ class DatabaseProcessor(Thread):
                     self._commit = False
             except Exception as e:
                 session.rollback()
-                sleep(5.0)
                 self.log.exception('A wild {} appeared in the DB processor!', e.__class__.__name__)
         try:
             session.commit()
@@ -88,7 +89,7 @@ class DatabaseProcessor(Thread):
     def commit(self):
         self._commit = True
         if self.running:
-            LOOP.call_later(5, self.commit)
+            LOOP.call_later(1, self.commit)
 
     def update_mysteries(self):
        for key, times in db.MYSTERY_CACHE.items():
