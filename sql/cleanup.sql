@@ -1,3 +1,5 @@
+SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
 -- DELETE sightings
 CREATE TEMPORARY TABLE IF NOT EXISTS sightings_temp AS (
   SELECT id
@@ -6,6 +8,10 @@ CREATE TEMPORARY TABLE IF NOT EXISTS sightings_temp AS (
   LIMIT 150000
 );
 DELETE s.* FROM sightings s INNER JOIN sightings_temp st ON s.id=st.id;
+
+COMMIT;
+
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 -- DELETE mystery_sightings
 CREATE TEMPORARY TABLE IF NOT EXISTS mystery_sightings_temp AS (
@@ -16,6 +22,10 @@ CREATE TEMPORARY TABLE IF NOT EXISTS mystery_sightings_temp AS (
 );
 DELETE s.* FROM mystery_sightings s INNER JOIN mystery_sightings_temp st ON s.id=st.id;
 
+COMMIT;
+
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
 -- DELETE fort_sightings
 CREATE TEMPORARY TABLE IF NOT EXISTS fort_sightings_temp AS (
   SELECT id
@@ -25,6 +35,10 @@ CREATE TEMPORARY TABLE IF NOT EXISTS fort_sightings_temp AS (
 );
 DELETE s.* FROM fort_sightings s INNER JOIN fort_sightings_temp st ON s.id=st.id;
 
+COMMIT;
+
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
 -- DELETE raids
 CREATE TEMPORARY TABLE IF NOT EXISTS raids_temp AS (
   SELECT id
@@ -33,6 +47,8 @@ CREATE TEMPORARY TABLE IF NOT EXISTS raids_temp AS (
   LIMIT 150000
 );
 DELETE r.* FROM raids r INNER JOIN raids_temp rt ON r.id=rt.id;
+
+COMMIT;
 
 -- Print delete counts
 (SELECT 'sightings' AS TB_NAME, COUNT(*) AS DELETE_COUNT FROM sightings_temp)
