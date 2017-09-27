@@ -40,17 +40,17 @@ class DatabaseProcessor(Thread):
                 item_type = item['type']
 
                 if item_type == 'pokemon':
-                    db.add_sighting(session, item)
-                    self.count += 1
                     spawn_id = item['spawn_id']
                     if not item['inferred']:
                         db.add_spawnpoint(session, item)
                         spawns.updated_at[spawn_id] = int(time())
                     else:
                         # touch every 6 hours
-                        if spawn_id not in spawns.updated_at or spawns.updated_at[spawn_id] < (time() - 21600):
+                        if (spawn_id not in spawns.updated_at or spawns.updated_at[spawn_id] < (time() - 21600)):
                             updated_at = db.touch_spawnpoint(session, spawn_id)
                             spawns.updated_at[spawn_id] = updated_at
+                    db.add_sighting(session, item)
+                    self.count += 1
 
                 elif item_type == 'mystery':
                     db.add_mystery(session, item)

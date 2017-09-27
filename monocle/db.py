@@ -603,9 +603,16 @@ def add_spawnpoint(session, pokemon):
 
 
 def touch_spawnpoint(session, spawn_id):
+    if spawn_id in spawns.internal_ids: 
+        internal_id = spawns.internal_ids[spawn_id]
+    else:
+        internal_id = session.query(Spawnpoint.id) \
+            .filter(Spawnpoint.spawn_id == spawn_id) \
+            .scalar()
+        spawns.internal_ids[spawn_id] = internal_id
     now = int(time())
     spawnpoint = session.query(Spawnpoint) \
-        .filter(Spawnpoint.spawn_id == spawn_id) \
+        .filter(Spawnpoint.id == internal_id) \
         .update({'updated': now})
     return now
 
