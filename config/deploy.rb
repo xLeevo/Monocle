@@ -55,9 +55,9 @@ namespace :pip do
   task :requirements do
     on roles(:maintenance), in: :parallel do |host|
       within fetch(:release_path) do
-        execute "/opt/python3-venv/bin/pip3", :install, "-r", "requirements.txt", "--upgrade"
-        execute "/opt/python3-venv/bin/pip3", :install, "-r", "optional-requirements.txt", "--upgrade"
-        info "Host #{host.hostname}: pip3 requirements/optional-requirements updated."
+        execute "/opt/python3.6/bin/pip3.6", :install, "-r", "requirements.txt", "--upgrade"
+        execute "/opt/python3.6/bin/pip3.6", :install, "-r", "optional-requirements.txt", "--upgrade"
+        info "Host #{host.hostname}: pip3.6 requirements/optional-requirements updated."
       end
     end
 
