@@ -36,12 +36,23 @@
         <a href="#" data-panel="filters">Filters</a>
       </li>
       <li>
+        <a href="#" data-panel="raids">Raids</a>
+      </li>
+      <li>
         <a href="#" data-panel="more">More</a>
       </li>
     </ul>
     <div class="panel panel-default settings-panel active" data-panel="filters">
       <div class="panel-heading">
         Filters Settings
+      </div>
+      <div class="panel-body">
+        Panel Content
+      </div>
+    </div>
+    <div class="panel panel-default settings-panel" data-panel="raids">
+      <div class="panel-heading">
+        Raids Settings
       </div>
       <div class="panel-body">
         Panel Content
@@ -58,8 +69,14 @@
           <button type="button" class="btn btn-default" data-value="0">No</button>
         </div>
         <hr>
-        <h5>Show timer under markers</h5>
+        <h5>Show timer under Pokémons</h5>
         <div class="btn-group" role="group" data-group="SHOW_TIMER">
+          <button type="button" class="btn btn-default" data-value="1">Yes</button>
+          <button type="button" class="btn btn-default" data-value="0">No</button>
+        </div>
+        <hr>
+        <h5>Show timer under Raids</h5>
+        <div class="btn-group" role="group" data-group="SHOW_TIMER_RAIDS">
           <button type="button" class="btn btn-default" data-value="1">Yes</button>
           <button type="button" class="btn btn-default" data-value="0">No</button>
         </div>

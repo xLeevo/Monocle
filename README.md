@@ -1,3 +1,7 @@
+# Monocle/Monkey
+
+Read [wiki](https://github.com/MonkeyTedBaker/Monocle/wiki) first before looking for help in [Discord](https://discord.gg/AbrXxMU).
+
 # Monocle
 
 [![Build Status](https://travis-ci.org/Noctem/Monocle.svg?branch=develop)](https://travis-ci.org/Noctem/Monocle)

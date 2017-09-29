@@ -82,14 +82,20 @@ class Overseer:
 
         for username, account in ACCOUNTS.items():
             account['username'] = username
-            if account.get('banned'):
+            if account.get('banned') or account.get('warn') or account.get('sbanned'):
                 continue
             if account.get('captcha'):
                 self.captcha_queue.put(account)
             else:
                 self.extra_queue.put(account)
 
-        self.workers = tuple(Worker(worker_no=x) for x in range(conf.GRID[0] * conf.GRID[1]))
+        for x in range(conf.GRID[0] * conf.GRID[1]):
+            try:
+                self.workers.append(Worker(worker_no=x))
+            except Exception as e:
+                self.log.error("Worker initialization error: {}", e)
+        self.log.info("Worker count: ({}/{})", len(self.workers), conf.GRID[0] * conf.GRID[1])
+
         db_proc.start()
         LOOP.call_later(10, self.update_count)
         LOOP.call_later(max(conf.SWAP_OLDEST, conf.MINIMUM_RUNTIME), self.swap_oldest)
@@ -231,7 +237,7 @@ class Overseer:
             # Set changed size during iteration
             self.coroutines_count = '-1'
 
-    def _print_status(self, _ansi=ANSI, _start=datetime.now(), _notify=conf.NOTIFY):
+    def _print_status(self, _ansi=ANSI, _start=datetime.now(), _notify=conf.NOTIFY or conf.NOTIFY_RAIDS):
         running_for = datetime.now() - _start
 
         seconds_since_start = running_for.seconds - self.idle_seconds or 0.1

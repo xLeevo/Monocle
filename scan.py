@@ -27,7 +27,7 @@ from monocle.shared import LOOP, get_logger, SessionManager, ACCOUNTS
 from monocle.utils import get_address, dump_pickle
 from monocle.worker import Worker
 from monocle.overseer import Overseer
-from monocle.db import FORT_CACHE
+from monocle.db import FORT_CACHE, RAID_CACHE, SIGHTING_CACHE
 from monocle import altitudes, db_proc, spawns
 
 
@@ -105,7 +105,7 @@ def parse_args():
 
 def configure_logger(filename='scan.log'):
     if filename:
-        handlers = (RotatingFileHandler(filename, maxBytes=500000, backupCount=4),)
+        handlers = (RotatingFileHandler(filename, maxBytes=500000, backupCount=conf.LOGGED_FILES),)
     else:
         handlers = None
     basicConfig(
@@ -128,7 +128,8 @@ def exception_handler(loop, context):
 
 def cleanup(overseer, manager):
     try:
-        overseer.print_handle.cancel()
+        if hasattr(overseer, 'print_handle'):
+            overseer.print_handle.cancel()
         overseer.running = False
         print('Exiting, please wait until all tasks finish')
 
@@ -151,6 +152,7 @@ def cleanup(overseer, manager):
         print('Dumping pickles...')
         dump_pickle('accounts', ACCOUNTS)
         FORT_CACHE.pickle()
+        RAID_CACHE.preload()
         altitudes.pickle()
         if conf.CACHE_CELLS:
             dump_pickle('cells', Worker.cells)
@@ -202,10 +204,21 @@ def main():
     overseer = Overseer(manager)
     overseer.start(args.status_bar)
     launcher = LOOP.create_task(overseer.launch(args.bootstrap, args.pickle))
-    activate_hash_server(conf.HASH_KEY)
+    
+    if conf.GO_HASH:
+        hashkey = conf.GO_HASH_KEY
+    else:
+        hashkey = conf.HASH_KEY
+    activate_hash_server(hashkey, go_hash=conf.GO_HASH)
     if platform != 'win32':
         LOOP.add_signal_handler(SIGINT, launcher.cancel)
         LOOP.add_signal_handler(SIGTERM, launcher.cancel)
+
+    try:
+        SIGHTING_CACHE.preload()
+    except Exception as e:
+        pass
+
     try:
         LOOP.run_until_complete(launcher)
     except (KeyboardInterrupt, SystemExit):
