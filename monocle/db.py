@@ -3,10 +3,11 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from enum import Enum
 from time import time, mktime
+from datetime import datetime
 
 from sqlalchemy import Column, Boolean, Integer, String, Float, SmallInteger, BigInteger, ForeignKey, Index, UniqueConstraint, create_engine, cast, func, desc, asc, desc, and_, exists
 from sqlalchemy.orm import sessionmaker, relationship, eagerload, foreign, remote
-from sqlalchemy.types import TypeDecorator, Numeric, Text
+from sqlalchemy.types import TypeDecorator, Numeric, Text, TIMESTAMP
 from sqlalchemy.ext.declarative import declarative_base
 
 from . import bounds, spawns, db_proc, sanitized as conf
@@ -306,6 +307,7 @@ class Sighting(Base):
     form = Column(SmallInteger)
     cp = Column(SmallInteger)
     level = Column(SmallInteger)
+    last_updated = Column(TIMESTAMP,default=datetime.now,onupdate=datetime.now)
 
     user = relationship("SightingUser",
             uselist=False,
@@ -450,6 +452,7 @@ class FortSighting(Base):
     guard_pokemon_id = Column(TINY_TYPE)
     slots_available = Column(SmallInteger)
     is_in_battle = Column(Boolean, default=False)
+    last_updated = Column(TIMESTAMP,default=datetime.now,onupdate=datetime.now)
 
     __table_args__ = (
         UniqueConstraint(
@@ -490,6 +493,7 @@ class Pokestop(Base):
     lon = Column(FLOAT_TYPE, index=True)
     name = Column(String(128))
     url = Column(String(200))
+    last_updated = Column(TIMESTAMP,default=datetime.now,onupdate=datetime.now)
 
 
 @contextmanager
