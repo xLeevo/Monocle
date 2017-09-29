@@ -27,7 +27,7 @@ from monocle.shared import LOOP, get_logger, SessionManager, ACCOUNTS
 from monocle.utils import get_address, dump_pickle
 from monocle.worker import Worker
 from monocle.overseer import Overseer
-from monocle.db import FORT_CACHE, RAID_CACHE
+from monocle.db import FORT_CACHE, RAID_CACHE, SIGHTING_CACHE
 from monocle import altitudes, db_proc, spawns
 
 
@@ -213,6 +213,12 @@ def main():
     if platform != 'win32':
         LOOP.add_signal_handler(SIGINT, launcher.cancel)
         LOOP.add_signal_handler(SIGTERM, launcher.cancel)
+
+    try:
+        SIGHTING_CACHE.preload()
+    except Exception as e:
+        pass
+
     try:
         LOOP.run_until_complete(launcher)
     except (KeyboardInterrupt, SystemExit):

@@ -4,6 +4,8 @@ from queue import Queue
 from threading import Thread
 from time import sleep, time
 
+from sqlalchemy.exc import IntegrityError
+
 from . import db, spawns
 from .shared import get_logger, LOOP
 
@@ -16,6 +18,7 @@ class DatabaseProcessor(Thread):
         self.running = True
         self.count = 0
         self._commit = False
+        self.last_log_at = time() 
         self.session = None
 
     def __len__(self):
@@ -35,22 +38,25 @@ class DatabaseProcessor(Thread):
         LOOP.call_soon_threadsafe(self.commit)
 
         while self.running or not self.queue.empty():
+            if time() - self.last_log_at > 10:
+                self.log.info("DB queue: {}", self.queue.qsize())
+                self.last_log_at = time()
             try:
                 item = self.queue.get()
                 item_type = item['type']
 
                 if item_type == 'pokemon':
-                    db.add_sighting(session, item)
-                    self.count += 1
                     spawn_id = item['spawn_id']
                     if not item['inferred']:
                         db.add_spawnpoint(session, item)
                         spawns.updated_at[spawn_id] = int(time())
                     else:
                         # touch every 6 hours
-                        if spawn_id not in spawns.updated_at or spawns.updated_at[spawn_id] < (time() - 21600):
+                        if (spawn_id > 0 and (spawn_id not in spawns.updated_at or spawns.updated_at[spawn_id] < (time() - 21600))):
                             updated_at = db.touch_spawnpoint(session, spawn_id)
                             spawns.updated_at[spawn_id] = updated_at
+                    db.add_sighting(session, item)
+                    self.count += 1
 
                 elif item_type == 'mystery':
                     db.add_mystery(session, item)
@@ -71,9 +77,11 @@ class DatabaseProcessor(Thread):
                 if self._commit:
                     session.commit()
                     self._commit = False
+            except IntegrityError as e:
+                session.rollback()
+                self.log.error('A wild {} appeared in the DB processor!: {}', e.__class__.__name__, e.args[0])
             except Exception as e:
                 session.rollback()
-                sleep(5.0)
                 self.log.exception('A wild {} appeared in the DB processor!', e.__class__.__name__)
         try:
             session.commit()
@@ -84,7 +92,7 @@ class DatabaseProcessor(Thread):
     def commit(self):
         self._commit = True
         if self.running:
-            LOOP.call_later(5, self.commit)
+            LOOP.call_later(1, self.commit)
 
     def update_mysteries(self):
        for key, times in db.MYSTERY_CACHE.items():
