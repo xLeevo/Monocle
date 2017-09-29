@@ -5,7 +5,7 @@ from enum import Enum
 from time import time, mktime
 
 from sqlalchemy import Column, Boolean, Integer, String, Float, SmallInteger, BigInteger, ForeignKey, Index, UniqueConstraint, create_engine, cast, func, desc, asc, desc, and_, exists
-from sqlalchemy.orm import sessionmaker, relationship, eagerload
+from sqlalchemy.orm import sessionmaker, relationship, eagerload, foreign, remote
 from sqlalchemy.types import TypeDecorator, Numeric, Text
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -116,10 +116,11 @@ class SightingCache:
     def preload(self):
         with session_scope() as session:
             sightings = session.query(Sighting) \
+                .join(Sighting.spawnpoint) \
                 .filter(Sighting.expire_timestamp >= time()) \
-                .filter(Sighting.lat.between(bounds.south,bounds.north),
-                        Sighting.lon.between(bounds.west,bounds.east))
-    
+                .filter(Spawnpoint.lat.between(bounds.south,bounds.north),
+                        Spawnpoint.lon.between(bounds.west,bounds.east))
+
             for sighting in sightings:
                 obj = {
                     'encounter_id': sighting.encounter_id,
@@ -310,6 +311,11 @@ class Sighting(Base):
             uselist=False,
             back_populates="sighting",
             cascade="all, delete-orphan")
+
+    spawnpoint = relationship("Spawnpoint",
+            uselist=False,
+            primaryjoin="foreign(Sighting.spawn_id)==remote(Spawnpoint.spawn_id)",
+            backref="sightings")
 
     __table_args__ = (
         UniqueConstraint(
