@@ -130,7 +130,7 @@
         width: 1%;
     }
 }
-.remaining_text {
+.remaining_text, .remaining_text_raids {
     border-radius: 25px;
     background-color: black;
     text-align: center;
@@ -146,11 +146,17 @@
 .pokemarker {
     position: absolute;
     left: -16px;
-    top: -20px;
+    top: -16px;
     width: 32px;
+    height: 32px;
     text-align: center;
     margin: 0;
     padding: 0;
+}
+
+.raid_egg {
+    width: 30px;
+    height: 30x;
 }
 
 #settings>.page-header{
@@ -181,4 +187,32 @@
 .leaflet-control-layers-overlays>label{
     margin-bottom: 0;
     font-weight: initial;
+}
+.raid-label{
+    width: 150px;
+    display: inline-block;
+}
+.number_marker {
+    position: absolute;
+    width: 15px;
+    height: 15px;
+    line-height: 15px;
+    font-weight: bold;
+    bottom: 0px;
+    right: 0;
+    border-radius: 12px;
+    background: black;
+    color: white;
+}
+.empty {
+    background: #727272;
+}
+.mystic {
+    background: #0099ff;
+}
+.valor {
+    background: #f61b1b;
+}
+.instinct {
+    background: #fe9c0a;
 }
