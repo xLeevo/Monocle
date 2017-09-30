@@ -217,7 +217,7 @@ def main():
     try:
         SIGHTING_CACHE.preload()
     except Exception as e:
-        pass
+        log.error("SightingCahe preload error: {}", e)
 
     try:
         LOOP.run_until_complete(launcher)
