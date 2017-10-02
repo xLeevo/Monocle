@@ -266,7 +266,7 @@ _defaults = {
     'SPIN_COOLDOWN': 300,
     'SPIN_POKESTOPS': True,
     'GYM_COOLDOWN': 10,
-    'GET_GYM_DETAILS': False,
+    'GET_GYM_DETAILS': True,
     'STAT_REFRESH': 5,
     'STAY_WITHIN_MAP': True,
     'SWAP_OLDEST': 21600 / worker_count,

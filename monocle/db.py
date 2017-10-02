@@ -97,7 +97,7 @@ class SightingCache:
 
     def add(self, sighting):
         self.store[sighting['encounter_id']] = sighting['expire_timestamp']
-        call_at(sighting['expire_timestamp'], self.remove, sighting['encounter_id'])
+        call_at(sighting['expire_timestamp'] + 60, self.remove, sighting['encounter_id'])
 
     def remove(self, encounter_id):
         try:
@@ -117,8 +117,16 @@ class SightingCache:
             sightings = session.query(Sighting) \
                 .join(Sighting.spawnpoint) \
                 .filter(Sighting.expire_timestamp >= time()) \
-                .filter(Spawnpoint.lat.between(bounds.south,bounds.north),
-                        Spawnpoint.lon.between(bounds.west,bounds.east))
+                .filter(Spawnpoint.lat.between(bounds.south - 0.015, bounds.north + 0.015),
+                        Spawnpoint.lon.between(bounds.west - 0.015, bounds.east + 0.015))
+
+            sightings_lured = session.query(Sighting) \
+                .filter(Sighting.spawn_id == 0) \
+                .filter(Sighting.expire_timestamp >= time()) \
+                .filter(Sighting.lat.between(bounds.south - 0.015, bounds.north + 0.015),
+                        Sighting.lon.between(bounds.west - 0.015, bounds.east + 0.015))
+
+            sightings = sightings.union(sightings_lured)
 
             for sighting in sightings:
                 obj = {
@@ -215,8 +223,8 @@ class RaidCache:
                 .options(eagerload(Raid.fort)) \
                 .join(Fort, Fort.id == Raid.fort_id) \
                 .filter(Raid.time_end > time()) \
-                .filter(Fort.lat.between(bounds.south,bounds.north),
-                        Fort.lon.between(bounds.west,bounds.east))
+                .filter(Fort.lat.between(bounds.south - 0.015, bounds.north + 0.015),
+                        Fort.lon.between(bounds.west - 0.015, bounds.east + 0.015))
     
             for raid in raids:
                 fort = raid.fort

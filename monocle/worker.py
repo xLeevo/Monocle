@@ -818,6 +818,14 @@ class Worker:
                 normalized = self.normalize_pokemon(pokemon, username=self.username)
                 seen_target = seen_target or normalized['spawn_id'] == spawn_id
 
+                if normalized in SIGHTING_CACHE:
+                    continue
+                        
+                if 'expire_timestamp' in normalized:
+                    SIGHTING_CACHE.add(normalized)
+                    if normalized.get('expire_timestamp',0) <= time():
+                        continue
+                
                 # Check against insert list
                 sp_discovered = ('inferred' in normalized and normalized['inferred'])
                 is_in_insert_blacklist = (conf.NO_DB_INSERT_IDS is not None and 
@@ -831,12 +839,6 @@ class Worker:
                 if skip_insert:
                     db_proc.count += 1
                     continue
-
-                if normalized in SIGHTING_CACHE:
-                    continue
-                        
-                if 'expire_timestamp' in normalized:
-                    SIGHTING_CACHE.add(normalized)
 
                 should_encounter = (encounter_conf == 'all'
                         or (encounter_conf == 'some'

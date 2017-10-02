@@ -208,6 +208,7 @@ class Overseer:
         T = completing the tutorial
         X = something bad happened
         C = CAPTCHA
+        G = scanning a Gym for details 
 
         Other letters: various errors and procedures
         """
