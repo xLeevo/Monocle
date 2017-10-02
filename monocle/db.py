@@ -71,8 +71,6 @@ else:
     PRIMARY_HUGE_TYPE = HUGE_TYPE 
     FLOAT_TYPE = Float(asdecimal=False)
 
-ID_TYPE = BigInteger if conf.SPAWN_ID_INT else String(11)
-
 
 class Team(Enum):
     none = 0
@@ -293,7 +291,7 @@ class Sighting(Base):
 
     id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
     pokemon_id = Column(TINY_TYPE)
-    spawn_id = Column(ID_TYPE)
+    spawn_id = Column(BigInteger)
     expire_timestamp = Column(Integer, index=True)
     encounter_id = Column(UNSIGNED_HUGE_TYPE, index=True)
     lat = Column(FLOAT_TYPE)
@@ -365,7 +363,7 @@ class Mystery(Base):
 
     id = Column(Integer, primary_key=True)
     pokemon_id = Column(TINY_TYPE)
-    spawn_id = Column(ID_TYPE, index=True)
+    spawn_id = Column(BigInteger, index=True)
     encounter_id = Column(UNSIGNED_HUGE_TYPE, index=True)
     lat = Column(FLOAT_TYPE)
     lon = Column(FLOAT_TYPE)
@@ -396,7 +394,7 @@ class Spawnpoint(Base):
     __tablename__ = 'spawnpoints'
 
     id = Column(Integer, primary_key=True)
-    spawn_id = Column(ID_TYPE, unique=True, index=True)
+    spawn_id = Column(BigInteger, unique=True, index=True)
     despawn_time = Column(SmallInteger, index=True)
     lat = Column(FLOAT_TYPE)
     lon = Column(FLOAT_TYPE)
