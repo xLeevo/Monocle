@@ -74,6 +74,7 @@ class Altitudes:
                         timeout=10) as resp:
                     response = await resp.json(loads=json_loads)
                     altitude = response['results'][0]['elevation']
+                    point = round_coords(point, conf.ALT_PRECISION)
                     self.altitudes[point] = altitude
                     self.changed = True
                     return altitude
