@@ -223,10 +223,6 @@ FAILURES_ALLOWED = 2
 # SOCKS requires aiosocks to be installed
 #PROXIES = {'http://127.0.0.1:8080', 'https://127.0.0.1:8443', 'socks5://127.0.0.1:1080'}
 
-# convert spawn_id to integer for more efficient DB storage, set to False if
-# using an old database since the data types are incompatible.
-#SPAWN_ID_INT = True
-
 # Bytestring key to authenticate with manager for inter-process communication
 #AUTHKEY = b'm3wtw0'
 # Address to use for manager, leave commented if you're not sure.
