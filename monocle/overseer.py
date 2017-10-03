@@ -430,7 +430,7 @@ class Overseer:
                         await sleep(min(spawn_time - time() + .5, self.next_mystery_reload - monotonic()), loop=LOOP)
                 time_diff = time() - spawn_time
 
-            if time_diff > 5 and spawn_id in SIGHTING_CACHE.store:
+            if time_diff > 5 and spawn_id in SIGHTING_CACHE.spawn_ids:
                 self.redundant += 1
                 continue
             elif time_diff > skip_spawn:
