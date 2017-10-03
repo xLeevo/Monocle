@@ -184,6 +184,7 @@ class Overseer:
             count, self.coroutines_count,
             len(SIGHTING_CACHE), len(MYSTERY_CACHE), len(db_proc)
         )
+        self.log.info("{} etc.", self.counts.replace('\n',', '))
         LOOP.call_later(refresh, self.update_stats)
 
     def get_dots_and_messages(self):
