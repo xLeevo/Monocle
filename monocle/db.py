@@ -307,7 +307,7 @@ class Sighting(Base):
     form = Column(SmallInteger)
     cp = Column(SmallInteger)
     level = Column(SmallInteger)
-    last_updated = Column(TIMESTAMP,default=datetime.now,onupdate=datetime.now)
+    updated = Column(Integer,default=time,onupdate=time)
 
     user = relationship("SightingUser",
             uselist=False,
@@ -452,7 +452,7 @@ class FortSighting(Base):
     guard_pokemon_id = Column(TINY_TYPE)
     slots_available = Column(SmallInteger)
     is_in_battle = Column(Boolean, default=False)
-    last_updated = Column(TIMESTAMP,default=datetime.now,onupdate=datetime.now)
+    updated = Column(Integer,default=time,onupdate=time)
 
     __table_args__ = (
         UniqueConstraint(
@@ -493,7 +493,7 @@ class Pokestop(Base):
     lon = Column(FLOAT_TYPE, index=True)
     name = Column(String(128))
     url = Column(String(200))
-    last_updated = Column(TIMESTAMP,default=datetime.now,onupdate=datetime.now)
+    updated = Column(Integer,default=time,onupdate=time)
 
 
 @contextmanager
