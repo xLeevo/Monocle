@@ -247,7 +247,6 @@ class FortCache:
         self.pokestops = set()
         self.pokestop_names = set()
         self.class_version = 2.1
-        self.unpickle()
 
     def __len__(self):
         return len(self.gyms)
