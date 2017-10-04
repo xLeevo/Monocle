@@ -100,6 +100,12 @@ def parse_args():
         help='Do not load spawns from pickle',
         action='store_false'
     )
+    parser.add_argument(
+        '--signature',
+        dest='signature',
+        help='This flag does nothing. Only serves for easy monitoring of processes.',
+        default=''
+    )
     return parser.parse_args()
 
 

@@ -818,8 +818,27 @@ class Worker:
                 normalized = self.normalize_pokemon(pokemon, username=self.username)
                 seen_target = seen_target or normalized['spawn_id'] == spawn_id
 
+                # This line does not only checks the cache, it also updates the mystery seen time.
+                # Tricky.
+                in_mystery_cache = normalized in MYSTERY_CACHE
+
+                # Check if already marked for save as mystery
+                if normalized['type'] == 'mystery':
+                    if in_mystery_cache:
+                        continue
+                    else:
+                        MYSTERY_CACHE.add(normalized)
+
+                # Check if already marked for save as sighting
+                if normalized in SIGHTING_CACHE:
+                    continue
+                elif 'expire_timestamp' in normalized:
+                    SIGHTING_CACHE.add(normalized)
+                    if normalized.get('expire_timestamp',0) <= time():
+                        continue
+                
                 # Check against insert list
-                sp_discovered = ('inferred' in normalized and normalized['inferred'])
+                sp_discovered = ('despawn' in normalized)
                 is_in_insert_blacklist = (conf.NO_DB_INSERT_IDS is not None and 
                         normalized['pokemon_id'] in conf.NO_DB_INSERT_IDS)
                 skip_insert = (sp_discovered and is_in_insert_blacklist)
@@ -831,12 +850,6 @@ class Worker:
                 if skip_insert:
                     db_proc.count += 1
                     continue
-
-                if normalized in SIGHTING_CACHE:
-                    continue
-                        
-                if 'expire_timestamp' in normalized:
-                    SIGHTING_CACHE.add(normalized)
 
                 should_encounter = (encounter_conf == 'all'
                         or (encounter_conf == 'some'
@@ -1433,29 +1446,31 @@ class Worker:
         self.error_code = None
 
     @staticmethod
-    def normalize_pokemon(raw, spawn_int=conf.SPAWN_ID_INT, username=None):
+    def normalize_pokemon(raw, username=None):
         """Normalizes data coming from API into something acceptable by db"""
         tsm = raw.last_modified_timestamp_ms
         tss = round(tsm / 1000)
         tth = raw.time_till_hidden_ms
+        spawn_id = int(raw.spawn_point_id, 16)
+        despawn = spawns.get_despawn_time(spawn_id, tss)
         norm = {
             'type': 'pokemon',
             'encounter_id': raw.encounter_id,
             'pokemon_id': raw.pokemon_data.pokemon_id,
             'lat': raw.latitude,
             'lon': raw.longitude,
-            'spawn_id': int(raw.spawn_point_id, 16) if spawn_int else raw.spawn_point_id,
+            'spawn_id': spawn_id,
             'seen': tss,
             'gender': raw.pokemon_data.pokemon_display.gender,
             'form': raw.pokemon_data.pokemon_display.form,
             'username': username,
+            'despawn': despawn,
         }
         if tth > 0 and tth <= 90000:
             norm['expire_timestamp'] = round((tsm + tth) / 1000)
             norm['time_till_hidden'] = tth / 1000
             norm['inferred'] = False
         else:
-            despawn = spawns.get_despawn_time(norm['spawn_id'], tss)
             if despawn:
                 norm['expire_timestamp'] = despawn
                 norm['time_till_hidden'] = despawn - tss
@@ -1477,7 +1492,7 @@ class Worker:
             'expire_timestamp': lure.lure_expires_timestamp_ms // 1000,
             'lat': raw.latitude,
             'lon': raw.longitude,
-            'spawn_id': 0 if conf.SPAWN_ID_INT else 'LURED',
+            'spawn_id': 0,
             'time_till_hidden': (lure.lure_expires_timestamp_ms - now) / 1000,
             'inferred': 'pokestop'
         }

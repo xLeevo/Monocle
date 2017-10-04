@@ -18,7 +18,6 @@ class DatabaseProcessor(Thread):
         self.running = True
         self.count = 0
         self._commit = False
-        self.last_log_at = time() 
         self.session = None
 
     def __len__(self):
@@ -38,9 +37,6 @@ class DatabaseProcessor(Thread):
         LOOP.call_soon_threadsafe(self.commit)
 
         while self.running or not self.queue.empty():
-            if time() - self.last_log_at > 10:
-                self.log.info("DB queue: {}", self.queue.qsize())
-                self.last_log_at = time()
             try:
                 item = self.queue.get()
                 item_type = item['type']

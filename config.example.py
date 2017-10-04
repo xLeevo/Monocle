@@ -90,7 +90,7 @@ GO_HASH = False
 #   75/150 hashes available 35/60 seconds passed => fine
 #   70/150 hashes available 30/60 seconds passed => throttle (only scan)
 # value: how many requests to keep as spare (0.1 = 10%), False to disable
-#SMART_THROTTLE = 0.1
+#SMART_THROTTLE = False
 
 # Swap the worker that has seen the fewest Pokémon every x seconds
 # Defaults to whatever will allow every worker to be swapped within 6 hours
@@ -122,26 +122,31 @@ SPIN_COOLDOWN = 300    # spin only one PokéStop every n seconds (default 300)
 #GYM_COOLDOWN = 10
 
 # Toggles scanning for gym details. Smart throttle is applied in the same way as PokéStops.
-#GET_GYM_DETAILS = False
+#GET_GYM_DETAILS = True 
 
 # minimum number of each item to keep if the bag is cleaned
 # bag cleaning is disabled if this is not present or is commented out
 ''' # triple quotes are comments, remove them to use this ITEM_LIMITS example
 ITEM_LIMITS = {
-    1:    20,  # Poké Ball
-    2:    50,  # Great Ball
-    3:   100,  # Ultra Ball
+    1:    0,  # Poké Ball
+    2:    0,  # Great Ball
+    3:    5,  # Ultra Ball
+    4:    10,  # Master Ball
     101:   0,  # Potion
     102:   0,  # Super Potion
     103:   0,  # Hyper Potion
-    104:  40,  # Max Potion
+    104:  5,  # Max Potion
     201:   0,  # Revive
-    202:  40,  # Max Revive
-    701:  20,  # Razz Berry
-    702:  20,  # Bluk Berry
-    703:  20,  # Nanab Berry
-    704:  20,  # Wepar Berry
-    705:  20,  # Pinap Berry
+    202:  5,  # Max Revive
+    301:  5,  # Lucky Egg
+    401:  5,  # Incense
+    501:  5,  # Lure Module 
+    701:  5,  # Razz Berry
+    702:  5,  # Bluk Berry
+    703:  5,  # Nanab Berry
+    704:  5,  # Wepar Berry
+    705:  5,  # Pinap Berry
+    902:  5,  # Incubator
 }
 '''
 
@@ -222,10 +227,6 @@ FAILURES_ALLOWED = 2
 # set of proxy addresses and ports
 # SOCKS requires aiosocks to be installed
 #PROXIES = {'http://127.0.0.1:8080', 'https://127.0.0.1:8443', 'socks5://127.0.0.1:1080'}
-
-# convert spawn_id to integer for more efficient DB storage, set to False if
-# using an old database since the data types are incompatible.
-#SPAWN_ID_INT = True
 
 # Bytestring key to authenticate with manager for inter-process communication
 #AUTHKEY = b'm3wtw0'
@@ -430,8 +431,8 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 # SB_DETECTOR = False
 # SB_UNCOMMON_POKEMON_IDS = (16,19,23,27,29,32,41,43,46,52,54,60,69,72,74,77,81,98,118,120,129,161,165,167,177,183,187,191,194,198,209,218)
 # SB_MAX_UNCOMMON_COUNT = 0     # Maximum uncommon counts required to flag SB
-# SB_MIN_SIGHTING_COUNT = 30    # Minimum sightings required to flag SB
-# SB_QUARANTINE_SECONDS = 2700 # How many seconds to set as investigation period?
+# SB_MIN_SIGHTING_COUNT = 40    # Minimum sightings required to flag SB
+# SB_QUARANTINE_SECONDS = 3600 # How many seconds to set as investigation period?
 # SB_COOLDOWN = 300             # How many seconds to wait before next sb detection for the account
 # SB_WEBHOOK = None             # Define webhook end point for SB. Payload is {type: "sban", message: {username: :username}}
 

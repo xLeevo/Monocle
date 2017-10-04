@@ -49,26 +49,25 @@ class BaseSpawns:
                                      db.Spawnpoint.lon <= bounds.east)
             known = {}
             for spawn in query:
-                if spawn.despawn_time:
-                    point = spawn.lat, spawn.lon
+                point = spawn.lat, spawn.lon
 
-                    # skip if point is not within boundaries (if applicable)
-                    if bound and point not in bounds:
-                        continue
+                # skip if point is not within boundaries (if applicable)
+                if bound and point not in bounds:
+                    continue
 
-                    if not spawn.updated or spawn.updated <= last_migration:
-                        self.unknown.add(point)
-                        continue
+                if not spawn.updated or spawn.updated <= last_migration:
+                    self.unknown.add(point)
+                    continue
 
-                    if spawn.duration == 60:
-                        spawn_time = spawn.despawn_time
-                    else:
-                        spawn_time = (spawn.despawn_time + 1800) % 3600
+                if spawn.duration == 60:
+                    spawn_time = spawn.despawn_time
+                else:
+                    spawn_time = (spawn.despawn_time + 1800) % 3600
 
-                    self.despawn_times[spawn.spawn_id] = spawn.despawn_time
-                    self.updated_at[spawn.spawn_id] = spawn.updated
-                    self.internal_ids[spawn.spawn_id] = spawn.id
-                    known[point] = spawn.spawn_id, spawn_time
+                self.despawn_times[spawn.spawn_id] = spawn.despawn_time
+                self.updated_at[spawn.spawn_id] = spawn.updated
+                self.internal_ids[spawn.spawn_id] = spawn.id
+                known[point] = spawn.spawn_id, spawn_time
         self.known = OrderedDict(sorted(known.items(), key=lambda k: k[1][1]))
 
     def after_last(self):

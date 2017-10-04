@@ -10,7 +10,7 @@ from time import time, monotonic
 from aiopogo import HashServer
 from sqlalchemy.exc import OperationalError
 
-from .db import SIGHTING_CACHE, MYSTERY_CACHE
+from .db import SIGHTING_CACHE, MYSTERY_CACHE, FORT_CACHE
 from .utils import get_current_hour, dump_pickle, get_start_coords, get_bootstrap_points, randomize_point, best_factors, percentage_split
 from .shared import get_logger, LOOP, run_threaded, ACCOUNTS
 from . import bounds, db_proc, spawns, sanitized as conf
@@ -184,6 +184,7 @@ class Overseer:
             count, self.coroutines_count,
             len(SIGHTING_CACHE), len(MYSTERY_CACHE), len(db_proc)
         )
+        self.log.info("{} etc.", self.counts.replace('\n',', '))
         LOOP.call_later(refresh, self.update_stats)
 
     def get_dots_and_messages(self):
@@ -208,6 +209,7 @@ class Overseer:
         T = completing the tutorial
         X = something bad happened
         C = CAPTCHA
+        G = scanning a Gym for details 
 
         Other letters: various errors and procedures
         """
@@ -356,6 +358,9 @@ class Overseer:
         if not pickle or not spawns.unpickle():
             await self.update_spawns(initial=True)
 
+        if pickle:
+            FORT_CACHE.unpickle()
+
         if not spawns or bootstrap:
             try:
                 await self.bootstrap()
@@ -428,7 +433,7 @@ class Overseer:
                         await sleep(min(spawn_time - time() + .5, self.next_mystery_reload - monotonic()), loop=LOOP)
                 time_diff = time() - spawn_time
 
-            if time_diff > 5 and spawn_id in SIGHTING_CACHE.store:
+            if time_diff > 5 and spawn_id in SIGHTING_CACHE.spawn_ids:
                 self.redundant += 1
                 continue
             elif time_diff > skip_spawn:
