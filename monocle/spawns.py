@@ -59,15 +59,18 @@ class BaseSpawns:
                     self.unknown.add(point)
                     continue
 
-                if spawn.duration == 60:
-                    spawn_time = spawn.despawn_time
+                if spawn.despawn_time:
+                    if spawn.duration == 60:
+                        spawn_time = spawn.despawn_time
+                    else:
+                        spawn_time = (spawn.despawn_time + 1800) % 3600
+                    self.despawn_times[spawn.spawn_id] = spawn.despawn_time
+                    known[point] = spawn.spawn_id, spawn_time
                 else:
-                    spawn_time = (spawn.despawn_time + 1800) % 3600
+                    self.unknown.add(point)
 
-                self.despawn_times[spawn.spawn_id] = spawn.despawn_time
                 self.updated_at[spawn.spawn_id] = spawn.updated
                 self.internal_ids[spawn.spawn_id] = spawn.id
-                known[point] = spawn.spawn_id, spawn_time
         self.known = OrderedDict(sorted(known.items(), key=lambda k: k[1][1]))
 
     def after_last(self):
