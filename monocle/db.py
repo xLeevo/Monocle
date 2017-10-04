@@ -91,19 +91,21 @@ class SightingCache:
     """
     def __init__(self):
         self.store = {}
+        self.spawn_ids = {}
 
     def __len__(self):
         return len(self.store)
 
     def add(self, sighting):
         self.store[sighting['encounter_id']] = sighting['expire_timestamp']
-        call_at(sighting['expire_timestamp'] + 60, self.remove, sighting['encounter_id'])
+        self.spawn_ids[sighting['spawn_id']] = True
+        call_at(sighting['expire_timestamp'] + 60, self.remove, sighting['encounter_id'], sighting['spawn_id'])
 
-    def remove(self, encounter_id):
-        try:
+    def remove(self, encounter_id, spawn_id):
+        if encounter_id in  self.store:
             del self.store[encounter_id]
-        except KeyError:
-            pass
+        if spawn_id in self.spawn_ids:
+            del self.spawn_ids[spawn_id]
 
     def __contains__(self, raw_sighting):
         try:
@@ -131,6 +133,7 @@ class SightingCache:
             for sighting in sightings:
                 obj = {
                     'encounter_id': sighting.encounter_id,
+                    'spawn_id': sighting.spawn_id,
                     'expire_timestamp': sighting.expire_timestamp,
                 }
                 self.add(obj)
@@ -244,7 +247,6 @@ class FortCache:
         self.pokestops = set()
         self.pokestop_names = set()
         self.class_version = 2.1
-        self.unpickle()
 
     def __len__(self):
         return len(self.gyms)
@@ -668,9 +670,6 @@ def add_mystery_spawnpoint(session, pokemon):
 
 
 def add_mystery(session, pokemon):
-    if pokemon in MYSTERY_CACHE:
-        return
-    MYSTERY_CACHE.add(pokemon)
     add_mystery_spawnpoint(session, pokemon)
     existing = session.query(Mystery) \
         .filter(Mystery.encounter_id == pokemon['encounter_id']) \
@@ -707,12 +706,13 @@ def add_mystery(session, pokemon):
 def add_fort_sighting(session, raw_fort):
     # Check if fort exists
     external_id = raw_fort['external_id']
-    if external_id in FORT_CACHE.internal_ids:
+    if external_id in FORT_CACHE.internal_ids and FORT_CACHE.internal_ids[external_id]:
         internal_id = FORT_CACHE.internal_ids[external_id]
     else:
         internal_id = session.query(Fort.id) \
-            .filter(Fort.external_id == raw_fort['external_id']) \
+            .filter(Fort.external_id == external_id) \
             .scalar()
+        FORT_CACHE.internal_ids[external_id] = internal_id 
 
     if not internal_id:
         fort = Fort(
@@ -725,6 +725,7 @@ def add_fort_sighting(session, raw_fort):
         session.add(fort)
         session.flush()
         internal_id = fort.id
+        FORT_CACHE.internal_ids[external_id] = internal_id 
         if raw_fort['name']:
             FORT_CACHE.gym_names[external_id] = True
 
@@ -788,7 +789,7 @@ def add_raid(session, raw_raid):
         return
 
     fort_external_id = raw_raid['fort_external_id']
-    if fort_external_id in FORT_CACHE.internal_ids: 
+    if fort_external_id in FORT_CACHE.internal_ids and FORT_CACHE.internal_ids[fort_external_id]:
         fort_id = FORT_CACHE.internal_ids[fort_external_id]
     else:
         fort_id = session.query(Fort.id) \
