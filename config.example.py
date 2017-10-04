@@ -471,3 +471,14 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 ### Default is True
 #KEEP_SPAWNPOINT_HISTORY = True 
 
+
+### Cleanup
+## Max number of rows to delete in each execution per table. Not recommended to set it too high. It will choke the DB.
+# CLEANUP_LIMIT = 100000
+
+## Table specific cleanup times. Set -1 to disable
+# CLEANUP_RAIDS_OLDER_THAN_X_HR = 6.0
+# CLEANUP_SIGHTINGS_OLDER_THAN_X_HR = 6.0
+# CLEANUP_SPAWNPOINTS_OLDER_THAN_X_HR = 24.0
+# CLEANUP_FORT_SIGHTINGS_OLDER_THAN_X_HR = 6.0
+# CLEANUP_MYSTERY_SIGHTINGS_OLDER_THAN_X_HR = 24.0
