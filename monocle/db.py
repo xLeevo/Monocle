@@ -707,7 +707,7 @@ def add_mystery(session, pokemon):
 def add_fort_sighting(session, raw_fort):
     # Check if fort exists
     external_id = raw_fort['external_id']
-    if external_id in FORT_CACHE.internal_ids:
+    if external_id in FORT_CACHE.internal_ids and FORT_CACHE.internal_ids[external_id]:
         internal_id = FORT_CACHE.internal_ids[external_id]
     else:
         internal_id = session.query(Fort.id) \
@@ -726,6 +726,7 @@ def add_fort_sighting(session, raw_fort):
         session.add(fort)
         session.flush()
         internal_id = fort.id
+        FORT_CACHE.internal_ids[external_id] = internal_id 
         if raw_fort['name']:
             FORT_CACHE.gym_names[external_id] = True
 
@@ -789,7 +790,7 @@ def add_raid(session, raw_raid):
         return
 
     fort_external_id = raw_raid['fort_external_id']
-    if fort_external_id in FORT_CACHE.internal_ids: 
+    if fort_external_id in FORT_CACHE.internal_ids and FORT_CACHE.internal_ids[fort_external_id]:
         fort_id = FORT_CACHE.internal_ids[fort_external_id]
     else:
         fort_id = session.query(Fort.id) \

@@ -818,18 +818,24 @@ class Worker:
                 normalized = self.normalize_pokemon(pokemon, username=self.username)
                 seen_target = seen_target or normalized['spawn_id'] == spawn_id
 
+                # This line does not only checks the cache, it also updates the mystery seen time.
+                # Tricky.
+                in_mystery_cache = normalized in MYSTERY_CACHE
+
+                # Check if already marked for save as mystery
+                if normalized['type'] == 'mystery':
+                    if in_mystery_cache:
+                        continue
+                    else:
+                        MYSTERY_CACHE.add(normalized)
+
+                # Check if already marked for save as sighting
                 if normalized in SIGHTING_CACHE:
                     continue
                 elif 'expire_timestamp' in normalized:
                     SIGHTING_CACHE.add(normalized)
                     if normalized.get('expire_timestamp',0) <= time():
                         continue
-
-                if normalized['type'] == 'mystery':
-                    if normalized in MYSTERY_CACHE:
-                        continue
-                    else:
-                        MYSTERY_CACHE.add(normalized)
                 
                 # Check against insert list
                 sp_discovered = ('despawn' in normalized)
