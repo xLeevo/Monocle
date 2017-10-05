@@ -16,6 +16,7 @@ from .names import MOVES, POKEMON
 from .shared import get_logger, SessionManager, LOOP, run_threaded
 from . import sanitized as conf
 
+import os
 
 WEBHOOK = False
 if conf.NOTIFY:
