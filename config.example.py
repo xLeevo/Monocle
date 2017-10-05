@@ -470,3 +470,6 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 ### Default is True
 #KEEP_SPAWNPOINT_HISTORY = True 
 
+### Discord webhook url for sending scan log messages
+#SCAN_LOG_WEBHOOK = ''
+
