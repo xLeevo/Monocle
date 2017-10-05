@@ -6,8 +6,6 @@ from logging.handlers import RotatingFileHandler
 from logging import getLogger, basicConfig, WARNING, INFO
 from monocle import cleanup as Cleanup
         
-tag = "Monocle/Monkey-Cleanup"
-
 if not os.path.exists("logs"):
     os.makedirs("logs")
 
@@ -23,6 +21,7 @@ basicConfig(
     handlers=handlers
 )
 
+tag = "Monocle/Monkey-Cleanup {}".format(root_dir)
 
 def parse_args():
     parser = ArgumentParser()
@@ -64,10 +63,10 @@ def cron_jobs():
     cron = CronTab(user=True)
     jobs = []
     
-    job_light = cron.new(command="{} --light >> {}/logs/cron.log 2>&1".format(command, root_dir),comment="{} {} --light ".format(tag, root_dir))
+    job_light = cron.new(command="{} --light >> {}/logs/cron.log 2>&1".format(command, root_dir),comment="{} --light".format(tag))
     jobs.append(job_light)
     
-    job_heavy = cron.new(command="{} --heavy >> {}/logs/cron.log 2>&1".format(command, root_dir),comment="{} {} --heavy".format(tag, root_dir))
+    job_heavy = cron.new(command="{} --heavy >> {}/logs/cron.log 2>&1".format(command, root_dir),comment="{} --heavy".format(tag))
     job_heavy.minute.on(5)
     jobs.append(job_heavy)
 
@@ -76,7 +75,7 @@ def cron_jobs():
 def remove_jobs():
     cron = CronTab(user=True)
     for job in cron:
-        if job.comment.startswith(tag):
+        if job.comment.startswith(tag+" "):
             cron.remove(job)
     cron.write()
 
