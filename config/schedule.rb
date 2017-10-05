@@ -26,13 +26,14 @@ env "POGOMAP_GMAPS_KEY", ENV["POGOMAP_GMAPS_KEY"]
 env "DYNAMO_SOURCEDB_MONOCLE", ENV["DYNAMO_SOURCEDB_MONOCLE"]
 
 job_type :cleanup, "cd :path && ./:task :output"
+job_type :cleanup_python, "cd :path && /opt/python3.6/bin/python3.6 :path/:task :output"
 
 every 1.minute, roles: [:db] do
-  cleanup "cleanup.sh"
+  cleanup_python "cleanup.py --light"
 end
 
 every "30 3,15 * * *", roles: [:db] do
-  cleanup "cleanup_spawnpoints.sh"
+  cleanup_python "cleanup.py --heavy"
 end
 
 every "30 * * * *", roles: [:db] do

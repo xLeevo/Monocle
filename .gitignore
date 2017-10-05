@@ -143,6 +143,7 @@ node_modules/
 *.swp
 log/
 monotailer*.tgz
+.cron.config.py
 
 .env*
 !.env.example

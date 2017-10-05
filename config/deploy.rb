@@ -87,6 +87,17 @@ namespace :deploy do
     end
   end
 
+  desc "Export monocle/config.py to cron"
+  task :export_config_cron do
+    on roles(:db), in: :parallel do |host|
+      within fetch(:release_path) do
+        file = File.read(".cron.config.py")
+        upload! StringIO.new(file), "#{fetch(:release_path)}/monocle/config.py"
+        info "Host #{host.hostname}: written `monocle/config.py`"
+      end
+    end
+  end
+
   desc "Export supervisor/monocle_worker.ini"
   task :export_supervisor do
     on roles(:worker), in: :parallel do |host|
@@ -139,5 +150,6 @@ end
 before "deploy:started", "deploy:stop_supervisor"
 before "deploy:published", "pip:requirements"
 before "deploy:published", "deploy:export_config"
+before "deploy:published", "deploy:export_config_cron"
 after "deploy:export_config", "deploy:export_supervisor"
 after "deploy:finished", "deploy:restart_supervisor"
