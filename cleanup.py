@@ -64,10 +64,10 @@ def cron_jobs():
     cron = CronTab(user=True)
     jobs = []
     
-    job_light = cron.new(command="{} --light >> {}/logs/cron.log 2>&1".format(command, root_dir),comment="{} --light".format(tag))
+    job_light = cron.new(command="{} --light >> {}/logs/cron.log 2>&1".format(command, root_dir),comment="{} {} --light ".format(tag, root_dir))
     jobs.append(job_light)
     
-    job_heavy = cron.new(command="{} --heavy >> {}/logs/cron.log 2>&1".format(command, root_dir),comment="{} --heavy".format(tag))
+    job_heavy = cron.new(command="{} --heavy >> {}/logs/cron.log 2>&1".format(command, root_dir),comment="{} {} --heavy".format(tag, root_dir))
     job_heavy.minute.on(5)
     jobs.append(job_heavy)
 
