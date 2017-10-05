@@ -862,6 +862,8 @@ def update_failures(session, spawn_id, success, allowed=conf.FAILURES_ALLOWED):
     spawnpoint = session.query(Spawnpoint) \
         .filter(Spawnpoint.spawn_id == spawn_id) \
         .first()
+    if not spawnpoint:
+        return
     try:
         if success:
             spawnpoint.failures = 0
