@@ -134,3 +134,6 @@ monocle/static/monocle-icons
 
 ### IntelliJ IDEA ###
 .idea
+
+### Logs ###
+logs/
