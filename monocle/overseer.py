@@ -15,6 +15,7 @@ from .utils import get_current_hour, dump_pickle, get_start_coords, get_bootstra
 from .shared import get_logger, LOOP, run_threaded, ACCOUNTS
 from . import bounds, db_proc, spawns, sanitized as conf
 from .worker import Worker
+from .notification import Notifier
 
 ANSI = '\x1b[2J\x1b[H'
 if platform == 'win32':
@@ -446,28 +447,35 @@ class Overseer:
                     self.visits += 1
 
     async def bootstrap(self):
+        notifier = Notifier()
         try:
             self.log.warning('Starting bootstrap phase 1.')
+            LOOP.create_task(notifier.scan_log_webhook('Bootstrap Status Change', 'Starting bootstrap phase 1.', '65300'))
             await self.bootstrap_one()
         except CancelledError:
             raise
         except Exception:
             self.log.exception('An exception occurred during bootstrap phase 1.')
+            LOOP.create_task(notifier.scan_log_webhook('Bootstrap Status Change', 'An exception occurred during bootstrap phase 1.', '16060940'))
 
         try:
             self.log.warning('Starting bootstrap phase 2.')
+            LOOP.create_task(notifier.scan_log_webhook('Bootstrap Status Change', 'Starting bootstrap phase 2.', '65300'))
             await self.bootstrap_two()
         except CancelledError:
             raise
         except Exception:
             self.log.exception('An exception occurred during bootstrap phase 2.')
+            LOOP.create_task(notifier.scan_log_webhook('Bootstrap Status Change', 'An exception occurred during bootstrap phase 2.', '16060940'))
 
         self.log.warning('Starting bootstrap phase 3.')
+        LOOP.create_task(notifier.scan_log_webhook('Bootstrap Status Change', 'Starting bootstrap phase 3.', '65300'))
         unknowns = list(spawns.unknown)
         shuffle(unknowns)
         tasks = (self.try_again(point) for point in unknowns)
         await gather(*tasks, loop=LOOP)
         self.log.warning('Finished bootstrapping.')
+        LOOP.create_task(notifier.scan_log_webhook('Bootstrap Status Change', 'Finished bootstrapping.', '65300'))
 
     async def bootstrap_one(self):
         async def visit_release(worker, num, *args):
