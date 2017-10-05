@@ -142,8 +142,10 @@ node_modules/
 *.swo
 *.swp
 log/
-logs/
 monotailer*.tgz
 
 .env*
 !.env.example
+
+### Logs ###
+logs/
