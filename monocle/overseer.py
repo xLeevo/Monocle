@@ -95,6 +95,7 @@ class Overseer:
             try:
                 self.workers.append(Worker(worker_no=x))
             except Exception as e:
+                traceback.print_exc()
                 self.log.error("Worker initialization error: {}", e)
         self.log.info("Worker count: ({}/{})", len(self.workers), conf.GRID[0] * conf.GRID[1])
 

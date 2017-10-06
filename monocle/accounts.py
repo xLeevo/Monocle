@@ -88,11 +88,13 @@ class Account(db.Base):
     @staticmethod
     def copy_dict_data(from_dict, to_dict):
         to_dict['password'] = from_dict['password']
-        to_dict['level'] = from_dict['level']
         to_dict['model'] = from_dict['model']
         to_dict['iOS'] = from_dict['iOS']
         to_dict['id'] = from_dict['id']
-        to_dict['internal_id'] = from_dict['internal_id']
+        if 'level' in from_dict and from_dict['level']:
+            to_dict['level'] = from_dict.get('level')
+        if 'internal_id' in from_dict:
+            to_dict['internal_id'] = from_dict['internal_id']
         if 'captcha' in from_dict:
             to_dict['captcha'] = from_dict.get('captcha')
         if 'banned' in from_dict:
@@ -162,9 +164,13 @@ class Account(db.Base):
     def load_my_accounts(instance_id, usernames):
         with db.session_scope() as session:
             q = session.query(Account) \
-                .filter(or_(
+                .filter(Account.hibernated==None)
+            if len(usernames) > 0:
+                q = q.filter(or_(
                     Account.username.in_(usernames),
                     Account.instance==instance_id))
+            else:
+                q = q.filter(Account.instance==instance_id)
             accounts = q.all()
             return [Account.to_account_dict(account) for account in accounts]
 
@@ -225,7 +231,6 @@ class Account(db.Base):
         if lock:
             account_db.with_lockmode("update")
         return account_db.first()
-
 
     @staticmethod
     def import_file(file_location, level=0, assign_instance=True):
@@ -288,42 +293,21 @@ class Account(db.Base):
                 print("=> {} existing accounts in DB updated as ncessary.".format(update_count))
                 print("=> {} accounts updated with data found in pickle.".format(pickle_count))
 
+class InsufficientAccountsException(Exception):
+    pass
 
 class AccountQueue(Queue):
-    #def _init(self, maxsize):
-    #    print("ACCOUNT QUEUE INIT")
-    #    super()._init(maxsize)
-
-    #def _qsize(self):
-    #    print("ACCOUNT QUEUE QSIZE")
-    #    size = super()._qsize()
-    #    if size == 0:
-    #        new_account = LOOP.run_until_complete(Account.get(0,29))
-    #        self.queue.append(new_account)
-    #        return super()._qsize()
-    #    else:
-    #        return size
-
-    #def _get(self):
-    #    print("ACCOUNT QUEUE _GET")
-    #    return super()._get()
-
     def _put(self, item):
-        print("ACCOUNT QUEUE PUT")
         LOOP.run_until_complete(Account.put(item))
         super()._put(item)
 
-    #def put(self, item, block=True, timeout=None):
-    #    super().put(item, block=block, timeout=timeout)
-    #    print("ACCOUNT QUEUE PUT")
-
     def get(self, block=True, timeout=None):
-        print("ACCOUNT QUEUE GET")
         if self.qsize() == 0:
             new_account = LOOP.run_until_complete(Account.get(0,29))
-            self.queue.append(new_account)
-            print("ACCOUNT QUEUE GET FROM DB")
-
+            if new_account:
+                self.queue.append(new_account)
+            else:
+                raise InsufficientAccountsException("Not enough accounts in DB") 
         return super().get(block=block, timeout=timeout)
 
 
@@ -351,11 +335,11 @@ def add_account_to_keep(dirty_accounts, add_account, clean_accounts):
             clean_accounts[username] = account
         elif account:
             log.info("Removed account {} Lv.{} from this instance",
-                    username, add_account['level'])
+                username, add_account.get('level', 0))
     else:
         clean_accounts[username] = add_account 
         log.info("New account {} Lv.{} downloaded from DB.",
-                username, add_account['level'])
+                username, add_account.get('level', 0))
 
 def load_accounts():
     pickled_accounts = utils.load_pickle('accounts')
@@ -378,7 +362,7 @@ def load_accounts():
                 if k not in accounts:
                     accounts[k] = pickled_accounts[k]
     else:
-        raise ValueError('Must provide accounts in a CSV or your config file.')
+        accounts = pickled_accounts 
 
     # Sync db and pickle
     accounts_dicts = Account.load_my_accounts(instance_id, accounts.keys())
@@ -390,6 +374,14 @@ def load_accounts():
         else:
             # Nothing to do with Lv.30s yet
             pass
+
+    # Save once those accounts found in pickles and configs
+    for username in accounts:
+        account_dict = accounts[username]
+        if 'internal_id' not in account_dict:
+            clean_accounts[username] = account_dict
+            log.info("Saving account {} Lv.{} found in pickle/config to DB",
+                username, account_dict.get('level', 0))
 
     utils.dump_pickle('accounts', clean_accounts)
     return clean_accounts 

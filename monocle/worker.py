@@ -16,7 +16,7 @@ from .db import FORT_CACHE, MYSTERY_CACHE, SIGHTING_CACHE, RAID_CACHE
 from .utils import round_coords, load_pickle, get_device_info, get_start_coords, Units, randomize_point, calc_pokemon_level
 from .shared import get_logger, LOOP, SessionManager, run_threaded
 from .sb import SbDetector, SbAccountException
-from .accounts import get_accounts
+from .accounts import get_accounts, InsufficientAccountsException
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
 
 if conf.NOTIFY or conf.NOTIFY_RAIDS or conf.NOTIFY_RAIDS_WEBHOOK:
@@ -96,11 +96,11 @@ class Worker:
         # account information
         try:
             self.account = self.extra_queue.get_nowait()
-        except Empty as e:
+        except (Empty, InsufficientAccountsException) as e:
             try:
                 self.account = self.captcha_queue.get_nowait()
             except Empty as e:
-                raise ValueError("You don't have enough accounts for the number of workers specified in GRID.") from e
+                raise InsufficientAccountsException("You don't have enough accounts for the number of workers specified in GRID.") from e
         self.username = self.account['username']
         try:
             self.location = self.account['location'][:2]
@@ -1350,6 +1350,7 @@ class Worker:
         else:
             self.account['banned'] = True
             self.log.warning('Removing {} due to ban.', self.username)
+        Account.put(self.account)
         self.update_accounts_dict()
         await self.new_account(after_remove=True)
 
