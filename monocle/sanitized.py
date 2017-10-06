@@ -16,6 +16,7 @@ set_sequence = (tuple, list, set, frozenset)
 set_sequence_range = (tuple, list, range, set, frozenset)
 
 worker_count = config.GRID[0] * config.GRID[1]
+monocle_dir = Path(__file__).resolve().parents[1]
 
 _valid_types = {
     'ACCOUNTS': set_sequence,
@@ -69,6 +70,7 @@ _valid_types = {
     'IMAGE_STATS': bool,
     'INCUBATE_EGGS': bool,
     'INITIAL_SCORE': Number,
+    'INSTANCE_ID': str,
     'ITEM_LIMITS': dict,
     'IV_FONT': str,
     'KEEP_GYM_HISTORY': bool,
@@ -210,6 +212,7 @@ _defaults = {
     'IMAGE_STATS': False,
     'INCUBATE_EGGS': True,
     'INITIAL_RANKING': None,
+    'INSTANCE_ID': str(monocle_dir),
     'ITEM_LIMITS': None,
     'IV_FONT': 'monospace',
     'KEEP_GYM_HISTORY': False,

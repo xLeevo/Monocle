@@ -1,3 +1,9 @@
+### Define a unique instance id. It needs to be different for each instance running.
+### If not set explicitly, monocle root dir will be used as default.
+#
+#INSTANCE_ID = '/var/www/Monocle'
+
+
 ### All lines that are commented out (and some that aren't) are optional ###
 
 DB_ENGINE = 'sqlite:///db.sqlite'

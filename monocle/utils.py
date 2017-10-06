@@ -276,37 +276,6 @@ def dump_pickle(name, var):
         pickle_dump(var, f, HIGHEST_PROTOCOL)
 
 
-def load_accounts():
-    pickled_accounts = load_pickle('accounts')
-
-    if conf.ACCOUNTS_CSV:
-        accounts = load_accounts_csv()
-        if pickled_accounts and set(pickled_accounts) == set(accounts):
-            return pickled_accounts
-        else:
-            accounts = accounts_from_csv(accounts, pickled_accounts)
-    elif conf.ACCOUNTS:
-        if pickled_accounts and set(pickled_accounts) == set(acc[0] for acc in conf.ACCOUNTS):
-            return pickled_accounts
-        else:
-            accounts = accounts_from_config(pickled_accounts)
-    else:
-        raise ValueError('Must provide accounts in a CSV or your config file.')
-
-    dump_pickle('accounts', accounts)
-    return accounts
-
-
-def load_accounts_csv():
-    csv_location = join(conf.DIRECTORY, conf.ACCOUNTS_CSV)
-    with open(csv_location, 'rt') as f:
-        accounts = {}
-        reader = DictReader(f)
-        for row in reader:
-            accounts[row['username']] = dict(row)
-    return accounts
-
-
 def randomize_point(point, amount=0.0003, randomize=uniform):
     '''Randomize point, by up to ~47 meters by default.'''
     lat, lon = point
