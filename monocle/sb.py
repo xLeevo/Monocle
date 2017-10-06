@@ -1,7 +1,8 @@
 from time import time
+from asyncio import Semaphore
 
 from .db import Session
-from .shared import get_logger, SessionManager
+from .shared import get_logger, SessionManager, LOOP
 from . import sanitized as conf
 
 log = get_logger("sb-detector")
@@ -10,6 +11,9 @@ class SbAccountException(Exception):
     """Raised when an account is shadow banned"""
 
 class SbDetector:
+        
+    detect_semaphore = Semaphore(4, loop=LOOP)
+
     def __init__(self):
         self.ran_at = {}
 
@@ -22,7 +26,10 @@ class SbDetector:
         log.info("SbDetector initialized.")
 
     async def detect(self, username):
+        async with self.detect_semaphore:
+            await self.detect_concurrent(username)
 
+    async def detect_concurrent(self, username):
         if username in self.ran_at:
             ran_at = self.ran_at[username]
         else:
