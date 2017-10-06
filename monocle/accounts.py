@@ -72,7 +72,6 @@ class Account(db.Base):
                 'model': account.model,
                 'iOS': account.device_version,
                 'id': account.device_id,
-                'time': 0,
                 }
         if account.captchaed:
             d['captcha'] = True
