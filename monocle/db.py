@@ -714,6 +714,8 @@ def add_fort_sighting(session, raw_fort):
             .scalar()
         FORT_CACHE.internal_ids[external_id] = internal_id 
 
+    fort_updated = False
+
     if not internal_id:
         fort = Fort(
             external_id=raw_fort['external_id'],
@@ -726,33 +728,23 @@ def add_fort_sighting(session, raw_fort):
         session.flush()
         internal_id = fort.id
         FORT_CACHE.internal_ids[external_id] = internal_id 
-        if raw_fort['name']:
-            FORT_CACHE.gym_names[external_id] = True
+        fort_updated = True
 
-    if external_id not in FORT_CACHE.gym_names and raw_fort['name']:
+    has_fort_name = ('name' in raw_fort and raw_fort['name'])
+
+    if external_id not in FORT_CACHE.gym_names and has_fort_name:
         session.query(Fort) \
                 .filter(Fort.id == internal_id) \
                 .update({
                     'name': raw_fort['name'],
                     'url': raw_fort['url']})
-        FORT_CACHE.gym_names[external_id] = True
+        fort_updated = True
 
-    ## Update fort name
-    #if (not fort.name) and ('name' in raw_fort):
-    #    fort.name = raw_fort['name']
-    #    fort.url = raw_fort['url']
-    #    session.merge(fort)
+    if has_fort_name and (fort_updated or FORT_CACHE.gym_names[external_id] == True):
+        FORT_CACHE.gym_names[external_id] = (raw_fort['name'], raw_fort['url']) 
     
     if 'gym_defenders' in raw_fort and len(raw_fort['gym_defenders']) > 0:
         add_gym_defenders(session, internal_id, raw_fort['gym_defenders'])
-    
-    #if session.query(exists().where(and_(
-    #    FortSighting.fort_id == fort.id,
-    #    FortSighting.last_modified == raw_fort['last_modified']
-    #    ))).scalar():
-    #    # Why is it not in the cache? It should be there!
-    #    FORT_CACHE.add(raw_fort)
-    #    return
 
     if conf.KEEP_GYM_HISTORY:
         fort_sighting = None

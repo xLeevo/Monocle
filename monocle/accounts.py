@@ -4,12 +4,15 @@ import csv
 from time import time
 from queue import Queue
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, UniqueConstraint, exists
+from sqlalchemy import Column, UniqueConstraint, exists, or_
 from sqlalchemy.types import Integer, Boolean, Enum, SmallInteger, String
 from . import db, utils, sanitized as conf
 from .shared import LOOP, get_logger, run_threaded
             
+log = get_logger(__name__)
+
 instance_id = conf.INSTANCE_ID[-32:]
+bucket = {}
 
 class Provider(enum.Enum):
     ptc = 1
@@ -83,6 +86,21 @@ class Account(db.Base):
         return d
 
     @staticmethod
+    def copy_dict_data(from_dict, to_dict):
+        to_dict['password'] = from_dict['password']
+        to_dict['level'] = from_dict['level']
+        to_dict['model'] = from_dict['model']
+        to_dict['iOS'] = from_dict['iOS']
+        to_dict['id'] = from_dict['id']
+        to_dict['internal_id'] = from_dict['internal_id']
+        if 'captcha' in from_dict:
+            to_dict['captcha'] = from_dict.get('captcha')
+        if 'banned' in from_dict:
+            to_dict['banned'] = from_dict.get('banned')
+        if 'sbanned' in from_dict:
+            to_dict['sbanned'] = from_dict.get('sbanned')
+
+    @staticmethod
     def from_account_dict(session, account_dict, account_db=None, assign_instance=True, update_flags=True):
         account = {}
 
@@ -139,6 +157,16 @@ class Account(db.Base):
                 account_db.hibernated = None
                 account_db.reason = None
         return account_db
+
+    @staticmethod
+    def load_my_accounts(instance_id, usernames):
+        with db.session_scope() as session:
+            q = session.query(Account) \
+                .filter(or_(
+                    Account.username.in_(usernames),
+                    Account.instance==instance_id))
+            accounts = q.all()
+            return [Account.to_account_dict(account) for account in accounts]
 
     @staticmethod
     def query_builder(session, min_level, max_level):
@@ -314,25 +342,57 @@ class CaptchaAccountQueue(Queue):
         return super()._get()
 
 
+def add_account_to_keep(dirty_accounts, add_account, clean_accounts):
+    username = add_account['username']
+    if username in dirty_accounts and dirty_accounts[username]:
+        account = dirty_accounts[username]
+        if add_account['instance'] == instance_id:
+            Account.copy_dict_data(add_account, account)
+            clean_accounts[username] = account
+        elif account:
+            log.info("Removed account {} Lv.{} from this instance",
+                    username, add_account['level'])
+    else:
+        clean_accounts[username] = add_account 
+        log.info("New account {} Lv.{} downloaded from DB.",
+                username, add_account['level'])
+
 def load_accounts():
     pickled_accounts = utils.load_pickle('accounts')
 
     if conf.ACCOUNTS_CSV:
         accounts = load_accounts_csv()
         if pickled_accounts and set(pickled_accounts) == set(accounts):
-            return pickled_accounts
+            accounts = pickled_accounts
         else:
             accounts = accounts_from_csv(accounts, pickled_accounts)
+            for k in pickled_accounts:
+                if k not in accounts:
+                    accounts[k] = pickled_accounts[k]
     elif conf.ACCOUNTS:
         if pickled_accounts and set(pickled_accounts) == set(acc[0] for acc in conf.ACCOUNTS):
-            return pickled_accounts
+            accounts = pickled_accounts
         else:
             accounts = accounts_from_config(pickled_accounts)
+            for k in pickled_accounts:
+                if k not in accounts:
+                    accounts[k] = pickled_accounts[k]
     else:
         raise ValueError('Must provide accounts in a CSV or your config file.')
 
-    utils.dump_pickle('accounts', accounts)
-    return accounts
+    # Sync db and pickle
+    accounts_dicts = Account.load_my_accounts(instance_id, accounts.keys())
+    clean_accounts = {}
+    for account_dict in accounts_dicts:
+        level = account_dict['level']
+        if level < 30:
+            add_account_to_keep(accounts, account_dict, clean_accounts)
+        else:
+            # Nothing to do with Lv.30s yet
+            pass
+
+    utils.dump_pickle('accounts', clean_accounts)
+    return clean_accounts 
 
 
 def load_accounts_csv():
@@ -344,4 +404,43 @@ def load_accounts_csv():
             accounts[row['username']] = dict(row)
     return accounts
 
-ACCOUNTS = load_accounts()
+
+def accounts_from_config(pickled_accounts=None):
+    accounts = {}
+    for account in conf.ACCOUNTS:
+        username = account[0]
+        if pickled_accounts and username in pickled_accounts:
+            accounts[username] = pickled_accounts[username]
+            if len(account) == 3 or len(account) == 6:
+                accounts[username]['password'] = account[1]
+                accounts[username]['provider'] = account[2]
+        else:
+            accounts[username] = create_account_dict(account)
+    return accounts
+
+
+def accounts_from_csv(new_accounts, pickled_accounts):
+    accounts = {}
+    for username, account in new_accounts.items():
+        if pickled_accounts:
+            pickled_account = pickled_accounts.get(username)
+            if pickled_account:
+                if pickled_account['password'] != account['password']:
+                    del pickled_account['password']
+                account.update(pickled_account)
+            accounts[username] = account
+            continue
+        account['provider'] = account.get('provider') or 'ptc'
+        if not all(account.get(x) for x in ('model', 'iOS', 'id')):
+            account = generate_device_info(account)
+        account['time'] = 0
+        account['captcha'] = False
+        account['banned'] = False
+        accounts[username] = account
+    return accounts
+
+
+def get_accounts():
+    if 'ACCOUNTS' not in bucket:
+        bucket['ACCOUNTS'] = load_accounts()
+    return bucket['ACCOUNTS'] 
