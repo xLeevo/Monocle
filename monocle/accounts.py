@@ -444,7 +444,7 @@ def accounts_from_csv(new_accounts, pickled_accounts):
             continue
         account['provider'] = account.get('provider') or 'ptc'
         if not all(account.get(x) for x in ('model', 'iOS', 'id')):
-            account = generate_device_info(account)
+            account = utils.generate_device_info(account)
         account['time'] = 0
         account['captcha'] = False
         account['banned'] = False
