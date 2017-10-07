@@ -118,10 +118,10 @@ class Account(db.Base):
 
         username = account['username']
         if not account_db and 'internal_id' in account:
-                account_db = session.query(Account) \
-                        .filter(Account.id==account['internal_id']) \
-                        .with_lockmode("update") \
-                        .first()
+            account_db = session.query(Account) \
+                    .filter(Account.id==account['internal_id']) \
+                    .with_lockmode("update") \
+                    .first()
         if not account_db:
             account_db = Account.lookup(session, username, lock=True)
         if not account_db:
@@ -192,13 +192,7 @@ class Account(db.Base):
         return q
 
     @staticmethod
-    def has_more_sync(min_level, max_level):
-        with db.session_scope() as session:
-            q = Account.query_builder(session, min_level, max_level)
-            return session.query(q.exists()).scalar()
-
-    @staticmethod
-    def get_sync(min_level, max_level):
+    def get(min_level, max_level):
         with db.session_scope() as session:
             q = Account.query_builder(session, min_level, max_level)
             account = q.with_lockmode("update").first()
@@ -210,24 +204,12 @@ class Account(db.Base):
         return account_dict
 
     @staticmethod
-    def put_sync(account_dict):
+    def put(account_dict):
         with db.session_scope() as session:
             account = Account.from_account_dict(session, account_dict, assign_instance=True)
             session.merge(account)
             session.commit()
             account_dict['internal_id'] = account.id
-
-    @staticmethod
-    async def has_more(min_level,max_level):
-        await run_threaded(Account.has_more_sync, min_level, max_level)
-
-    @staticmethod
-    async def get(min_level, max_level):
-        return await run_threaded(Account.get_sync, min_level, max_level)
-
-    @staticmethod
-    async def put(account_dict):
-        await run_threaded(Account.put_sync, account_dict)
 
     @staticmethod
     def lookup(session, username, lock=False):
@@ -303,12 +285,12 @@ class InsufficientAccountsException(Exception):
 
 class AccountQueue(Queue):
     def _put(self, item):
-        LOOP.run_until_complete(Account.put(item))
+        Account.put(item)
         super()._put(item)
 
     def get(self, block=True, timeout=None):
         if self.qsize() == 0:
-            new_account = LOOP.run_until_complete(Account.get(0,29))
+            new_account = Account.get(0,29)
             if new_account:
                 self.queue.append(new_account)
             else:
@@ -324,7 +306,7 @@ class CaptchaAccountQueue(Queue):
         return super()._qsize()
 
     def _put(self, item):
-        LOOP.run_until_complete(Account.put(item))
+        Account.put(item)
         super()._put(item)
 
     def _get(self):
@@ -392,6 +374,37 @@ def load_accounts():
 
     utils.dump_pickle('accounts', clean_accounts)
     return clean_accounts 
+
+
+def create_account_dict(account):
+    if isinstance(account, (tuple, list)):
+        length = len(account)
+    else:
+        raise TypeError('Account must be a tuple or list.')
+
+    if length not in (1, 3, 4, 6):
+        raise ValueError('Each account should have either 3 (account info only) or 6 values (account and device info).')
+    if length in (1, 4) and (not conf.PASS or not conf.PROVIDER):
+        raise ValueError('No default PASS or PROVIDER are set.')
+
+    entry = {}
+    entry['username'] = account[0]
+
+    if length == 1 or length == 4:
+        entry['password'], entry['provider'] = conf.PASS, conf.PROVIDER
+    else:
+        entry['password'], entry['provider'] = account[1:3]
+
+    if length == 4 or length == 6:
+        entry['model'], entry['iOS'], entry['id'] = account[-3:]
+    else:
+        entry = utils.generate_device_info(entry)
+
+    entry['time'] = 0
+    entry['captcha'] = False
+    entry['banned'] = False
+
+    return entry
 
 
 def load_accounts_csv():
