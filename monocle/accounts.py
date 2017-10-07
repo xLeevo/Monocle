@@ -236,17 +236,31 @@ class Account(db.Base):
                 print("=> Input file recognized as Monocle accounts.csv format")
                 fieldnames = None
                 dialect = MonocleDialect
+            elif "".join(csv_headings).startswith("# Batch creation start at"):
+                print("=> Input file recognized as Kinan format")
+                dialect = "kinan"
             else:
                 print("=> Input file recognized as Goman format")
                 dialect = GomanDialect
 
         with open(file_location, 'rt') as f:
-            reader = csv.DictReader(f, fieldnames=fieldnames, dialect=dialect)
+            if dialect == "kinan":
+                reader = f
+            else:
+                reader = csv.DictReader(f, fieldnames=fieldnames, dialect=dialect)
             with db.session_scope() as session:
                 new_count = 0
                 update_count = 0
                 pickle_count = 0
-                for row in reader:
+                for line in reader:
+                    if dialect == "kinan":
+                        if line.startswith("#") or not line.strip():
+                            continue
+                        else:
+                            parts = line.split(";")
+                            row = {'username': parts[0], 'password': parts[1], 'provider': 'ptc'}
+                    else:
+                        row = line
                     username = row['username']
                     password = row['password'].strip().strip(',')
 
