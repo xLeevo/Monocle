@@ -96,10 +96,16 @@ class Account(db.Base):
             to_dict['internal_id'] = from_dict['internal_id']
         if 'captcha' in from_dict:
             to_dict['captcha'] = from_dict.get('captcha')
+        elif 'captcha' in to_dict:
+            del to_dict['captcha']
         if 'banned' in from_dict:
             to_dict['banned'] = from_dict.get('banned')
+        elif 'banned' in to_dict:
+            del to_dict['banned']
         if 'sbanned' in from_dict:
             to_dict['sbanned'] = from_dict.get('sbanned')
+        elif 'sbanned' in to_dict:
+            del to_dict['sbanned']
 
     @staticmethod
     def from_account_dict(session, account_dict, account_db=None, assign_instance=True, update_flags=True):
@@ -378,6 +384,8 @@ def load_accounts():
     for username in accounts:
         account_dict = accounts[username]
         if 'internal_id' not in account_dict:
+            if 'captcha' in account_dict:
+                del account_dict['captcha']
             clean_accounts[username] = account_dict
             log.info("Saving account {} Lv.{} found in pickle/config to DB",
                 username, account_dict.get('level', 0))
