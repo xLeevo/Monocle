@@ -226,7 +226,7 @@ class Account(db.Base):
         Otherwise, it will be set to 0 when level info is not available in pickles. 
         Level will be automatically updated upon login.
         """
-        pickled_accounts = load_accounts()
+        clean_accounts, pickled_accounts = load_accounts()
 
         with open(file_location, 'rt') as f:
             csv_reader = csv.reader(f)
@@ -242,6 +242,11 @@ class Account(db.Base):
             else:
                 print("=> Input file recognized as Goman format")
                 dialect = GomanDialect
+            total = 0
+            for line in f:
+                total += 1
+            if total == 0:
+                total = 1
 
         with open(file_location, 'rt') as f:
             if dialect == "kinan":
@@ -252,7 +257,9 @@ class Account(db.Base):
                 new_count = 0
                 update_count = 0
                 pickle_count = 0
+                idx = 0
                 for line in reader:
+                    idx += 1
                     if dialect == "kinan":
                         if line.startswith("#") or not line.strip():
                             continue
@@ -275,11 +282,12 @@ class Account(db.Base):
                     else:
                         update_count += 1
 
-                    if username in pickled_accounts:
-                        pickled_account = pickled_accounts[username]
-                        account = {k:pickled_account[k] for k in row}
+                    if username in clean_accounts:
+                        clean_account = clean_accounts[username]
+                        account = {k:clean_account[k] for k in row}
                         account['password'] = password   # Allow password change
-                        pickle_count += 1
+                        if pickled_accounts and username in pickled_accounts:
+                            pickle_count += 1
                     elif account_db.id:
                         account = row
                     else:
@@ -292,6 +300,9 @@ class Account(db.Base):
                             assign_instance=assign_instance,
                             update_flags=False)
                     session.merge(account_db)
+
+                    if idx % 10 == 0:
+                        print("=> ({}/100)% imported.".format(int(100 * idx / total)))
 
                 print("=> {} new accounts inserted.".format(new_count))
                 print("=> {} existing accounts in DB updated as ncessary.".format(update_count))
@@ -354,19 +365,23 @@ def load_accounts():
             accounts = pickled_accounts
         else:
             accounts = accounts_from_csv(accounts, pickled_accounts)
-            for k in pickled_accounts:
-                if k not in accounts:
-                    accounts[k] = pickled_accounts[k]
+            if pickled_accounts:
+                for k in pickled_accounts:
+                    if k not in accounts:
+                        accounts[k] = pickled_accounts[k]
     elif conf.ACCOUNTS:
         if pickled_accounts and set(pickled_accounts) == set(acc[0] for acc in conf.ACCOUNTS):
             accounts = pickled_accounts
         else:
             accounts = accounts_from_config(pickled_accounts)
-            for k in pickled_accounts:
-                if k not in accounts:
-                    accounts[k] = pickled_accounts[k]
+            if pickled_accounts:
+                for k in pickled_accounts:
+                    if k not in accounts:
+                        accounts[k] = pickled_accounts[k]
     else:
         accounts = pickled_accounts 
+        if not accounts:
+            accounts = {} 
 
     # Sync db and pickle
     accounts_dicts = Account.load_my_accounts(instance_id, accounts.keys())
@@ -390,7 +405,7 @@ def load_accounts():
                 username, account_dict.get('level', 0))
 
     utils.dump_pickle('accounts', clean_accounts)
-    return clean_accounts 
+    return clean_accounts, pickled_accounts
 
 
 def create_account_dict(account):
