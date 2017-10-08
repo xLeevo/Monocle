@@ -484,5 +484,5 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 # CLEANUP_MYSTERY_SIGHTINGS_OLDER_THAN_X_HR = 24.0
 
 ### Discord webhook url for sending scan log messages
-#SCAN_LOG_WEBHOOK = ''
+#SCAN_LOG_WEBHOOK = None
 
