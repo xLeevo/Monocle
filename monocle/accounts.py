@@ -226,7 +226,7 @@ class Account(db.Base):
         Otherwise, it will be set to 0 when level info is not available in pickles. 
         Level will be automatically updated upon login.
         """
-        clean_accounts, pickled_accounts = load_accounts()
+        clean_accounts, pickled_accounts = load_accounts_tuple()
 
         with open(file_location, 'rt') as f:
             csv_reader = csv.reader(f)
@@ -356,7 +356,7 @@ def add_account_to_keep(dirty_accounts, add_account, clean_accounts):
         log.info("New account {} Lv.{} downloaded from DB.",
                 username, add_account.get('level', 0))
 
-def load_accounts():
+def load_accounts_tuple():
     pickled_accounts = utils.load_pickle('accounts')
 
     if conf.ACCOUNTS_CSV:
@@ -406,6 +406,10 @@ def load_accounts():
 
     utils.dump_pickle('accounts', clean_accounts)
     return clean_accounts, pickled_accounts
+
+
+def load_accounts():
+    return load_accounts_tuple()[0]
 
 
 def create_account_dict(account):
