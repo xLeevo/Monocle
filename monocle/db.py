@@ -822,6 +822,11 @@ def add_raid(session, raw_raid):
 
         session.merge(raid)
 
+        # touch fort_sightings
+        fort_sighting = session.query(FortSighting).filter(FortSighting.id==fort_id).first()
+        if fort_sighting:
+            fort_sighting.updated = int(time())
+
 
 def add_pokestop(session, raw_pokestop):
     pokestop_id = raw_pokestop['external_id']
