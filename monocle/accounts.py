@@ -258,7 +258,10 @@ class Account(db.Base):
                             continue
                         else:
                             parts = line.split(";")
-                            row = {'username': parts[0], 'password': parts[1], 'provider': 'ptc'}
+                            if parts[5] == "OK":
+                                row = {'username': parts[0], 'password': parts[1], 'provider': 'ptc'}
+                            else:
+                                continue
                     else:
                         row = line
                     username = row['username']
