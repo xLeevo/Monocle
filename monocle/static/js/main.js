@@ -248,6 +248,7 @@ function FortMarker (raw) {
                        '<br>Slots occupied: '+ (6 - raw.slots_available) + '/6' +
                        '<br>Guarding Pokemon: ' + raw.pokemon_name + ' (#' + raw.pokemon_id + ')';
         }
+        content += '<br>Gym Name: ' + raw.gym_name;
         content += '<br>=&gt; <a href=https://www.google.com/maps/?daddr='+ raw.lat + ','+ raw.lon +' target="_blank" title="See in Google Maps">Get directions</a>';
         event.popup.setContent(content);
     });
