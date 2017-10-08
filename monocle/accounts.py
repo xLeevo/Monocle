@@ -153,10 +153,10 @@ class Account(db.Base):
 
             if 'banned' in account and account['banned']:
                 account_db.hibernated = int(time())
-                account_db.reason = 'sbanned'
+                account_db.reason = 'banned'
             elif 'sbanned' in account and account['sbanned']:
                 account_db.hibernated = int(time())
-                account_db.reason = 'banned'
+                account_db.reason = 'sbanned'
             elif 'warn' in account and account['warn']:
                 account_db.hibernated = int(time())
                 account_db.reason = 'warn'
