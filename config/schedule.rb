@@ -32,7 +32,7 @@ every 1.minute, roles: [:db] do
   cleanup_python "cleanup.py --light"
 end
 
-every "30 3,15 * * *", roles: [:db] do
+every "5 * * * *", roles: [:db] do
   cleanup_python "cleanup.py --heavy"
 end
 
