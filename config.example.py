@@ -482,3 +482,7 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 # CLEANUP_SPAWNPOINTS_OLDER_THAN_X_HR = 24.0
 # CLEANUP_FORT_SIGHTINGS_OLDER_THAN_X_HR = 6.0
 # CLEANUP_MYSTERY_SIGHTINGS_OLDER_THAN_X_HR = 24.0
+
+### Discord webhook url for sending scan log messages
+#SCAN_LOG_WEBHOOK = None
+

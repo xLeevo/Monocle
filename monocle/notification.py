@@ -16,6 +16,7 @@ from .names import MOVES, POKEMON
 from .shared import get_logger, SessionManager, LOOP, run_threaded
 from . import sanitized as conf
 
+import os
 
 WEBHOOK = False
 if conf.NOTIFY:
@@ -816,6 +817,22 @@ class Notifier:
         self.last_notification = monotonic()
         self.sent += 1
         return result
+
+    async def scan_log_webhook(self, title, message, embed_color):
+        self.log.info('Beginning scan log webhook consruction.')
+        if conf.SCAN_LOG_WEBHOOK:            
+            payload = {
+                'embeds': [{
+                    'title': title,
+                    'description': '{}\n\nSource: {}\nPath: {}'.format(message, conf.AREA_NAME, os.path.realpath(__file__)),
+                    'color': embed_color
+                }]
+            }
+
+            session = SessionManager.get()
+            return await self.hook_post(conf.SCAN_LOG_WEBHOOK, session, payload)
+        else:
+            return
 
 
     async def notify_raid(self, fort):
