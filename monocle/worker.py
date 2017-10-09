@@ -219,7 +219,10 @@ class Worker:
             get_player = responses['GET_PLAYER']
 
             if get_player.warn:
-                raise ex.WarnAccountException
+                if conf.ACCOUNTS_SWAP_OUT_ON_WARN:
+                    raise ex.WarnAccountException
+                else:
+                    self.log.warning('{} is warn but not swapped out due to ACCOUNTS_SWAP_OUT_ON_WARN being False.', self.username)
             if get_player.banned:
                 raise ex.BannedAccountException
 

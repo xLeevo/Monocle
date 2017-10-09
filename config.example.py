@@ -51,6 +51,13 @@ SKIP_SPAWN = 90      # don't even try to find a worker for a spawn if the spawn 
 # filename of accounts CSV
 ACCOUNTS_CSV = 'accounts.csv'
 
+### Swap out accounts on warning popup
+#ACCOUNTS_SWAP_OUT_ON_WARN = True
+#
+### Set period for account hibernation.
+### For hibernation to work, set up cron for cleanup.py. See wiki for details.
+#ACCOUNTS_HIBERNATE_DAYS = 7.0
+
 # the directory that the pickles folder, socket, CSV, etc. will go in
 # defaults to working directory if not set
 #DIRECTORY = None

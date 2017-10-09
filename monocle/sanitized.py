@@ -21,6 +21,8 @@ monocle_dir = Path(__file__).resolve().parents[1]
 _valid_types = {
     'ACCOUNTS': set_sequence,
     'ACCOUNTS_CSV': path,
+    'ACCOUNTS_SWAP_OUT_ON_WARN': bool,
+    'ACCOUNTS_HIBERNATE_DAYS': float,
     'ALT_PRECISION': int,
     'ALT_RANGE': sequence,
     'ALWAYS_NOTIFY': int,
@@ -168,6 +170,8 @@ _valid_types = {
 _defaults = {
     'ACCOUNTS': None,
     'ACCOUNTS_CSV': None,
+    'ACCOUNTS_SWAP_OUT_ON_WARN': True,
+    'ACCOUNTS_HIBERNATE_DAYS': 7.0,
     'ALT_PRECISION': 2,
     'ALT_RANGE': (300, 400),
     'ALWAYS_NOTIFY': 0,
