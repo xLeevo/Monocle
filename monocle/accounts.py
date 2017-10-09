@@ -184,7 +184,8 @@ class Account(db.Base):
         q = session.query(Account) \
                 .filter(Account.instance==None,
                         Account.hibernated==None,
-                        Account.captchaed==None)
+                        Account.captchaed==None) \
+                .order_by(Account.id)
         if min_level:
             q = q.filter(Account.level >= min_level)
         if max_level:
@@ -227,6 +228,8 @@ class Account(db.Base):
         Level will be automatically updated upon login.
         """
         clean_accounts, pickled_accounts = load_accounts_tuple()
+
+        imported = {}
 
         with open(file_location, 'rt') as f:
             csv_reader = csv.reader(f)
@@ -274,6 +277,9 @@ class Account(db.Base):
                     username = row['username']
                     password = row['password'].strip().strip(',')
 
+                    if username in imported:
+                        continue
+
                     account_db = Account.lookup(session, username, lock=True)
 
                     if not account_db:
@@ -300,6 +306,8 @@ class Account(db.Base):
                             assign_instance=assign_instance,
                             update_flags=False)
                     session.merge(account_db)
+
+                    imported[username] = True
 
                     if idx % 10 == 0:
                         print("=> ({}/100)% imported.".format(int(100 * idx / total)))
