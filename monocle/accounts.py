@@ -213,6 +213,20 @@ class Account(db.Base):
             account_dict['internal_id'] = account.id
 
     @staticmethod
+    def swapin():
+        with db.session_scope() as session:
+            swapin_count = 0
+            model = session.query(Account) \
+                .filter(Account.hibernated <= int(time() - conf.ACCOUNTS_HIBERNATE_DAYS))
+            swapin_count += model.filter(Account.reason == 'warn') \
+                .update({'hibernated': None})
+            swapin_count += model.filter(Account.reason == 'banned') \
+                .update({'hibernated': None})
+            swapin_count += model.filter(Account.reason == 'sbanned') \
+                .update({'hibernated': None})
+        log.info("=> Done hibernated swap in. {} accounts swapped in.", swapin_count)
+
+    @staticmethod
     def lookup(session, username, lock=False):
         account_db = session.query(Account) \
                 .filter(Account.username==username)
