@@ -16,7 +16,7 @@ from .db import FORT_CACHE, MYSTERY_CACHE, SIGHTING_CACHE, RAID_CACHE
 from .utils import round_coords, load_pickle, get_device_info, get_start_coords, Units, randomize_point, calc_pokemon_level
 from .shared import get_logger, LOOP, SessionManager, run_threaded
 from .sb import SbDetector, SbAccountException
-from .accounts import Account, get_accounts, InsufficientAccountsException
+from .accounts import Account, get_accounts, InsufficientAccountsException, LoginCredentialsException
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
 
 if conf.NOTIFY or conf.NOTIFY_RAIDS or conf.NOTIFY_RAIDS_WEBHOOK:
@@ -181,6 +181,10 @@ class Worker:
             except ex.UnexpectedAuthError as e:
                 await self.swap_account('unexpected auth error')
             except ex.AuthException as e:
+                msg = str(e)
+                if ("you have failed to log in correctly too many times" in msg
+                        or "Your username or password is incorrect" in msg):
+                    raise LoginCredentialsException("Username or password is wrong.")
                 err = e
                 await sleep(2, loop=LOOP)
             else:
@@ -686,6 +690,11 @@ class Worker:
             self.error_code = 'NOT AUTHENTICATED'
             await sleep(3, loop=LOOP)
             await self.swap_account(reason='login failed')
+        except LoginCredentialsException as e:
+            self.log.warning('Login credentials error on {}: {}', self.username, e)
+            self.error_code = 'WRONG CREDENTIALS'
+            await sleep(3, loop=LOOP)
+            await self.remove_account(flag='credentials')
         except CaptchaException:
             self.error_code = 'CAPTCHA'
             self.g['captchas'] += 1
@@ -1350,6 +1359,9 @@ class Worker:
         elif flag == 'sbanned':
             self.account['sbanned'] = True
             self.log.warning('Removing {} due to shadow ban.', self.username)
+        elif flag == 'credentials':
+            self.account['credentials'] = True
+            self.log.warning('Removing {} due to wrong credentials.', self.username)
         else:
             self.account['banned'] = True
             self.log.warning('Removing {} due to ban.', self.username)

@@ -82,6 +82,8 @@ class Account(db.Base):
                 d['warn'] = True
             elif account.reason == 'banned':
                 d['banned'] = True
+            elif account.reason == 'credentials':
+                d['credentials'] = True
         return d
 
     @staticmethod
@@ -106,6 +108,10 @@ class Account(db.Base):
             to_dict['sbanned'] = from_dict.get('sbanned')
         elif 'sbanned' in to_dict:
             del to_dict['sbanned']
+        if 'credentials' in from_dict:
+            to_dict['credentials'] = from_dict.get('credentials')
+        elif 'credentials' in to_dict:
+            del to_dict['credentials']
 
     @staticmethod
     def from_account_dict(session, account_dict, account_db=None, assign_instance=True, update_flags=True):
@@ -160,6 +166,9 @@ class Account(db.Base):
             elif 'warn' in account and account['warn']:
                 account_db.hibernated = int(time())
                 account_db.reason = 'warn'
+            elif 'credentials' in account and account['credentials']:
+                account_db.hibernated = int(time())
+                account_db.reason = 'credentials'
             else:
                 account_db.hibernated = None
                 account_db.reason = None
@@ -333,6 +342,9 @@ class Account(db.Base):
                 print("=> {} accounts updated with data found in pickle.".format(pickle_count))
 
 class InsufficientAccountsException(Exception):
+    pass
+
+class LoginCredentialsException(Exception):
     pass
 
 class AccountQueue(Queue):
