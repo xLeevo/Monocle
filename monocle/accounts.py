@@ -303,6 +303,8 @@ class Account(db.Base):
 
                     if idx % 10 == 0:
                         print("=> ({}/100)% imported.".format(int(100 * idx / total)))
+                    if idx % 1000 == 0:
+                        session.commit()
 
                 print("=> {} new accounts inserted.".format(new_count))
                 print("=> {} existing accounts in DB updated as ncessary.".format(update_count))
