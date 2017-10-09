@@ -11,7 +11,7 @@ from aiohttp import ClientError, ClientResponseError, ServerTimeoutError
 from aiopogo import json_dumps, json_loads
 
 from .utils import load_pickle, dump_pickle
-from .db import session_scope, get_pokemon_ranking, estimate_remaining_time, get_gym
+from .db import session_scope, get_pokemon_ranking, estimate_remaining_time, FORT_CACHE
 from .names import MOVES, POKEMON
 from .shared import get_logger, SessionManager, LOOP, run_threaded
 from . import sanitized as conf
@@ -782,14 +782,10 @@ class Notifier:
         if not WEBHOOK:
             return
 
-        with session_scope() as session:
-            gym = get_gym(session,fort)
-            if gym:
-                gym_name = gym.name
-                gym_url = gym.url
-            else:
-                gym_name = None
-                gym_url = None
+        if raid['external_id'] in FORT_CACHE.gym_names:
+            gym_name, gym_url = FORT_CACHE.gym_names[raid['external_id']] 
+        else:
+            gym_name, gym_url = None, None
 
         m = conf.WEBHOOK_RAID_MAPPING
         data = {

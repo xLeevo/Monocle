@@ -7,11 +7,8 @@ from aiohttp import ClientSession
 from aiopogo import json_dumps
 from aiopogo.session import SESSIONS
 
-from .utils import load_accounts
-
 
 LOOP = get_event_loop()
-ACCOUNTS = load_accounts()
 
 
 class SessionManager:

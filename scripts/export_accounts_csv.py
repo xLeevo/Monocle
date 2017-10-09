@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#re!/usr/bin/env python3
 
 import csv
 import sys
@@ -9,7 +9,7 @@ from pathlib import Path
 monocle_dir = Path(__file__).resolve().parents[1]
 sys.path.append(str(monocle_dir))
 
-from monocle.shared import ACCOUNTS
+from monocle.accounts import get_accounts 
 
 accounts_file = monocle_dir / 'accounts.csv'
 try:
@@ -23,6 +23,7 @@ banned = []
 with accounts_file.open('w') as csvfile:
     writer = csv.writer(csvfile, delimiter=',')
     writer.writerow(('username', 'password', 'provider', 'model', 'iOS', 'id'))
+    ACCOUNTS = get_accounts()
     for account in ACCOUNTS.values():
         if account.get('banned', False):
             banned.append(account)

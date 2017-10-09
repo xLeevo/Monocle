@@ -1,3 +1,4 @@
+import traceback
 from asyncio import gather, Semaphore, sleep, Task, CancelledError
 from datetime import datetime
 from statistics import median
@@ -12,7 +13,8 @@ from sqlalchemy.exc import OperationalError
 
 from .db import SIGHTING_CACHE, MYSTERY_CACHE, FORT_CACHE
 from .utils import get_current_hour, dump_pickle, get_start_coords, get_bootstrap_points, randomize_point, best_factors, percentage_split
-from .shared import get_logger, LOOP, run_threaded, ACCOUNTS
+from .shared import get_logger, LOOP, run_threaded
+from .accounts import get_accounts 
 from . import bounds, db_proc, spawns, sanitized as conf
 from .worker import Worker
 from .notification import Notifier
@@ -81,6 +83,7 @@ class Overseer:
         if conf.MAP_WORKERS:
             Worker.worker_dict = self.manager.worker_dict()
 
+        ACCOUNTS = get_accounts()
         for username, account in ACCOUNTS.items():
             account['username'] = username
             if account.get('banned') or account.get('warn') or account.get('sbanned'):
@@ -94,6 +97,7 @@ class Overseer:
             try:
                 self.workers.append(Worker(worker_no=x))
             except Exception as e:
+                traceback.print_exc()
                 self.log.error("Worker initialization error: {}", e)
         self.log.info("Worker count: ({}/{})", len(self.workers), conf.GRID[0] * conf.GRID[1])
 
@@ -389,6 +393,7 @@ class Overseer:
     async def _launch(self, update_spawns):
         if update_spawns:
             await self.update_spawns()
+            ACCOUNTS = get_accounts()
             LOOP.create_task(run_threaded(dump_pickle, 'accounts', ACCOUNTS))
             spawns_iter = iter(spawns.items())
         else:
@@ -564,6 +569,7 @@ class Overseer:
             await sleep(conf.SEARCH_SLEEP, loop=LOOP)
 
     def refresh_dict(self):
+        ACCOUNTS = get_accounts()
         while not self.extra_queue.empty():
             account = self.extra_queue.get()
             username = account['username']

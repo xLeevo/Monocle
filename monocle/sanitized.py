@@ -16,10 +16,13 @@ set_sequence = (tuple, list, set, frozenset)
 set_sequence_range = (tuple, list, range, set, frozenset)
 
 worker_count = config.GRID[0] * config.GRID[1]
+monocle_dir = Path(__file__).resolve().parents[1]
 
 _valid_types = {
     'ACCOUNTS': set_sequence,
     'ACCOUNTS_CSV': path,
+    'ACCOUNTS_SWAP_OUT_ON_WARN': bool,
+    'ACCOUNTS_HIBERNATE_DAYS': float,
     'ALT_PRECISION': int,
     'ALT_RANGE': sequence,
     'ALWAYS_NOTIFY': int,
@@ -69,6 +72,7 @@ _valid_types = {
     'IMAGE_STATS': bool,
     'INCUBATE_EGGS': bool,
     'INITIAL_SCORE': Number,
+    'INSTANCE_ID': str,
     'ITEM_LIMITS': dict,
     'IV_FONT': str,
     'KEEP_GYM_HISTORY': bool,
@@ -167,6 +171,8 @@ _valid_types = {
 _defaults = {
     'ACCOUNTS': None,
     'ACCOUNTS_CSV': None,
+    'ACCOUNTS_SWAP_OUT_ON_WARN': True,
+    'ACCOUNTS_HIBERNATE_DAYS': 7.0,
     'ALT_PRECISION': 2,
     'ALT_RANGE': (300, 400),
     'ALWAYS_NOTIFY': 0,
@@ -211,6 +217,7 @@ _defaults = {
     'IMAGE_STATS': False,
     'INCUBATE_EGGS': True,
     'INITIAL_RANKING': None,
+    'INSTANCE_ID': str(monocle_dir),
     'ITEM_LIMITS': None,
     'IV_FONT': 'monospace',
     'KEEP_GYM_HISTORY': False,
