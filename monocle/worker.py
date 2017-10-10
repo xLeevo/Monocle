@@ -675,6 +675,11 @@ class Worker:
             return
 
         try:
+            if self.player_level and self.player_level >= 30:
+                self.log.warning('Congratulations {} has reached Lv.30. Moving it out of low-level slave pool', self.username)
+                await sleep(1, loop=LOOP)
+                await self.remove_account(flag='level30')
+
             if sb_detector:
                 await sb_detector.detect(self.username)
             try:
@@ -1378,6 +1383,8 @@ class Worker:
         elif flag == 'credentials':
             self.account['credentials'] = True
             self.log.warning('Removing {} due to wrong credentials.', self.username)
+        elif flag == 'level30':
+            self.log.warning('Removing {} from slave pool due to graduation to Lv.30.', self.username)
         else:
             self.account['banned'] = True
             self.log.warning('Removing {} due to ban.', self.username)
