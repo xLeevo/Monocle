@@ -815,7 +815,7 @@ class Notifier:
         return result
 
     async def scan_log_webhook(self, title, message, embed_color):
-        self.log.info('Beginning scan log webhook consruction.')
+        self.log.info('Beginning scan log webhook consruction: {}', title)
         if conf.SCAN_LOG_WEBHOOK:            
             payload = {
                 'embeds': [{

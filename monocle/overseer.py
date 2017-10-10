@@ -162,19 +162,22 @@ class Overseer:
             visits.append(w.visits)
             speeds.append(w.speed)
 
-        self.stats = (
-            'Seen per worker: min {}, max {}, med {:.0f}\n'
-            'Visits per worker: min {}, max {}, med {:.0f}\n'
-            'Visit delay: min {:.1f}, max {:.1f}, med {:.1f}\n'
-            'Speed: min {:.1f}, max {:.1f}, med {:.1f}\n'
-            'Extra accounts: {}, CAPTCHAs needed: {}\n'
-        ).format(
-            min(seen_per_worker), max(seen_per_worker), med(seen_per_worker),
-            min(visits), max(visits), med(visits),
-            min(after_spawns), max(after_spawns), med(after_spawns),
-            min(speeds), max(speeds), med(speeds),
-            self.extra_queue.qsize(), self.captcha_queue.qsize()
-        )
+        try:
+            self.stats = (
+                'Seen per worker: min {}, max {}, med {:.0f}\n'
+                'Visits per worker: min {}, max {}, med {:.0f}\n'
+                'Visit delay: min {:.1f}, max {:.1f}, med {:.1f}\n'
+                'Speed: min {:.1f}, max {:.1f}, med {:.1f}\n'
+                'Extra accounts: {}, CAPTCHAs needed: {}\n'
+            ).format(
+                min(seen_per_worker), max(seen_per_worker), med(seen_per_worker),
+                min(visits), max(visits), med(visits),
+                min(after_spawns), max(after_spawns), med(after_spawns),
+                min(speeds), max(speeds), med(speeds),
+                self.extra_queue.qsize(), self.captcha_queue.qsize()
+            )
+        except ValueError:
+            pass
 
         self.sighting_cache_size = len(SIGHTING_CACHE.store)
         self.mystery_cache_size = len(MYSTERY_CACHE.store)
@@ -250,16 +253,19 @@ class Overseer:
         seconds_since_start = running_for.seconds - self.idle_seconds or 0.1
         hours_since_start = seconds_since_start / 3600
 
-        output = [
-            '{}Monocle running for {}'.format(_ansi, running_for),
-            self.counts,
-            self.stats,
-            self.pokemon_found,
-            ('Visits: {}, per second: {:.2f}\n'
-             'Skipped: {}, unnecessary: {}').format(
-                self.visits, self.visits / seconds_since_start,
-                self.skipped, self.redundant)
-        ]
+        try:
+            output = [
+                '{}Monocle running for {}'.format(_ansi, running_for),
+                self.counts,
+                self.stats,
+                self.pokemon_found,
+                ('Visits: {}, per second: {:.2f}\n'
+                 'Skipped: {}, unnecessary: {}').format(
+                    self.visits, self.visits / seconds_since_start,
+                    self.skipped, self.redundant)
+            ]
+        except AttributeError:
+            output = []
 
         try:
             seen = Worker.g['seen']
