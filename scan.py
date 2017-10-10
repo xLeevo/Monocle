@@ -23,11 +23,12 @@ from time import monotonic, sleep
 from sqlalchemy.exc import DBAPIError
 from aiopogo import close_sessions, activate_hash_server
 
-from monocle.shared import LOOP, get_logger, SessionManager, ACCOUNTS
+from monocle.shared import LOOP, get_logger, SessionManager
 from monocle.utils import get_address, dump_pickle
 from monocle.worker import Worker
 from monocle.overseer import Overseer
 from monocle.db import FORT_CACHE, RAID_CACHE, SIGHTING_CACHE
+from monocle.accounts import AccountQueue, CaptchaAccountQueue, get_accounts 
 from monocle import altitudes, db_proc, spawns
 
 
@@ -35,7 +36,7 @@ class AccountManager(BaseManager):
     pass
 
 
-class CustomQueue(Queue):
+class CustomQueue(CaptchaAccountQueue):
     def full_wait(self, maxsize=0, timeout=None):
         '''Block until queue size falls below maxsize'''
         starttime = monotonic()
@@ -59,7 +60,7 @@ class CustomQueue(Queue):
 
 
 _captcha_queue = CustomQueue()
-_extra_queue = Queue()
+_extra_queue = AccountQueue()
 _worker_dict = {}
 
 def get_captchas():
@@ -99,6 +100,12 @@ def parse_args():
         dest='pickle',
         help='Do not load spawns from pickle',
         action='store_false'
+    )
+    parser.add_argument(
+        '--signature',
+        dest='signature',
+        help='This flag does nothing. Only serves for easy monitoring of processes.',
+        default=''
     )
     return parser.parse_args()
 
@@ -150,7 +157,7 @@ def cleanup(overseer, manager):
         overseer.refresh_dict()
 
         print('Dumping pickles...')
-        dump_pickle('accounts', ACCOUNTS)
+        dump_pickle('accounts', get_accounts())
         FORT_CACHE.pickle()
         RAID_CACHE.preload()
         altitudes.pickle()

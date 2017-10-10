@@ -71,8 +71,6 @@ else:
     PRIMARY_HUGE_TYPE = HUGE_TYPE 
     FLOAT_TYPE = Float(asdecimal=False)
 
-ID_TYPE = BigInteger if conf.SPAWN_ID_INT else String(11)
-
 
 class Team(Enum):
     none = 0
@@ -93,19 +91,21 @@ class SightingCache:
     """
     def __init__(self):
         self.store = {}
+        self.spawn_ids = {}
 
     def __len__(self):
         return len(self.store)
 
     def add(self, sighting):
         self.store[sighting['encounter_id']] = sighting['expire_timestamp']
-        call_at(sighting['expire_timestamp'], self.remove, sighting['encounter_id'])
+        self.spawn_ids[sighting['spawn_id']] = True
+        call_at(sighting['expire_timestamp'] + 60, self.remove, sighting['encounter_id'], sighting['spawn_id'])
 
-    def remove(self, encounter_id):
-        try:
+    def remove(self, encounter_id, spawn_id):
+        if encounter_id in  self.store:
             del self.store[encounter_id]
-        except KeyError:
-            pass
+        if spawn_id in self.spawn_ids:
+            del self.spawn_ids[spawn_id]
 
     def __contains__(self, raw_sighting):
         try:
@@ -119,12 +119,21 @@ class SightingCache:
             sightings = session.query(Sighting) \
                 .join(Sighting.spawnpoint) \
                 .filter(Sighting.expire_timestamp >= time()) \
-                .filter(Spawnpoint.lat.between(bounds.south,bounds.north),
-                        Spawnpoint.lon.between(bounds.west,bounds.east))
+                .filter(Spawnpoint.lat.between(bounds.south - 0.015, bounds.north + 0.015),
+                        Spawnpoint.lon.between(bounds.west - 0.015, bounds.east + 0.015))
+
+            sightings_lured = session.query(Sighting) \
+                .filter(Sighting.spawn_id == 0) \
+                .filter(Sighting.expire_timestamp >= time()) \
+                .filter(Sighting.lat.between(bounds.south - 0.015, bounds.north + 0.015),
+                        Sighting.lon.between(bounds.west - 0.015, bounds.east + 0.015))
+
+            sightings = sightings.union(sightings_lured)
 
             for sighting in sightings:
                 obj = {
                     'encounter_id': sighting.encounter_id,
+                    'spawn_id': sighting.spawn_id,
                     'expire_timestamp': sighting.expire_timestamp,
                 }
                 self.add(obj)
@@ -217,8 +226,8 @@ class RaidCache:
                 .options(eagerload(Raid.fort)) \
                 .join(Fort, Fort.id == Raid.fort_id) \
                 .filter(Raid.time_end > time()) \
-                .filter(Fort.lat.between(bounds.south,bounds.north),
-                        Fort.lon.between(bounds.west,bounds.east))
+                .filter(Fort.lat.between(bounds.south - 0.015, bounds.north + 0.015),
+                        Fort.lon.between(bounds.west - 0.015, bounds.east + 0.015))
     
             for raid in raids:
                 fort = raid.fort
@@ -238,7 +247,6 @@ class FortCache:
         self.pokestops = set()
         self.pokestop_names = set()
         self.class_version = 2.1
-        self.unpickle()
 
     def __len__(self):
         return len(self.gyms)
@@ -258,15 +266,52 @@ class FortCache:
         state['bounds_hash'] = hash(bounds)
         dump_pickle('forts', state)
 
-    def unpickle(self):
-        try:
-            state = load_pickle('forts', raise_exception=True)
-            if all((state['class_version'] == self.class_version,
-                    state['db_hash'] == spawns.db_hash,
-                    state['bounds_hash'] == hash(bounds))):
-                self.__dict__.update(state)
-        except (FileNotFoundError, TypeError, KeyError):
-            pass
+    #def unpickle(self):
+    #    try:
+    #        state = load_pickle('forts', raise_exception=True)
+    #        if all((state['class_version'] == self.class_version,
+    #                state['db_hash'] == spawns.db_hash,
+    #                state['bounds_hash'] == hash(bounds))):
+    #            self.__dict__.update(state)
+    #    except (FileNotFoundError, TypeError, KeyError):
+    #        pass
+
+    # Preloading from db
+    def preload(self):
+        with session_scope() as session:
+            fort_sightings = session.query(FortSighting) \
+                .join(FortSighting.fort) \
+                .filter(Fort.lat.between(bounds.south - 0.015, bounds.north + 0.015),
+                        Fort.lon.between(bounds.west - 0.015, bounds.east + 0.015))
+            total = 0
+            for fort_sighting in fort_sightings:
+                if (fort_sighting.fort.lat, fort_sighting.fort.lon) not in bounds:
+                    continue
+                total += 1
+                fort = fort_sighting.fort
+                external_id = fort.external_id
+                self.internal_ids[external_id] = fort_sighting.fort_id
+                if fort.name:
+                    self.gym_names[external_id] = (fort.name, fort.url)
+                obj = {
+                    'external_id': fort_sighting.fort.external_id,
+                    'last_modified': fort_sighting.last_modified,
+                }
+                self.add(obj)
+            log.info("Preloaded {} fort_sightings ", total)
+
+            pokestops = session.query(Pokestop) \
+                .filter(Pokestop.lat.between(bounds.south - 0.015, bounds.north + 0.015),
+                        Pokestop.lon.between(bounds.west - 0.015, bounds.east + 0.015))
+            total = 0
+            for pokestop in pokestops:
+                if (pokestop.lat, pokestop.lon) not in bounds:
+                    continue
+                total += 1
+                self.pokestops.add(pokestop.external_id)
+                if pokestop.name:
+                    self.pokestop_names.add(pokestop.external_id)
+            log.info("Preloaded {} pokestops", total)
 
 
 SIGHTING_CACHE = SightingCache()
@@ -293,7 +338,7 @@ class Sighting(Base):
 
     id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
     pokemon_id = Column(TINY_TYPE)
-    spawn_id = Column(ID_TYPE)
+    spawn_id = Column(BigInteger)
     expire_timestamp = Column(Integer, index=True)
     encounter_id = Column(UNSIGNED_HUGE_TYPE, index=True)
     lat = Column(FLOAT_TYPE)
@@ -307,7 +352,7 @@ class Sighting(Base):
     form = Column(SmallInteger)
     cp = Column(SmallInteger)
     level = Column(SmallInteger)
-    last_updated = Column(TIMESTAMP,default=datetime.now,onupdate=datetime.now)
+    updated = Column(Integer,default=time,onupdate=time)
 
     user = relationship("SightingUser",
             uselist=False,
@@ -365,7 +410,7 @@ class Mystery(Base):
 
     id = Column(Integer, primary_key=True)
     pokemon_id = Column(TINY_TYPE)
-    spawn_id = Column(ID_TYPE, index=True)
+    spawn_id = Column(BigInteger, index=True)
     encounter_id = Column(UNSIGNED_HUGE_TYPE, index=True)
     lat = Column(FLOAT_TYPE)
     lon = Column(FLOAT_TYPE)
@@ -396,7 +441,7 @@ class Spawnpoint(Base):
     __tablename__ = 'spawnpoints'
 
     id = Column(Integer, primary_key=True)
-    spawn_id = Column(ID_TYPE, unique=True, index=True)
+    spawn_id = Column(BigInteger, unique=True, index=True)
     despawn_time = Column(SmallInteger, index=True)
     lat = Column(FLOAT_TYPE)
     lon = Column(FLOAT_TYPE)
@@ -452,7 +497,7 @@ class FortSighting(Base):
     guard_pokemon_id = Column(TINY_TYPE)
     slots_available = Column(SmallInteger)
     is_in_battle = Column(Boolean, default=False)
-    last_updated = Column(TIMESTAMP,default=datetime.now,onupdate=datetime.now)
+    updated = Column(Integer,default=time,onupdate=time)
 
     __table_args__ = (
         UniqueConstraint(
@@ -493,7 +538,7 @@ class Pokestop(Base):
     lon = Column(FLOAT_TYPE, index=True)
     name = Column(String(128))
     url = Column(String(200))
-    last_updated = Column(TIMESTAMP,default=datetime.now,onupdate=datetime.now)
+    updated = Column(Integer,default=time,onupdate=time)
 
 
 @contextmanager
@@ -662,9 +707,6 @@ def add_mystery_spawnpoint(session, pokemon):
 
 
 def add_mystery(session, pokemon):
-    if pokemon in MYSTERY_CACHE:
-        return
-    MYSTERY_CACHE.add(pokemon)
     add_mystery_spawnpoint(session, pokemon)
     existing = session.query(Mystery) \
         .filter(Mystery.encounter_id == pokemon['encounter_id']) \
@@ -701,12 +743,15 @@ def add_mystery(session, pokemon):
 def add_fort_sighting(session, raw_fort):
     # Check if fort exists
     external_id = raw_fort['external_id']
-    if external_id in FORT_CACHE.internal_ids:
+    if external_id in FORT_CACHE.internal_ids and FORT_CACHE.internal_ids[external_id]:
         internal_id = FORT_CACHE.internal_ids[external_id]
     else:
         internal_id = session.query(Fort.id) \
-            .filter(Fort.external_id == raw_fort['external_id']) \
+            .filter(Fort.external_id == external_id) \
             .scalar()
+        FORT_CACHE.internal_ids[external_id] = internal_id 
+
+    fort_updated = False
 
     if not internal_id:
         fort = Fort(
@@ -719,33 +764,27 @@ def add_fort_sighting(session, raw_fort):
         session.add(fort)
         session.flush()
         internal_id = fort.id
-        if raw_fort['name']:
-            FORT_CACHE.gym_names[external_id] = True
+        FORT_CACHE.internal_ids[external_id] = internal_id 
+        fort_updated = True
 
-    if external_id not in FORT_CACHE.gym_names and raw_fort['name']:
+    has_fort_name = ('name' in raw_fort and raw_fort['name'])
+
+    if external_id not in FORT_CACHE.gym_names and has_fort_name:
         session.query(Fort) \
                 .filter(Fort.id == internal_id) \
                 .update({
                     'name': raw_fort['name'],
                     'url': raw_fort['url']})
-        FORT_CACHE.gym_names[external_id] = True
+        fort_updated = True
 
-    ## Update fort name
-    #if (not fort.name) and ('name' in raw_fort):
-    #    fort.name = raw_fort['name']
-    #    fort.url = raw_fort['url']
-    #    session.merge(fort)
+    if (has_fort_name and
+            (fort_updated or
+                external_id not in FORT_CACHE.gym_names or
+                FORT_CACHE.gym_names[external_id] == True)):
+        FORT_CACHE.gym_names[external_id] = (raw_fort['name'], raw_fort['url']) 
     
     if 'gym_defenders' in raw_fort and len(raw_fort['gym_defenders']) > 0:
         add_gym_defenders(session, internal_id, raw_fort['gym_defenders'])
-    
-    #if session.query(exists().where(and_(
-    #    FortSighting.fort_id == fort.id,
-    #    FortSighting.last_modified == raw_fort['last_modified']
-    #    ))).scalar():
-    #    # Why is it not in the cache? It should be there!
-    #    FORT_CACHE.add(raw_fort)
-    #    return
 
     if conf.KEEP_GYM_HISTORY:
         fort_sighting = None
@@ -782,7 +821,7 @@ def add_raid(session, raw_raid):
         return
 
     fort_external_id = raw_raid['fort_external_id']
-    if fort_external_id in FORT_CACHE.internal_ids: 
+    if fort_external_id in FORT_CACHE.internal_ids and FORT_CACHE.internal_ids[fort_external_id]:
         fort_id = FORT_CACHE.internal_ids[fort_external_id]
     else:
         fort_id = session.query(Fort.id) \
@@ -814,6 +853,11 @@ def add_raid(session, raw_raid):
         raid.move_2 = raw_raid['move_2']
 
         session.merge(raid)
+
+        # touch fort_sightings
+        fort_sighting = session.query(FortSighting).filter(FortSighting.id==fort_id).first()
+        if fort_sighting:
+            fort_sighting.updated = int(time())
 
 
 def add_pokestop(session, raw_pokestop):
@@ -855,6 +899,8 @@ def update_failures(session, spawn_id, success, allowed=conf.FAILURES_ALLOWED):
     spawnpoint = session.query(Spawnpoint) \
         .filter(Spawnpoint.spawn_id == spawn_id) \
         .first()
+    if not spawnpoint:
+        return
     try:
         if success:
             spawnpoint.failures = 0
@@ -903,6 +949,7 @@ def _get_forts_sqlite(session):
             fs.last_modified,
             f.lat,
             f.lon,
+            f.name,
             fs.slots_available
         FROM fort_sightings fs
         JOIN forts f ON f.id=fs.fort_id
@@ -924,6 +971,7 @@ def _get_forts(session):
             fs.last_modified,
             f.lat,
             f.lon,
+            f.name,
             fs.slots_available
         FROM fort_sightings fs
         JOIN forts f ON f.id=fs.fort_id

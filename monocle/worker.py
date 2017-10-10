@@ -14,8 +14,9 @@ from pogeo import get_distance
 
 from .db import FORT_CACHE, MYSTERY_CACHE, SIGHTING_CACHE, RAID_CACHE
 from .utils import round_coords, load_pickle, get_device_info, get_start_coords, Units, randomize_point, calc_pokemon_level
-from .shared import get_logger, LOOP, SessionManager, run_threaded, ACCOUNTS
+from .shared import get_logger, LOOP, SessionManager, run_threaded
 from .sb import SbDetector, SbAccountException
+from .accounts import Account, get_accounts, InsufficientAccountsException, LoginCredentialsException
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
 
 if conf.NOTIFY or conf.NOTIFY_RAIDS or conf.NOTIFY_RAIDS_WEBHOOK:
@@ -95,11 +96,11 @@ class Worker:
         # account information
         try:
             self.account = self.extra_queue.get_nowait()
-        except Empty as e:
+        except (Empty, InsufficientAccountsException) as e:
             try:
                 self.account = self.captcha_queue.get_nowait()
             except Empty as e:
-                raise ValueError("You don't have enough accounts for the number of workers specified in GRID.") from e
+                raise InsufficientAccountsException("You don't have enough accounts for the number of workers specified in GRID.") from e
         self.username = self.account['username']
         try:
             self.location = self.account['location'][:2]
@@ -180,6 +181,10 @@ class Worker:
             except ex.UnexpectedAuthError as e:
                 await self.swap_account('unexpected auth error')
             except ex.AuthException as e:
+                msg = str(e)
+                if ("you have failed to log in correctly too many times" in msg
+                        or "Your username or password is incorrect" in msg):
+                    raise LoginCredentialsException("Username or password is wrong.")
                 err = e
                 await sleep(2, loop=LOOP)
             else:
@@ -196,7 +201,7 @@ class Worker:
             raise err
 
         self.error_code = '°'
-        version = 7500
+        version = 7501
         async with self.sim_semaphore:
             self.error_code = 'APP SIMULATION'
             if conf.APP_SIMULATION:
@@ -218,7 +223,10 @@ class Worker:
             get_player = responses['GET_PLAYER']
 
             if get_player.warn:
-                raise ex.WarnAccountException
+                if conf.ACCOUNTS_SWAP_OUT_ON_WARN:
+                    raise ex.WarnAccountException
+                else:
+                    self.log.warning('{} is warn but not swapped out due to ACCOUNTS_SWAP_OUT_ON_WARN being False.', self.username)
             if get_player.banned:
                 raise ex.BannedAccountException
 
@@ -618,9 +626,9 @@ class Worker:
             else:
                 if (not dl_hash
                         and conf.FORCED_KILL
-                        and dl_settings.settings.minimum_client_version != '0.75.0'):
+                        and dl_settings.settings.minimum_client_version != '0.75.1'):
                     forced_version = StrictVersion(dl_settings.settings.minimum_client_version)
-                    if forced_version > StrictVersion('0.75.0'):
+                    if forced_version > StrictVersion('0.75.1'):
                         err = '{} is being forced, exiting.'.format(forced_version)
                         self.log.error(err)
                         print(err)
@@ -682,6 +690,11 @@ class Worker:
             self.error_code = 'NOT AUTHENTICATED'
             await sleep(3, loop=LOOP)
             await self.swap_account(reason='login failed')
+        except LoginCredentialsException as e:
+            self.log.warning('Login credentials error on {}: {}', self.username, e)
+            self.error_code = 'WRONG CREDENTIALS'
+            await sleep(3, loop=LOOP)
+            await self.remove_account(flag='credentials')
         except CaptchaException:
             self.error_code = 'CAPTCHA'
             self.g['captchas'] += 1
@@ -818,8 +831,27 @@ class Worker:
                 normalized = self.normalize_pokemon(pokemon, username=self.username)
                 seen_target = seen_target or normalized['spawn_id'] == spawn_id
 
+                # This line does not only checks the cache, it also updates the mystery seen time.
+                # Tricky.
+                in_mystery_cache = normalized in MYSTERY_CACHE
+
+                # Check if already marked for save as mystery
+                if normalized['type'] == 'mystery':
+                    if in_mystery_cache:
+                        continue
+                    else:
+                        MYSTERY_CACHE.add(normalized)
+
+                # Check if already marked for save as sighting
+                if normalized in SIGHTING_CACHE:
+                    continue
+                elif 'expire_timestamp' in normalized:
+                    SIGHTING_CACHE.add(normalized)
+                    if normalized.get('expire_timestamp',0) <= time():
+                        continue
+                
                 # Check against insert list
-                sp_discovered = ('inferred' in normalized and normalized['inferred'])
+                sp_discovered = ('despawn' in normalized)
                 is_in_insert_blacklist = (conf.NO_DB_INSERT_IDS is not None and 
                         normalized['pokemon_id'] in conf.NO_DB_INSERT_IDS)
                 skip_insert = (sp_discovered and is_in_insert_blacklist)
@@ -831,12 +863,6 @@ class Worker:
                 if skip_insert:
                     db_proc.count += 1
                     continue
-
-                if normalized in SIGHTING_CACHE:
-                    continue
-                        
-                if 'expire_timestamp' in normalized:
-                    SIGHTING_CACHE.add(normalized)
 
                 should_encounter = (encounter_conf == 'all'
                         or (encounter_conf == 'some'
@@ -1062,18 +1088,20 @@ class Worker:
         distance = get_distance(self.location, pokestop_location)
         # permitted interaction distance - 4 (for some jitter leeway)
         # estimation of spinning speed limit
-        if distance > 36 or self.speed > SPINNING_SPEED_LIMIT:
+        if distance > 31 or self.speed > SPINNING_SPEED_LIMIT:
             self.error_code = '!'
             return False
 
         # randomize location up to ~1.5 meters
         self.simulate_jitter(amount=0.00001)
+        #adding a short sleep period increases spinning success 
+        await self.random_sleep(0.8, 1.8)
 
         request = self.api.create_request()
         request.fort_details(fort_id = pokestop.id,
                              latitude = pokestop_location[0],
                              longitude = pokestop_location[1])
-        responses = await self.call(request, action=1.2)
+        responses = await self.call(request, action=1.3)
         name = responses['FORT_DETAILS'].name
         try:
             normalized = self.normalize_pokestop(pokestop)
@@ -1092,7 +1120,7 @@ class Worker:
                             player_longitude = self.location[1],
                             fort_latitude = pokestop_location[0],
                             fort_longitude = pokestop_location[1])
-        responses = await self.call(request, action=2)
+        responses = await self.call(request, action=3)
 
         try:
             result = responses['FORT_SEARCH'].result
@@ -1322,6 +1350,7 @@ class Worker:
         except AttributeError:
             pass
 
+        ACCOUNTS = get_accounts()
         ACCOUNTS[self.username] = self.account
 
     async def remove_account(self, flag='banned'):
@@ -1332,9 +1361,13 @@ class Worker:
         elif flag == 'sbanned':
             self.account['sbanned'] = True
             self.log.warning('Removing {} due to shadow ban.', self.username)
+        elif flag == 'credentials':
+            self.account['credentials'] = True
+            self.log.warning('Removing {} due to wrong credentials.', self.username)
         else:
             self.account['banned'] = True
             self.log.warning('Removing {} due to ban.', self.username)
+        Account.put(self.account)
         self.update_accounts_dict()
         await self.new_account(after_remove=True)
 
@@ -1433,29 +1466,31 @@ class Worker:
         self.error_code = None
 
     @staticmethod
-    def normalize_pokemon(raw, spawn_int=conf.SPAWN_ID_INT, username=None):
+    def normalize_pokemon(raw, username=None):
         """Normalizes data coming from API into something acceptable by db"""
         tsm = raw.last_modified_timestamp_ms
         tss = round(tsm / 1000)
         tth = raw.time_till_hidden_ms
+        spawn_id = int(raw.spawn_point_id, 16)
+        despawn = spawns.get_despawn_time(spawn_id, tss)
         norm = {
             'type': 'pokemon',
             'encounter_id': raw.encounter_id,
             'pokemon_id': raw.pokemon_data.pokemon_id,
             'lat': raw.latitude,
             'lon': raw.longitude,
-            'spawn_id': int(raw.spawn_point_id, 16) if spawn_int else raw.spawn_point_id,
+            'spawn_id': spawn_id,
             'seen': tss,
             'gender': raw.pokemon_data.pokemon_display.gender,
             'form': raw.pokemon_data.pokemon_display.form,
             'username': username,
+            'despawn': despawn,
         }
         if tth > 0 and tth <= 90000:
             norm['expire_timestamp'] = round((tsm + tth) / 1000)
             norm['time_till_hidden'] = tth / 1000
             norm['inferred'] = False
         else:
-            despawn = spawns.get_despawn_time(norm['spawn_id'], tss)
             if despawn:
                 norm['expire_timestamp'] = despawn
                 norm['time_till_hidden'] = despawn - tss
@@ -1477,7 +1512,7 @@ class Worker:
             'expire_timestamp': lure.lure_expires_timestamp_ms // 1000,
             'lat': raw.latitude,
             'lon': raw.longitude,
-            'spawn_id': 0 if conf.SPAWN_ID_INT else 'LURED',
+            'spawn_id': 0,
             'time_till_hidden': (lure.lure_expires_timestamp_ms - now) / 1000,
             'inferred': 'pokestop'
         }

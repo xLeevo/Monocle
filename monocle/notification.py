@@ -11,11 +11,12 @@ from aiohttp import ClientError, ClientResponseError, ServerTimeoutError
 from aiopogo import json_dumps, json_loads
 
 from .utils import load_pickle, dump_pickle
-from .db import session_scope, get_pokemon_ranking, estimate_remaining_time, get_gym
+from .db import session_scope, get_pokemon_ranking, estimate_remaining_time, FORT_CACHE
 from .names import MOVES, POKEMON
 from .shared import get_logger, SessionManager, LOOP, run_threaded
 from . import sanitized as conf
 
+import os
 
 WEBHOOK = False
 if conf.NOTIFY:
@@ -781,14 +782,10 @@ class Notifier:
         if not WEBHOOK:
             return
 
-        with session_scope() as session:
-            gym = get_gym(session,fort)
-            if gym:
-                gym_name = gym.name
-                gym_url = gym.url
-            else:
-                gym_name = None
-                gym_url = None
+        if raid['fort_external_id'] in FORT_CACHE.gym_names:
+            gym_name, gym_url = FORT_CACHE.gym_names[raid['fort_external_id']] 
+        else:
+            gym_name, gym_url = None, None
 
         m = conf.WEBHOOK_RAID_MAPPING
         data = {
@@ -816,6 +813,22 @@ class Notifier:
         self.last_notification = monotonic()
         self.sent += 1
         return result
+
+    async def scan_log_webhook(self, title, message, embed_color):
+        self.log.info('Beginning scan log webhook consruction.')
+        if conf.SCAN_LOG_WEBHOOK:            
+            payload = {
+                'embeds': [{
+                    'title': title,
+                    'description': '{}\n\nSource: {}\nPath: {}'.format(message, conf.AREA_NAME, os.path.realpath(__file__)),
+                    'color': embed_color
+                }]
+            }
+
+            session = SessionManager.get()
+            return await self.hook_post(conf.SCAN_LOG_WEBHOOK, session, payload)
+        else:
+            return
 
 
     async def notify_raid(self, fort):

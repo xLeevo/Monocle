@@ -159,72 +159,6 @@ def generate_device_info(account):
     return account
 
 
-def create_account_dict(account):
-    if isinstance(account, (tuple, list)):
-        length = len(account)
-    else:
-        raise TypeError('Account must be a tuple or list.')
-
-    if length not in (1, 3, 4, 6):
-        raise ValueError('Each account should have either 3 (account info only) or 6 values (account and device info).')
-    if length in (1, 4) and (not conf.PASS or not conf.PROVIDER):
-        raise ValueError('No default PASS or PROVIDER are set.')
-
-    entry = {}
-    entry['username'] = account[0]
-
-    if length == 1 or length == 4:
-        entry['password'], entry['provider'] = conf.PASS, conf.PROVIDER
-    else:
-        entry['password'], entry['provider'] = account[1:3]
-
-    if length == 4 or length == 6:
-        entry['model'], entry['iOS'], entry['id'] = account[-3:]
-    else:
-        entry = generate_device_info(entry)
-
-    entry['time'] = 0
-    entry['captcha'] = False
-    entry['banned'] = False
-
-    return entry
-
-
-def accounts_from_config(pickled_accounts=None):
-    accounts = {}
-    for account in conf.ACCOUNTS:
-        username = account[0]
-        if pickled_accounts and username in pickled_accounts:
-            accounts[username] = pickled_accounts[username]
-            if len(account) == 3 or len(account) == 6:
-                accounts[username]['password'] = account[1]
-                accounts[username]['provider'] = account[2]
-        else:
-            accounts[username] = create_account_dict(account)
-    return accounts
-
-
-def accounts_from_csv(new_accounts, pickled_accounts):
-    accounts = {}
-    for username, account in new_accounts.items():
-        if pickled_accounts:
-            pickled_account = pickled_accounts.get(username)
-            if pickled_account:
-                if pickled_account['password'] != account['password']:
-                    del pickled_account['password']
-                account.update(pickled_account)
-            accounts[username] = account
-            continue
-        account['provider'] = account.get('provider') or 'ptc'
-        if not all(account.get(x) for x in ('model', 'iOS', 'id')):
-            account = generate_device_info(account)
-        account['time'] = 0
-        account['captcha'] = False
-        account['banned'] = False
-        accounts[username] = account
-    return accounts
-
-
 def get_current_hour(now=None, _time=time):
     now = now or _time()
     return round(now - (now % 3600))
@@ -274,37 +208,6 @@ def dump_pickle(name, var):
     location = join(folder, '{}.pickle'.format(name))
     with open(location, 'wb') as f:
         pickle_dump(var, f, HIGHEST_PROTOCOL)
-
-
-def load_accounts():
-    pickled_accounts = load_pickle('accounts')
-
-    if conf.ACCOUNTS_CSV:
-        accounts = load_accounts_csv()
-        if pickled_accounts and set(pickled_accounts) == set(accounts):
-            return pickled_accounts
-        else:
-            accounts = accounts_from_csv(accounts, pickled_accounts)
-    elif conf.ACCOUNTS:
-        if pickled_accounts and set(pickled_accounts) == set(acc[0] for acc in conf.ACCOUNTS):
-            return pickled_accounts
-        else:
-            accounts = accounts_from_config(pickled_accounts)
-    else:
-        raise ValueError('Must provide accounts in a CSV or your config file.')
-
-    dump_pickle('accounts', accounts)
-    return accounts
-
-
-def load_accounts_csv():
-    csv_location = join(conf.DIRECTORY, conf.ACCOUNTS_CSV)
-    with open(csv_location, 'rt') as f:
-        accounts = {}
-        reader = DictReader(f)
-        for row in reader:
-            accounts[row['username']] = dict(row)
-    return accounts
 
 
 def randomize_point(point, amount=0.0003, randomize=uniform):
