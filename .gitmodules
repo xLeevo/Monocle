@@ -1,0 +1,3 @@
+[submodule "monocle/static/monocle-icons"]
+	path = monocle/static/monocle-icons
+	url = https://github.com/MonkeyTedBaker/monocle-icons.git
