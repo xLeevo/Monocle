@@ -782,8 +782,8 @@ class Notifier:
         if not WEBHOOK:
             return
 
-        if raid['external_id'] in FORT_CACHE.gym_names:
-            gym_name, gym_url = FORT_CACHE.gym_names[raid['external_id']] 
+        if raid['fort_external_id'] in FORT_CACHE.gym_names:
+            gym_name, gym_url = FORT_CACHE.gym_names[raid['fort_external_id']] 
         else:
             gym_name, gym_url = None, None
 

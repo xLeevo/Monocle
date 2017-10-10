@@ -363,8 +363,10 @@ class Overseer:
         if not pickle or not spawns.unpickle():
             await self.update_spawns(initial=True)
 
-        if pickle:
-            FORT_CACHE.unpickle()
+        FORT_CACHE.preload()
+        #if pickle:
+        #    FORT_CACHE.unpickle()
+        FORT_CACHE.pickle()
 
         if not spawns or bootstrap:
             try:
