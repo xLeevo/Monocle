@@ -87,6 +87,8 @@ class Account(db.Base):
                 d['banned'] = True
             elif account.reason == 'credentials':
                 d['credentials'] = True
+            elif account.reason == 'unverified':
+                d['unverified'] = True
         return d
 
     @staticmethod
@@ -117,6 +119,10 @@ class Account(db.Base):
             to_dict['credentials'] = from_dict.get('credentials')
         elif 'credentials' in to_dict:
             del to_dict['credentials']
+        if 'unverified' in from_dict:
+            to_dict['unverified'] = from_dict.get('unverified')
+        elif 'unverified' in to_dict:
+            del to_dict['unverified']
 
     @staticmethod
     def from_account_dict(session, account_dict, account_db=None, assign_instance=True, update_flags=True):
@@ -176,6 +182,9 @@ class Account(db.Base):
             elif 'credentials' in account and account['credentials']:
                 account_db.hibernated = int(time())
                 account_db.reason = 'credentials'
+            elif 'unverified' in account and account['unverified']:
+                account_db.hibernated = int(time())
+                account_db.reason = 'unverified'
             else:
                 account_db.hibernated = None
                 account_db.reason = None
@@ -369,6 +378,9 @@ class InsufficientAccountsException(Exception):
     pass
 
 class LoginCredentialsException(Exception):
+    pass
+
+class EmailUnverifiedException(Exception):
     pass
 
 class AccountQueue(Queue):
