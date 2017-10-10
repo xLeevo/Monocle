@@ -47,6 +47,7 @@ class Account(db.Base):
     model = Column(String(20))
     device_version = Column(String(20))
     device_id = Column(String(64))
+    remove = Column(Boolean, default=False)
     hibernated = Column(Integer, index=True)
     reason = Column(String(12))
     captchaed = Column(Integer, index=True)
@@ -73,6 +74,8 @@ class Account(db.Base):
                 'iOS': account.device_version,
                 'id': account.device_id,
                 }
+        if account.remove:
+            d['remove'] = True
         if account.captchaed:
             d['captcha'] = True
         if account.hibernated:
@@ -92,6 +95,8 @@ class Account(db.Base):
         to_dict['model'] = from_dict['model']
         to_dict['iOS'] = from_dict['iOS']
         to_dict['id'] = from_dict['id']
+        if 'remove' in from_dict:
+            to_dict['remove'] = from_dict['remove']
         if 'level' in from_dict and from_dict['level']:
             to_dict['level'] = from_dict.get('level')
         if 'internal_id' in from_dict:
@@ -150,6 +155,8 @@ class Account(db.Base):
             account_db.device_version = account.get('iOS')
         if 'id' in account:
             account_db.device_id = account.get('id')
+        if 'remove' in account:
+            account_db.remove = account.get('remove', False)
 
         if update_flags:
             if 'captcha' in account:
@@ -186,7 +193,12 @@ class Account(db.Base):
             else:
                 q = q.filter(Account.instance==instance_id)
             accounts = q.all()
-            return [Account.to_account_dict(account) for account in accounts]
+            clean_accounts = [Account.to_account_dict(account) for account in accounts if not account.remove]
+            # Delete remove flag accounts
+            for account in accounts:
+                if account.remove:
+                    session.delete(account)
+            return clean_accounts
 
     @staticmethod
     def query_builder(session, min_level, max_level):
@@ -215,11 +227,19 @@ class Account(db.Base):
 
     @staticmethod
     def put(account_dict):
+        if 'remove' in account_dict and account_dict['remove']: 
+            return
         with db.session_scope() as session:
             account = Account.from_account_dict(session, account_dict, assign_instance=True)
-            session.merge(account)
-            session.commit()
-            account_dict['internal_id'] = account.id
+            if account.remove:
+                if account.id:
+                    session.delete(account)
+                account_dict['remove'] = True
+            else:
+                session.merge(account)
+                session.commit()
+                account_dict['internal_id'] = account.id
+
 
     @staticmethod
     def swapin():
@@ -328,7 +348,11 @@ class Account(db.Base):
                             account_db=account_db,
                             assign_instance=assign_instance,
                             update_flags=False)
-                    session.merge(account_db)
+                    if account_db.remove:
+                        if account_db.id:
+                            session.delete(account_db)
+                    else:
+                        session.merge(account_db)
 
                     imported[username] = True
 
@@ -350,7 +374,10 @@ class LoginCredentialsException(Exception):
 class AccountQueue(Queue):
     def _put(self, item):
         Account.put(item)
-        super()._put(item)
+        if 'remove' in item and item['remove']:
+            pass
+        else:
+            super()._put(item)
 
     def get(self, block=True, timeout=None):
         if self.qsize() == 0:
@@ -371,13 +398,18 @@ class CaptchaAccountQueue(Queue):
 
     def _put(self, item):
         Account.put(item)
-        super()._put(item)
+        if 'remove' in item and item['remove']:
+            pass
+        else:
+            super()._put(item)
 
     def _get(self):
         return super()._get()
 
 
 def add_account_to_keep(dirty_accounts, add_account, clean_accounts):
+    if 'remove' in add_account and add_account['remove']:
+        return
     username = add_account['username']
     if username in dirty_accounts and dirty_accounts[username]:
         account = dirty_accounts[username]

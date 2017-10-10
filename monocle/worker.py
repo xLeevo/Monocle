@@ -165,7 +165,7 @@ class Worker:
 
     async def login(self, reauth=False):
         """Logs worker in and prepares for scanning"""
-        self.log.info('Trying to log in')
+        self.log.info('Trying to log in {}', self.username)
 
         for attempt in range(-1, conf.MAX_RETRIES):
             try:
@@ -539,7 +539,7 @@ class Worker:
                 err = None
                 break
             except (ex.NotLoggedInException, ex.AuthException) as e:
-                self.log.info('Auth error on {}: {}', self.username, e)
+                self.log.info('Auth error on {} in call: {}', self.username, e)
                 err = e
                 await sleep(3, loop=LOOP)
                 if not await self.login(reauth=True):
@@ -667,7 +667,19 @@ class Worker:
 
         Also is capable of restarting in case an error occurs.
         """
+        if self.account is None:
+            self.error_code = 'D'
+            while True:
+                self.log.warning("No account being set for visit. Probably due to insufficient accounts. Import new accounts and restart.")
+                await sleep(30, loop=LOOP)
+            return
+
         try:
+            if self.player_level and self.player_level >= 30:
+                self.log.warning('Congratulations {} has reached Lv.30. Moving it out of low-level slave pool', self.username)
+                await sleep(1, loop=LOOP)
+                await self.remove_account(flag='level30')
+
             if sb_detector:
                 await sb_detector.detect(self.username)
             try:
@@ -686,7 +698,7 @@ class Worker:
                 await self.swap_account(reason='reauth failed')
             return await self.visit(point, spawn_id, bootstrap)
         except ex.AuthException as e:
-            self.log.warning('Auth error on {}: {}', self.username, e)
+            self.log.warning('Auth error on {} in visit: {}', self.username, e)
             self.error_code = 'NOT AUTHENTICATED'
             await sleep(3, loop=LOOP)
             await self.swap_account(reason='login failed')
@@ -695,6 +707,9 @@ class Worker:
             self.error_code = 'WRONG CREDENTIALS'
             await sleep(3, loop=LOOP)
             await self.remove_account(flag='credentials')
+        except InsufficientAccountsException as e:
+            self.update_accounts_dict()
+            raise InsufficientAccountsException("No more accounts to pull from DB.") from e
         except CaptchaException:
             self.error_code = 'CAPTCHA'
             self.g['captchas'] += 1
@@ -1351,7 +1366,11 @@ class Worker:
             pass
 
         ACCOUNTS = get_accounts()
-        ACCOUNTS[self.username] = self.account
+        if 'remove' in self.account and self.account['remove']:
+            if self.username in ACCOUNTS:
+                del ACCOUNTS[self.username]
+        else:
+            ACCOUNTS[self.username] = self.account
 
     async def remove_account(self, flag='banned'):
         self.error_code = 'REMOVING'
@@ -1364,11 +1383,15 @@ class Worker:
         elif flag == 'credentials':
             self.account['credentials'] = True
             self.log.warning('Removing {} due to wrong credentials.', self.username)
+        elif flag == 'level30':
+            self.log.warning('Removing {} from slave pool due to graduation to Lv.30.', self.username)
         else:
             self.account['banned'] = True
             self.log.warning('Removing {} due to ban.', self.username)
         Account.put(self.account)
         self.update_accounts_dict()
+        self.username = None
+        self.account = None
         await self.new_account(after_remove=True)
 
     async def bench_account(self):
@@ -1409,9 +1432,11 @@ class Worker:
                 self.account = self.extra_queue.get_nowait()
             except Empty as e:
                 if after_remove:
-                    raise ValueError("No more accounts available to replace removed account") from e
+                    raise InsufficientAccountsException("No more accounts available to replace removed account")
                 else:
                     self.account = await run_threaded(self.extra_queue.get)
+            except InsufficientAccountsException:
+                raise InsufficientAccountsException("No more accounts available to replace removed account")
         self.username = self.account['username']
         try:
             self.location = self.account['location'][:2]
