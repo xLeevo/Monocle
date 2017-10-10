@@ -47,6 +47,7 @@ class Account(db.Base):
     model = Column(String(20))
     device_version = Column(String(20))
     device_id = Column(String(64))
+    remove = Column(Boolean, default=False)
     hibernated = Column(Integer, index=True)
     reason = Column(String(12))
     captchaed = Column(Integer, index=True)
