@@ -1,10 +1,11 @@
 import os
 import enum
 import csv
+from asyncio import run_coroutine_threadsafe, Semaphore
 from time import time
 from queue import Queue
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, UniqueConstraint, exists, or_
+from sqlalchemy import Column, UniqueConstraint, exists, func, or_
 from sqlalchemy.types import Integer, Boolean, Enum, SmallInteger, String
 from . import db, utils, sanitized as conf
 from .shared import LOOP, get_logger, run_threaded
@@ -13,6 +14,7 @@ log = get_logger(__name__)
 
 instance_id = conf.INSTANCE_ID[-32:]
 bucket = {}
+account_get_semaphore = Semaphore(1, loop=LOOP)
 
 class Provider(enum.Enum):
     ptc = 1
@@ -49,7 +51,7 @@ class Account(db.Base):
     device_id = Column(String(64))
     remove = Column(Boolean, default=False)
     hibernated = Column(Integer, index=True)
-    reason = Column(String(12))
+    reason = Column(String(12), index=True)
     captchaed = Column(Integer, index=True)
     created = Column(Integer, default=time)
     updated = Column(Integer, default=time, onupdate=time)
@@ -60,6 +62,8 @@ class Account(db.Base):
             name='ix_accounts_username_unique'
         ),
     )
+
+    stats_info = (0, None, None)
 
     @staticmethod
     def to_account_dict(account):
@@ -161,6 +165,8 @@ class Account(db.Base):
             account_db.device_version = account.get('iOS')
         if 'id' in account:
             account_db.device_id = account.get('id')
+        if 'graduated' in account and account['graduated']:
+            account_db.instance = None
         if 'remove' in account:
             account_db.remove = account.get('remove', False)
 
@@ -235,6 +241,11 @@ class Account(db.Base):
         return account_dict
 
     @staticmethod
+    async def get_async(min_level, max_level):
+        async with account_get_semaphore:
+            return await run_threaded(Account.get, min_level, max_level)
+
+    @staticmethod
     def put(account_dict):
         if 'remove' in account_dict and account_dict['remove']: 
             return
@@ -257,11 +268,11 @@ class Account(db.Base):
             model = session.query(Account) \
                 .filter(Account.hibernated <= int(time() - conf.ACCOUNTS_HIBERNATE_DAYS * 24 * 3600))
             swapin_count += model.filter(Account.reason == 'warn') \
-                .update({'hibernated': None})
+                .update({'hibernated': None, 'instance': None})
             swapin_count += model.filter(Account.reason == 'banned') \
-                .update({'hibernated': None})
+                .update({'hibernated': None, 'instance': None})
             swapin_count += model.filter(Account.reason == 'sbanned') \
-                .update({'hibernated': None})
+                .update({'hibernated': None, 'instance': None})
         log.info("=> Done hibernated swap in. {} accounts swapped in.", swapin_count)
 
     @staticmethod
@@ -271,6 +282,42 @@ class Account(db.Base):
         if lock:
             account_db.with_lockmode("update")
         return account_db.first()
+
+    @staticmethod
+    def stats():
+        if Account.stats_info:
+            if Account.stats_info[0] > int(time() - 5 * 60):
+                return Account.stats_info
+
+        with db.session_scope() as session:
+            accounts = session.query(Account.reason,func.count(Account.id)) \
+                    .filter(Account.instance==instance_id) \
+                    .group_by(Account.reason) \
+                    .all()
+            instance = {}
+            for k, v in accounts:
+                if k:
+                    instance[k] = v
+                else:
+                    instance['good'] = v
+
+            accounts = session.query(Account) \
+                    .filter(Account.instance == None,
+                            Account.reason == None) \
+                    .count()
+            db_wide = {}
+            db_wide['clean'] = accounts
+
+            accounts = session.query(Account) \
+                    .filter(Account.instance == None,
+                            Account.reason != None) \
+                    .count()
+            db_wide['test'] = accounts 
+
+            Account.stats_info = (time(), instance, db_wide)
+
+        return Account.stats_info
+
 
     @staticmethod
     def import_file(file_location, level=0, assign_instance=True):
@@ -393,7 +440,7 @@ class AccountQueue(Queue):
 
     def get(self, block=True, timeout=None):
         if self.qsize() == 0:
-            new_account = Account.get(0,29)
+            new_account = LOOP.run_until_complete(Account.get_async(0,29))
             if new_account:
                 self.queue.append(new_account)
             else:

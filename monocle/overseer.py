@@ -14,7 +14,7 @@ from sqlalchemy.exc import OperationalError
 from .db import SIGHTING_CACHE, MYSTERY_CACHE, FORT_CACHE
 from .utils import get_current_hour, dump_pickle, get_start_coords, get_bootstrap_points, randomize_point, best_factors, percentage_split
 from .shared import get_logger, LOOP, run_threaded
-from .accounts import get_accounts 
+from .accounts import get_accounts, Account
 from . import bounds, db_proc, spawns, sanitized as conf
 from .worker import Worker
 from .notification import Notifier
@@ -162,36 +162,69 @@ class Overseer:
             visits.append(w.visits)
             speeds.append(w.speed)
 
+
+        account_stats = Account.stats()
+        account_reasons = ', '.join(['%s: %s' % (k,v) for k,v in account_stats[1].items()])
+        account_refresh = datetime.fromtimestamp(account_stats[0]).strftime('%Y-%m-%d %H:%M:%S')
+        account_clean = account_stats[2]['clean']
+        account_test = account_stats[2]['test']
+
+        self.log.info("Accounts {}, fresh/clean: {}, needs test: {}",
+                account_reasons,
+                account_clean,
+                account_test)
+
+        stats_template = (
+            'Seen per worker: min {}, max {}, med {:.0f}\n'
+            'Visits per worker: min {}, max {}, med {:.0f}\n'
+            'Visit delay: min {:.1f}, max {:.1f}, med {:.1f}\n'
+            'Speed: min {:.1f}, max {:.1f}, med {:.1f}\n'
+            'Extra accounts: {}, CAPTCHAs needed: {}\n'
+            'Accounts (this instance) {} (refreshed: {})\n'
+            'Accounts (DB-wide) fresh/clean: {}, needs test: {}\n'
+            )
         try:
-            self.stats = (
-                'Seen per worker: min {}, max {}, med {:.0f}\n'
-                'Visits per worker: min {}, max {}, med {:.0f}\n'
-                'Visit delay: min {:.1f}, max {:.1f}, med {:.1f}\n'
-                'Speed: min {:.1f}, max {:.1f}, med {:.1f}\n'
-                'Extra accounts: {}, CAPTCHAs needed: {}\n'
-            ).format(
+            self.stats = stats_template.format(
                 min(seen_per_worker), max(seen_per_worker), med(seen_per_worker),
                 min(visits), max(visits), med(visits),
                 min(after_spawns), max(after_spawns), med(after_spawns),
                 min(speeds), max(speeds), med(speeds),
-                self.extra_queue.qsize(), self.captcha_queue.qsize()
+                self.extra_queue.qsize(), self.captcha_queue.qsize(),
+                account_reasons, account_refresh,
+                account_clean, account_test
             )
-        except ValueError:
-            pass
+        except Exception as e:
+            self.stats = stats_template.format(
+                0, 0, 0,
+                0, 0, 0,
+                0, 0, 0,
+                0, 0, 0,
+                0, 0,
+                None, None,
+                0, 0
+            )
 
         self.sighting_cache_size = len(SIGHTING_CACHE.store)
         self.mystery_cache_size = len(MYSTERY_CACHE.store)
 
         self.update_coroutines_count()
-        self.counts = (
+        counts_template = (
             'Known spawns: {}, unknown: {}, more: {}\n'
             '{} workers, {} coroutines\n'
             'sightings cache: {}, mystery cache: {}, DB queue: {}\n'
-        ).format(
-            len(spawns), len(spawns.unknown), spawns.cells_count,
-            count, self.coroutines_count,
-            len(SIGHTING_CACHE), len(MYSTERY_CACHE), len(db_proc)
         )
+        try:
+            self.counts = counts_template.format(
+                len(spawns), len(spawns.unknown), spawns.cells_count,
+                count, self.coroutines_count,
+                len(SIGHTING_CACHE), len(MYSTERY_CACHE), len(db_proc)
+            )
+        except Exception as e:
+            self.counts = counts_template.format(
+                0, 0, 0,
+                0, 0,
+                0, 0, 0
+            )
         self.log.info("{} etc.", self.counts.replace('\n',', '))
         LOOP.call_later(refresh, self.update_stats)
 
@@ -255,7 +288,7 @@ class Overseer:
 
         try:
             output = [
-                '{}Monocle running for {}'.format(_ansi, running_for),
+                '{}Monocle/Monkey ({}) running for {}'.format(_ansi, conf.INSTANCE_ID, running_for),
                 self.counts,
                 self.stats,
                 self.pokemon_found,
@@ -366,8 +399,8 @@ class Overseer:
         exceptions = 0
         self.next_mystery_reload = 0
 
-        if not pickle or not spawns.unpickle():
-            await self.update_spawns(initial=True)
+        #if not pickle or not spawns.unpickle():
+        await self.update_spawns(initial=True)
 
         FORT_CACHE.preload()
         #if pickle:
