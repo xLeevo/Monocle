@@ -87,7 +87,7 @@ def parse_args():
     parser.add_argument(
         '--log-level',
         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-        default=WARNING
+        default=INFO
     )
     parser.add_argument(
         '--bootstrap',

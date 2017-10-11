@@ -1,7 +1,0 @@
-LOCK TABLES `mystery_sightings` WRITE;
-ALTER TABLE mystery_sightings ADD cp SMALLINT(6), ADD level SMALLINT(6);
-UNLOCK TABLES;
-
-LOCK TABLES `sightings` WRITE;
-ALTER TABLE sightings ADD cp SMALLINT(6), ADD level SMALLINT(6);
-UNLOCK TABLES;

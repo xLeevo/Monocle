@@ -1395,6 +1395,7 @@ class Worker:
             self.account['unverified'] = True
             self.log.warning('Removing {} due to unverified email.', self.username)
         elif flag == 'level30':
+            self.account['graduated'] = True
             self.log.warning('Removing {} from slave pool due to graduation to Lv.30.', self.username)
         else:
             self.account['banned'] = True

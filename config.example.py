@@ -230,7 +230,7 @@ MAP_WORKERS = True
 LAST_MIGRATION = 1481932800  # Dec. 17th, 2016
 
 # Treat a spawn point's expiration time as unknown if nothing is seen at it on more than x consecutive visits
-FAILURES_ALLOWED = 2
+#FAILURES_ALLOWED = 50
 
 ## Map data provider and appearance, previews available at:
 ## https://leaflet-extras.github.io/leaflet-providers/preview/
@@ -444,8 +444,8 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 # SB_DETECTOR = False
 # SB_UNCOMMON_POKEMON_IDS = (16,19,23,27,29,32,41,43,46,52,54,60,69,72,74,77,81,98,118,120,129,161,165,167,177,183,187,191,194,198,209,218)
 # SB_MAX_UNCOMMON_COUNT = 0     # Maximum uncommon counts required to flag SB
-# SB_MIN_SIGHTING_COUNT = 40    # Minimum sightings required to flag SB
-# SB_QUARANTINE_SECONDS = 3600 # How many seconds to set as investigation period?
+# SB_MIN_SIGHTING_COUNT = 30    # Minimum sightings required to flag SB
+# SB_QUARANTINE_SECONDS = 2700 # How many seconds to set as investigation period?
 # SB_COOLDOWN = 300             # How many seconds to wait before next sb detection for the account
 # SB_WEBHOOK = None             # Define webhook end point for SB. Payload is {type: "sban", message: {username: :username}}
 
