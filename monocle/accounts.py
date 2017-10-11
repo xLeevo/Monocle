@@ -226,7 +226,7 @@ class Account(db.Base):
         with db.session_scope() as session:
             swapin_count = 0
             model = session.query(Account) \
-                .filter(Account.hibernated <= int(time() - conf.ACCOUNTS_HIBERNATE_DAYS))
+                .filter(Account.hibernated <= int(time() - conf.ACCOUNTS_HIBERNATE_DAYS * 24 * 3600))
             swapin_count += model.filter(Account.reason == 'warn') \
                 .update({'hibernated': None})
             swapin_count += model.filter(Account.reason == 'banned') \
