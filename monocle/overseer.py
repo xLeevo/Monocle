@@ -169,7 +169,7 @@ class Overseer:
         account_clean = account_stats[2]['clean']
         account_test = account_stats[2]['test']
 
-        self.log.info("Accounts {}, fresh/clean: {}, needs test: {}",
+        self.log.info("Accounts {}, fresh/clean: {}, hibernated: {}",
                 account_reasons,
                 account_clean,
                 account_test)
