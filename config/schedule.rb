@@ -36,6 +36,10 @@ every "5 * * * *", roles: [:db] do
   cleanup_python "cleanup.py --heavy"
 end
 
+every "10 * * * *", roles: [:db] do
+  cleanup_python "cleanup.py --swapin"
+end
+
 every "30 * * * *", roles: [:db] do
   cleanup "cleanup_clusters.sh"
 end
