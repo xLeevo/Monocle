@@ -14,8 +14,9 @@ from pogeo import get_distance
 
 from .db import FORT_CACHE, MYSTERY_CACHE, SIGHTING_CACHE, RAID_CACHE
 from .utils import round_coords, load_pickle, get_device_info, get_start_coords, Units, randomize_point, calc_pokemon_level
-from .shared import get_logger, LOOP, SessionManager, run_threaded, ACCOUNTS
+from .shared import get_logger, LOOP, SessionManager, run_threaded
 from .sb import SbDetector, SbAccountException
+from .accounts import Account, get_accounts, InsufficientAccountsException, LoginCredentialsException, EmailUnverifiedException
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
 
 if conf.NOTIFY or conf.NOTIFY_RAIDS or conf.NOTIFY_RAIDS_WEBHOOK:
@@ -95,11 +96,11 @@ class Worker:
         # account information
         try:
             self.account = self.extra_queue.get_nowait()
-        except Empty as e:
+        except (Empty, InsufficientAccountsException) as e:
             try:
                 self.account = self.captcha_queue.get_nowait()
             except Empty as e:
-                raise ValueError("You don't have enough accounts for the number of workers specified in GRID.") from e
+                raise InsufficientAccountsException("You don't have enough accounts for the number of workers specified in GRID.") from e
         self.username = self.account['username']
         try:
             self.location = self.account['location'][:2]
@@ -164,7 +165,7 @@ class Worker:
 
     async def login(self, reauth=False):
         """Logs worker in and prepares for scanning"""
-        self.log.info('Trying to log in')
+        self.log.info('Trying to log in {}', self.username)
 
         for attempt in range(-1, conf.MAX_RETRIES):
             try:
@@ -180,6 +181,12 @@ class Worker:
             except ex.UnexpectedAuthError as e:
                 await self.swap_account('unexpected auth error')
             except ex.AuthException as e:
+                msg = str(e)
+                if ("you have failed to log in correctly too many times" in msg
+                        or "Your username or password is incorrect" in msg):
+                    raise LoginCredentialsException("Username or password is wrong.")
+                elif "email not verified" in msg:
+                    raise EmailUnverifiedException("Account email not verified")
                 err = e
                 await sleep(2, loop=LOOP)
             else:
@@ -218,7 +225,10 @@ class Worker:
             get_player = responses['GET_PLAYER']
 
             if get_player.warn:
-                raise ex.WarnAccountException
+                if conf.ACCOUNTS_SWAP_OUT_ON_WARN:
+                    raise ex.WarnAccountException
+                else:
+                    self.log.warning('{} is warn but not swapped out due to ACCOUNTS_SWAP_OUT_ON_WARN being False.', self.username)
             if get_player.banned:
                 raise ex.BannedAccountException
 
@@ -531,7 +541,7 @@ class Worker:
                 err = None
                 break
             except (ex.NotLoggedInException, ex.AuthException) as e:
-                self.log.info('Auth error on {}: {}', self.username, e)
+                self.log.info('Auth error on {} in call: {}', self.username, e)
                 err = e
                 await sleep(3, loop=LOOP)
                 if not await self.login(reauth=True):
@@ -659,7 +669,19 @@ class Worker:
 
         Also is capable of restarting in case an error occurs.
         """
+        if self.account is None:
+            self.error_code = 'D'
+            while True:
+                self.log.warning("No account being set for visit. Probably due to insufficient accounts. Import new accounts and restart.")
+                await sleep(30, loop=LOOP)
+            return
+
         try:
+            if self.player_level and self.player_level >= 30:
+                self.log.warning('Congratulations {} has reached Lv.30. Moving it out of low-level slave pool', self.username)
+                await sleep(1, loop=LOOP)
+                await self.remove_account(flag='level30')
+
             if sb_detector:
                 await sb_detector.detect(self.username)
             try:
@@ -678,10 +700,23 @@ class Worker:
                 await self.swap_account(reason='reauth failed')
             return await self.visit(point, spawn_id, bootstrap)
         except ex.AuthException as e:
-            self.log.warning('Auth error on {}: {}', self.username, e)
+            self.log.warning('Auth error on {} in visit: {}', self.username, e)
             self.error_code = 'NOT AUTHENTICATED'
             await sleep(3, loop=LOOP)
             await self.swap_account(reason='login failed')
+        except LoginCredentialsException as e:
+            self.log.warning('Login credentials error on {}: {}', self.username, e)
+            self.error_code = 'WRONG CREDENTIALS'
+            await sleep(3, loop=LOOP)
+            await self.remove_account(flag='credentials')
+        except EmailUnverifiedException as e:
+            self.log.warning('Email verification error on {}: {}', self.username, e)
+            self.error_code = 'UNVERIFIED'
+            await sleep(3, loop=LOOP)
+            await self.remove_account(flag='unverified')
+        except InsufficientAccountsException as e:
+            self.update_accounts_dict()
+            raise InsufficientAccountsException("No more accounts to pull from DB.") from e
         except CaptchaException:
             self.error_code = 'CAPTCHA'
             self.g['captchas'] += 1
@@ -1076,18 +1111,20 @@ class Worker:
         distance = get_distance(self.location, pokestop_location)
         # permitted interaction distance - 4 (for some jitter leeway)
         # estimation of spinning speed limit
-        if distance > 36 or self.speed > SPINNING_SPEED_LIMIT:
+        if distance > 31 or self.speed > SPINNING_SPEED_LIMIT:
             self.error_code = '!'
             return False
 
         # randomize location up to ~1.5 meters
         self.simulate_jitter(amount=0.00001)
+        #adding a short sleep period increases spinning success 
+        await self.random_sleep(0.8, 1.8)
 
         request = self.api.create_request()
         request.fort_details(fort_id = pokestop.id,
                              latitude = pokestop_location[0],
                              longitude = pokestop_location[1])
-        responses = await self.call(request, action=1.2)
+        responses = await self.call(request, action=1.3)
         name = responses['FORT_DETAILS'].name
         try:
             normalized = self.normalize_pokestop(pokestop)
@@ -1106,7 +1143,7 @@ class Worker:
                             player_longitude = self.location[1],
                             fort_latitude = pokestop_location[0],
                             fort_longitude = pokestop_location[1])
-        responses = await self.call(request, action=2)
+        responses = await self.call(request, action=3)
 
         try:
             result = responses['FORT_SEARCH'].result
@@ -1336,7 +1373,12 @@ class Worker:
         except AttributeError:
             pass
 
-        ACCOUNTS[self.username] = self.account
+        ACCOUNTS = get_accounts()
+        if 'remove' in self.account and self.account['remove']:
+            if self.username in ACCOUNTS:
+                del ACCOUNTS[self.username]
+        else:
+            ACCOUNTS[self.username] = self.account
 
     async def remove_account(self, flag='banned'):
         self.error_code = 'REMOVING'
@@ -1346,10 +1388,21 @@ class Worker:
         elif flag == 'sbanned':
             self.account['sbanned'] = True
             self.log.warning('Removing {} due to shadow ban.', self.username)
+        elif flag == 'credentials':
+            self.account['credentials'] = True
+            self.log.warning('Removing {} due to wrong credentials.', self.username)
+        elif flag == 'unverified':
+            self.account['unverified'] = True
+            self.log.warning('Removing {} due to unverified email.', self.username)
+        elif flag == 'level30':
+            self.log.warning('Removing {} from slave pool due to graduation to Lv.30.', self.username)
         else:
             self.account['banned'] = True
             self.log.warning('Removing {} due to ban.', self.username)
+        Account.put(self.account)
         self.update_accounts_dict()
+        self.username = None
+        self.account = None
         await self.new_account(after_remove=True)
 
     async def bench_account(self):
@@ -1390,9 +1443,11 @@ class Worker:
                 self.account = self.extra_queue.get_nowait()
             except Empty as e:
                 if after_remove:
-                    raise ValueError("No more accounts available to replace removed account") from e
+                    raise InsufficientAccountsException("No more accounts available to replace removed account")
                 else:
                     self.account = await run_threaded(self.extra_queue.get)
+            except InsufficientAccountsException:
+                raise InsufficientAccountsException("No more accounts available to replace removed account")
         self.username = self.account['username']
         try:
             self.location = self.account['location'][:2]

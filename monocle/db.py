@@ -266,15 +266,52 @@ class FortCache:
         state['bounds_hash'] = hash(bounds)
         dump_pickle('forts', state)
 
-    def unpickle(self):
-        try:
-            state = load_pickle('forts', raise_exception=True)
-            if all((state['class_version'] == self.class_version,
-                    state['db_hash'] == spawns.db_hash,
-                    state['bounds_hash'] == hash(bounds))):
-                self.__dict__.update(state)
-        except (FileNotFoundError, TypeError, KeyError):
-            pass
+    #def unpickle(self):
+    #    try:
+    #        state = load_pickle('forts', raise_exception=True)
+    #        if all((state['class_version'] == self.class_version,
+    #                state['db_hash'] == spawns.db_hash,
+    #                state['bounds_hash'] == hash(bounds))):
+    #            self.__dict__.update(state)
+    #    except (FileNotFoundError, TypeError, KeyError):
+    #        pass
+
+    # Preloading from db
+    def preload(self):
+        with session_scope() as session:
+            fort_sightings = session.query(FortSighting) \
+                .join(FortSighting.fort) \
+                .filter(Fort.lat.between(bounds.south - 0.015, bounds.north + 0.015),
+                        Fort.lon.between(bounds.west - 0.015, bounds.east + 0.015))
+            total = 0
+            for fort_sighting in fort_sightings:
+                if (fort_sighting.fort.lat, fort_sighting.fort.lon) not in bounds:
+                    continue
+                total += 1
+                fort = fort_sighting.fort
+                external_id = fort.external_id
+                self.internal_ids[external_id] = fort_sighting.fort_id
+                if fort.name:
+                    self.gym_names[external_id] = (fort.name, fort.url)
+                obj = {
+                    'external_id': fort_sighting.fort.external_id,
+                    'last_modified': fort_sighting.last_modified,
+                }
+                self.add(obj)
+            log.info("Preloaded {} fort_sightings ", total)
+
+            pokestops = session.query(Pokestop) \
+                .filter(Pokestop.lat.between(bounds.south - 0.015, bounds.north + 0.015),
+                        Pokestop.lon.between(bounds.west - 0.015, bounds.east + 0.015))
+            total = 0
+            for pokestop in pokestops:
+                if (pokestop.lat, pokestop.lon) not in bounds:
+                    continue
+                total += 1
+                self.pokestops.add(pokestop.external_id)
+                if pokestop.name:
+                    self.pokestop_names.add(pokestop.external_id)
+            log.info("Preloaded {} pokestops", total)
 
 
 SIGHTING_CACHE = SightingCache()
@@ -714,6 +751,8 @@ def add_fort_sighting(session, raw_fort):
             .scalar()
         FORT_CACHE.internal_ids[external_id] = internal_id 
 
+    fort_updated = False
+
     if not internal_id:
         fort = Fort(
             external_id=raw_fort['external_id'],
@@ -726,33 +765,26 @@ def add_fort_sighting(session, raw_fort):
         session.flush()
         internal_id = fort.id
         FORT_CACHE.internal_ids[external_id] = internal_id 
-        if raw_fort['name']:
-            FORT_CACHE.gym_names[external_id] = True
+        fort_updated = True
 
-    if external_id not in FORT_CACHE.gym_names and raw_fort['name']:
+    has_fort_name = ('name' in raw_fort and raw_fort['name'])
+
+    if external_id not in FORT_CACHE.gym_names and has_fort_name:
         session.query(Fort) \
                 .filter(Fort.id == internal_id) \
                 .update({
                     'name': raw_fort['name'],
                     'url': raw_fort['url']})
-        FORT_CACHE.gym_names[external_id] = True
+        fort_updated = True
 
-    ## Update fort name
-    #if (not fort.name) and ('name' in raw_fort):
-    #    fort.name = raw_fort['name']
-    #    fort.url = raw_fort['url']
-    #    session.merge(fort)
+    if (has_fort_name and
+            (fort_updated or
+                external_id not in FORT_CACHE.gym_names or
+                FORT_CACHE.gym_names[external_id] == True)):
+        FORT_CACHE.gym_names[external_id] = (raw_fort['name'], raw_fort['url']) 
     
     if 'gym_defenders' in raw_fort and len(raw_fort['gym_defenders']) > 0:
         add_gym_defenders(session, internal_id, raw_fort['gym_defenders'])
-    
-    #if session.query(exists().where(and_(
-    #    FortSighting.fort_id == fort.id,
-    #    FortSighting.last_modified == raw_fort['last_modified']
-    #    ))).scalar():
-    #    # Why is it not in the cache? It should be there!
-    #    FORT_CACHE.add(raw_fort)
-    #    return
 
     if conf.KEEP_GYM_HISTORY:
         fort_sighting = None
@@ -821,6 +853,11 @@ def add_raid(session, raw_raid):
         raid.move_2 = raw_raid['move_2']
 
         session.merge(raid)
+
+        # touch fort_sightings
+        fort_sighting = session.query(FortSighting).filter(FortSighting.id==fort_id).first()
+        if fort_sighting:
+            fort_sighting.updated = int(time())
 
 
 def add_pokestop(session, raw_pokestop):
@@ -912,6 +949,7 @@ def _get_forts_sqlite(session):
             fs.last_modified,
             f.lat,
             f.lon,
+            f.name,
             fs.slots_available
         FROM fort_sightings fs
         JOIN forts f ON f.id=fs.fort_id
@@ -933,6 +971,7 @@ def _get_forts(session):
             fs.last_modified,
             f.lat,
             f.lon,
+            f.name,
             fs.slots_available
         FROM fort_sightings fs
         JOIN forts f ON f.id=fs.fort_id

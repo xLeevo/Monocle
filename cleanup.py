@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from logging.handlers import RotatingFileHandler
 from logging import getLogger, basicConfig, WARNING, INFO
 from monocle import cleanup as Cleanup
+from monocle.accounts import Account
         
 if not os.path.exists("logs"):
     os.makedirs("logs")
@@ -55,6 +56,12 @@ def parse_args():
         help='Run cleanup for spawnpoints. Recommended to run every hour.',
         action='store_true'
     )
+    parser.add_argument(
+        '--swapin',
+        dest='swapin',
+        help='Run swap-in for hibernated accounts. Set ACCOUNTS_HIBERNATE_DAYS in config to change hibernation day. If not set, default would be 7.0 days.',
+        action='store_true'
+    )
     return parser.parse_args()
 
 def cron_jobs():
@@ -69,6 +76,10 @@ def cron_jobs():
     job_heavy = cron.new(command="{} --heavy >> {}/logs/cron.log 2>&1".format(command, root_dir),comment="{} --heavy".format(tag))
     job_heavy.minute.on(5)
     jobs.append(job_heavy)
+
+    job_swapin = cron.new(command="{} --swapin >> {}/logs/cron.log 2>&1".format(command, root_dir),comment="{} --swapin".format(tag))
+    job_swapin.minute.on(10)
+    jobs.append(job_swapin)
 
     return cron, jobs
 
@@ -93,7 +104,6 @@ def main():
         print("")
     elif args.set_cron:
         remove_jobs()
-
         cron, jobs = cron_jobs()
         cron.write()
         print("Crontab changed. Cron jobs added.")
@@ -106,6 +116,9 @@ def main():
     elif args.heavy:
         log.info("Performing heavy cleanup.")
         Cleanup.heavy()
+    elif args.swapin:
+        log.info("Performing swap-in of hibernated accounts.")
+        Account.swapin()
     else:
         print("Set --help for available commands.")
 
