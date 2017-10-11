@@ -748,7 +748,7 @@ class Worker:
             self.log.warning('{} Giving up.', e)
         except ex.BadRPCException:
             self.error_code = 'BAD REQUEST'
-            self.log.warning('{} received code 3 and is likely banned. Removing until next run.', self.username)
+            self.log.warning('Removing {} until next run due to code 3 response', self.username)
             await self.new_account()
         except ex.InvalidRPCException as e:
             self.log.warning('{} Giving up.', e)
