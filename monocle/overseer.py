@@ -181,7 +181,7 @@ class Overseer:
             'Speed: min {:.1f}, max {:.1f}, med {:.1f}\n'
             'Extra accounts: {}, CAPTCHAs needed: {}\n'
             'Accounts (this instance) {} (refreshed: {})\n'
-            'Accounts (DB-wide) fresh/clean: {}, needs test: {}\n'
+            'Accounts (DB-wide) fresh/clean: {}, hibernated: {}\n'
             )
         try:
             self.stats = stats_template.format(
