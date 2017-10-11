@@ -7,6 +7,7 @@ var bodyParser = require('body-parser');
 var async =require('async');
 var exec = require('child_process').exec;
 var fs = require('fs');
+var concurrency = parseInt(process.env.CONCURRENCY || 10);
 
 var queue = async.queue(function(task, callback){
   var head = task;
@@ -81,7 +82,7 @@ var queue = async.queue(function(task, callback){
   child.stdout.pipe(process.stdout);
   child.stderr.pipe(process.stderr);
 
-}, 10);
+}, concurrency);
 
 app.use(bodyParser.urlencoded({ extended: true }));
 
