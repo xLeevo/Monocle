@@ -19,7 +19,7 @@ def parse_args():
     parser = ArgumentParser()
     parser.add_argument(
         'filename',
-        help='File to import. Supports Monocle accounts.csv, Goman and Selly formats.',
+        help='File to import. Supports Monocle accounts.csv, Goman, Kinan and Selly formats.',
     )
     parser.add_argument(
         '--level',
