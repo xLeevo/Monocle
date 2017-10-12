@@ -732,17 +732,14 @@ class Worker:
             await sleep(185, loop=LOOP)
         except ex.WarnAccountException:
             self.error_code = 'WARN'
-            self.log.warning('{} is warn', self.username)
             await sleep(1, loop=LOOP)
             await self.remove_account(flag='warn')
         except ex.BannedAccountException:
             self.error_code = 'BANNED'
-            self.log.warning('{} is banned', self.username)
             await sleep(1, loop=LOOP)
             await self.remove_account(flag='banned')
         except SbAccountException:
             self.error_code = 'BANNED'
-            self.log.warning('{} is shadow banned', self.username)
             await sleep(1, loop=LOOP)
             await self.remove_account(flag='sbanned')
         except ex.ProxyException as e:
@@ -769,9 +766,9 @@ class Worker:
         except ex.ServerBusyOrOfflineException as e:
             self.log.warning('{} Giving up.', e)
         except ex.BadRPCException:
-            self.error_code = 'BAD REQUEST'
-            self.log.warning('Removing {} until the next run due to code 3 response.', self.username)
-            await self.new_account()
+            self.error_code = 'BAD REQUEST CODE3'
+            await sleep(1, loop=LOOP)
+            await self.remove_account(flag='code3')
         except ex.InvalidRPCException as e:
             self.log.warning('{} Giving up.', e)
         except ex.ExpiredHashKeyException as e:
@@ -1384,10 +1381,13 @@ class Worker:
         self.error_code = 'REMOVING'
         if flag == 'warn':
             self.account['warn'] = True
-            self.log.warning('Removing {} due to warn.', self.username)
+            self.log.warning('Hibernating {} due to warn.', self.username)
         elif flag == 'sbanned':
             self.account['sbanned'] = True
-            self.log.warning('Removing {} due to shadow ban.', self.username)
+            self.log.warning('Hibernating {} due to shadow ban.', self.username)
+        elif flag == 'code3':
+            self.account['code3'] = True
+            self.log.warning('Hibernating {} due to code3.', self.username)
         elif flag == 'credentials':
             self.account['credentials'] = True
             self.log.warning('Removing {} due to wrong credentials.', self.username)
@@ -1399,7 +1399,7 @@ class Worker:
             self.log.warning('Removing {} from slave pool due to graduation to Lv.30.', self.username)
         else:
             self.account['banned'] = True
-            self.log.warning('Removing {} due to ban.', self.username)
+            self.log.warning('Hibernating {} due to ban.', self.username)
         Account.put(self.account)
         self.update_accounts_dict()
         self.username = None

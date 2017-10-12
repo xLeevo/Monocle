@@ -90,6 +90,8 @@ class Account(db.Base):
                 d['warn'] = True
             elif account.reason == 'banned':
                 d['banned'] = True
+            elif account.reason == 'code3':
+                d['code3'] = True
             elif account.reason == 'credentials':
                 d['credentials'] = True
             elif account.reason == 'unverified':
@@ -120,6 +122,10 @@ class Account(db.Base):
             to_dict['sbanned'] = from_dict.get('sbanned')
         elif 'sbanned' in to_dict:
             del to_dict['sbanned']
+        if 'code3' in from_dict:
+            to_dict['code3'] = from_dict.get('code3')
+        elif 'code3' in to_dict:
+            del to_dict['code3']
         if 'credentials' in from_dict:
             to_dict['credentials'] = from_dict.get('credentials')
         elif 'credentials' in to_dict:
@@ -186,6 +192,9 @@ class Account(db.Base):
             elif 'warn' in account and account['warn']:
                 account_db.hibernated = int(time())
                 account_db.reason = 'warn'
+            elif 'code3' in account and account['code3']:
+                account_db.hibernated = int(time())
+                account_db.reason = 'code3'
             elif 'credentials' in account and account['credentials']:
                 account_db.hibernated = int(time())
                 account_db.reason = 'credentials'
@@ -271,6 +280,8 @@ class Account(db.Base):
             swapin_count += model.filter(Account.reason == 'banned') \
                 .update({'hibernated': None, 'instance': None})
             swapin_count += model.filter(Account.reason == 'sbanned') \
+                .update({'hibernated': None, 'instance': None})
+            swapin_count += model.filter(Account.reason == 'code3') \
                 .update({'hibernated': None, 'instance': None})
         log.info("=> Done hibernated swap in. {} accounts swapped in.", swapin_count)
 
