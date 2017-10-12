@@ -769,9 +769,10 @@ class Worker:
         except ex.ServerBusyOrOfflineException as e:
             self.log.warning('{} Giving up.', e)
         except ex.BadRPCException:
-            self.error_code = 'BAD REQUEST'
             self.log.warning('Removing {} until the next run due to code 3 response.', self.username)
-            await self.new_account()
+            self.error_code = 'BAD REQUEST CODE3'
+            await sleep(1, loop=LOOP)
+            await self.remove_account(flag='code3')
         except ex.InvalidRPCException as e:
             self.log.warning('{} Giving up.', e)
         except ex.ExpiredHashKeyException as e:
@@ -1388,6 +1389,9 @@ class Worker:
         elif flag == 'sbanned':
             self.account['sbanned'] = True
             self.log.warning('Removing {} due to shadow ban.', self.username)
+        elif flag == 'code3':
+            self.account['code3'] = True
+            self.log.warning('Removing {} due to code3.', self.username)
         elif flag == 'credentials':
             self.account['credentials'] = True
             self.log.warning('Removing {} due to wrong credentials.', self.username)
