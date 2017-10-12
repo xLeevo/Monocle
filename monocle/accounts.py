@@ -1,7 +1,7 @@
 import os
 import enum
 import csv
-from asyncio import run_coroutine_threadsafe, Semaphore
+from asyncio import run_coroutine_threadsafe
 from time import time
 from queue import Queue
 from sqlalchemy.ext.declarative import declarative_base
@@ -14,7 +14,6 @@ log = get_logger(__name__)
 
 instance_id = conf.INSTANCE_ID[-32:]
 bucket = {}
-account_get_semaphore = Semaphore(1, loop=LOOP)
 
 class Provider(enum.Enum):
     ptc = 1
@@ -241,10 +240,6 @@ class Account(db.Base):
                 account_dict = None
         return account_dict
 
-    @staticmethod
-    async def get_async(min_level, max_level):
-        async with account_get_semaphore:
-            return await run_threaded(Account.get, min_level, max_level)
 
     @staticmethod
     def put(account_dict):
@@ -457,7 +452,7 @@ class AccountQueue(Queue):
 
     def get(self, block=True, timeout=None):
         if self.qsize() == 0:
-            new_account = LOOP.run_until_complete(Account.get_async(0,29))
+            new_account = Account.get(0,29)
             if new_account:
                 self.queue.append(new_account)
             else:
