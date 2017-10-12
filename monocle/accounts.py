@@ -278,6 +278,8 @@ class Account(db.Base):
                 .update({'hibernated': None, 'instance': None})
             swapin_count += model.filter(Account.reason == 'sbanned') \
                 .update({'hibernated': None, 'instance': None})
+            swapin_count += model.filter(Account.reason == 'code3') \
+                .update({'hibernated': None, 'instance': None})
         log.info("=> Done hibernated swap in. {} accounts swapped in.", swapin_count)
 
     @staticmethod
