@@ -302,18 +302,34 @@ class Account(db.Base):
                 else:
                     instance['good'] = v
 
-            accounts = session.query(Account) \
-                    .filter(Account.instance == None,
-                            Account.reason == None) \
-                    .count()
             db_wide = {}
-            db_wide['clean'] = accounts
+            common = db.get_common(session, 'account_stats_updated')
+            if not common.val or int(common.val) < int(time() - 5 * 60):
+                accounts = session.query(Account) \
+                        .filter(Account.instance == None,
+                                Account.reason == None) \
+                        .count()
+                db_wide['clean'] = accounts
 
-            accounts = session.query(Account) \
-                    .filter(Account.instance == None,
-                            Account.reason != None) \
-                    .count()
-            db_wide['test'] = accounts 
+                accounts = session.query(Account) \
+                        .filter(Account.instance == None,
+                                Account.reason != None) \
+                        .count()
+                db_wide['test'] = accounts 
+
+                common.val = str(int(time()))
+                session.merge(common)
+                common = db.get_common(session, 'account_stats_clean',lock=True)
+                common.val = str(db_wide['clean'])
+                session.merge(common)
+                common = db.get_common(session, 'account_stats_test',lock=True)
+                common.val = str(db_wide['test'])
+                session.merge(common)
+            else:
+                common = db.get_common(session, 'account_stats_clean')
+                db_wide['clean'] = int(common.val)
+                common = db.get_common(session, 'account_stats_test')
+                db_wide['test'] = int(common.val)
 
             Account.stats_info = (time(), instance, db_wide)
 
