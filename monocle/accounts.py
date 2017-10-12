@@ -236,6 +236,7 @@ class Account(db.Base):
             if account:
                 account.instance = instance_id
                 account_dict = Account.to_account_dict(account)
+                log.info("New account {} acquired and binded to this instance in DB.", account.username)
             else:
                 account_dict = None
         return account_dict
