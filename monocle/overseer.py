@@ -169,7 +169,7 @@ class Overseer:
         account_clean = account_stats[2]['clean']
         account_test = account_stats[2]['test']
 
-        self.log.info("Accounts {}, fresh/clean: {}, needs test: {}",
+        self.log.info("Accounts {}, fresh/clean: {}, hibernated: {}",
                 account_reasons,
                 account_clean,
                 account_test)
@@ -181,7 +181,7 @@ class Overseer:
             'Speed: min {:.1f}, max {:.1f}, med {:.1f}\n'
             'Extra accounts: {}, CAPTCHAs needed: {}\n'
             'Accounts (this instance) {} (refreshed: {})\n'
-            'Accounts (DB-wide) fresh/clean: {}, needs test: {}\n'
+            'Accounts (DB-wide) fresh/clean: {}, hibernated: {}\n'
             )
         try:
             self.stats = stats_template.format(

@@ -333,6 +333,14 @@ else:
     SINCE_QUERY = ''
 
 
+class Common(Base):
+    __tablename__ = 'common'
+
+    id = Column(Integer, primary_key=True)
+    key = Column(String(32), index=True, nullable=False)
+    val = Column(String(64), nullable=True)
+
+
 class Sighting(Base):
     __tablename__ = 'sightings'
 
@@ -554,16 +562,21 @@ def session_scope(autoflush=False):
     finally:
         session.close()
 
+def get_common(session, key, lock=False):
+    common = session.query(Common).filter(Common.key==key)
+    if lock:
+        common = common.with_lockmode("update")
+    common = common.first()
+    if not common:
+        common = Common()
+        common.key = key
+        session.merge(common)
+        session.commit()
+    return common
+
+
 
 def add_sighting(session, pokemon):
-
-    #if session.query(exists().where(and_(
-    #            Sighting.expire_timestamp == pokemon['expire_timestamp'],
-    #            Sighting.encounter_id == pokemon['encounter_id']))
-    #        ).scalar():
-    #    SIGHTING_CACHE.add(pokemon)
-    #    return
-
     if conf.KEEP_SPAWNPOINT_HISTORY or pokemon['spawn_id'] == 0:
         sighting = None
     else:
