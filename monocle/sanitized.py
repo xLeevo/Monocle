@@ -200,7 +200,7 @@ _defaults = {
     'ENCOUNTER': None,
     'ENCOUNTER_IDS': None,
     'FAVOR_CAPTCHA': True,
-    'FAILURES_ALLOWED': 50,
+    'FAILURES_ALLOWED': 20,
     'FB_PAGE_ID': None,
     'FIXED_OPACITY': False,
     'FORCED_KILL': None,
