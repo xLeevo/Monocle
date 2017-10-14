@@ -4,6 +4,7 @@ from time import time, monotonic
 from queue import Empty
 from itertools import cycle
 from sys import exit
+from math import ceil
 from distutils.version import StrictVersion
 
 from aiohttp import ClientSession
@@ -90,8 +91,9 @@ class Worker:
     if conf.PGSCOUT_ENDPOINT:
 	    PGScout_cycle=cycle(conf.PGSCOUT_ENDPOINT)
 
-    def __init__(self, worker_no):
+    def __init__(self, worker_no, overseer):
         self.worker_no = worker_no
+        self.overseer = overseer
         self.log = get_logger('worker-{}'.format(worker_no))
         # account information
         try:
@@ -100,31 +102,39 @@ class Worker:
             try:
                 self.account = self.captcha_queue.get_nowait()
             except Empty as e:
-                raise InsufficientAccountsException("You don't have enough accounts for the number of workers specified in GRID.") from e
-        self.username = self.account['username']
+                self.account = None
+                #raise InsufficientAccountsException("You don't have enough accounts for the number of workers specified in GRID.") from e
+        self.altitude = None
         try:
             self.location = self.account['location'][:2]
-        except KeyError:
+        except Exception as e:
             self.location = get_start_coords(worker_no)
-        self.altitude = None
-        # last time of any request
-        self.last_request = self.account.get('time', 0)
+        if self.account:
+            self.username = self.account['username']
+            # last time of any request
+            self.last_request = self.account.get('time', 0)
+            try:
+                self.items = self.account['items']
+                self.bag_items = sum(self.items.values())
+            except KeyError:
+                self.account['items'] = {}
+                self.items = self.account['items']
+            self.inventory_timestamp = self.account.get('inventory_timestamp', 0) if self.items else 0
+            self.player_level = self.account.get('level')
+            self.initialize_api()
+        else:
+            self.last_request = 0 
+            self.items = {}
+            self.bag_items = 0
+            self.inventory_timestamp = 0
+            self.player_level = 0
         # last time of a request that requires user interaction in the game
         self.last_action = self.last_request
         # last time of a GetMapObjects request
         self.last_gmo = self.last_request
-        try:
-            self.items = self.account['items']
-            self.bag_items = sum(self.items.values())
-        except KeyError:
-            self.account['items'] = {}
-            self.items = self.account['items']
-        self.inventory_timestamp = self.account.get('inventory_timestamp', 0) if self.items else 0
-        self.player_level = self.account.get('level')
         self.num_captchas = 0
         self.eggs = {}
         self.unused_incubators = deque()
-        self.initialize_api()
         # State variables
         self.busy = Lock(loop=LOOP)
         # Other variables
@@ -139,6 +149,12 @@ class Worker:
         self.next_spin = 0
         self.handle = HandleStub()
         self.next_gym = 0
+
+    def min_level(self):
+        return 0
+
+    def max_level(self):
+        return 29
 
     def initialize_api(self):
         device_info = get_device_info(self.account)
@@ -669,11 +685,15 @@ class Worker:
 
         Also is capable of restarting in case an error occurs.
         """
-        if self.account is None:
+        while self.overseer.running and self.account is None:
             self.error_code = 'D'
-            while True:
-                self.log.warning("No account being set for visit. Probably due to insufficient accounts. Import new accounts and restart.")
-                await sleep(30, loop=LOOP)
+            self.log.warning("No account being set for visit. Probably due to insufficient accounts. Retrying in 30s.")
+            await sleep(10, loop=LOOP)
+            if Account.estimated_extra_accounts() > 0:
+                await self.new_account()
+
+        # Intended to quit if account is still None at this stage
+        if self.account is None:
             return
 
         try:
@@ -1415,40 +1435,57 @@ class Worker:
         await self.new_account()
 
     async def lock_and_swap(self, minutes):
-        async with self.busy:
-            self.error_code = 'SWAPPING'
+        try:
+            async with self.busy:
+                await self.swap_account(reason='long_running', minutes=minutes)
+        except InsufficientAccountsException:
+            self.log.error("No more accounts available in DB for lock and swap")
+        except Exception as e:
+            self.log.error('Unexpected exception in lock_and_swap {}', e)
+
+    async def swap_account(self, reason='', minutes=None):
+        self.error_code = 'SWAPPING'
+        if minutes:
             h, m = divmod(int(minutes), 60)
             if h:
                 timestr = '{}h{}m'.format(h, m)
             else:
                 timestr = '{}m'.format(m)
             self.log.warning('Swapping {} which had been running for {}.', self.username, timestr)
-            self.update_accounts_dict()
-            self.extra_queue.put(self.account)
-            await self.new_account()
-
-    async def swap_account(self, reason=''):
-        self.error_code = 'SWAPPING'
-        self.log.warning('Swapping out {} because {}.', self.username, reason)
-        self.update_accounts_dict()
-        self.extra_queue.put(self.account)
-        await self.new_account()
-
-    async def new_account(self, after_remove=False):
-        if (conf.CAPTCHA_KEY
-                and (conf.FAVOR_CAPTCHA or self.extra_queue.empty())
-                and not self.captcha_queue.empty()):
-            self.account = self.captcha_queue.get()
         else:
-            try:
-                self.account = self.extra_queue.get_nowait()
-            except Empty as e:
-                if after_remove:
-                    raise InsufficientAccountsException("No more accounts available to replace removed account")
-                else:
-                    self.account = await run_threaded(self.extra_queue.get)
-            except InsufficientAccountsException:
-                raise InsufficientAccountsException("No more accounts available to replace removed account")
+            self.log.warning('Swapping out {} because {}.', self.username, reason)
+        self.update_accounts_dict()
+        accounts_in_queues = self.extra_queue.qsize() + self.captcha_queue.qsize()
+        self.extra_queue.put(self.account)
+        extra_accounts_required = int(ceil(conf.EXTRA_ACCOUNT_PERCENT * conf.GRID[0] * conf.GRID[1]))
+        direct_from_db = accounts_in_queues < extra_accounts_required
+        await self.new_account(direct_from_db=direct_from_db)
+
+    async def get_account_from_db(self):
+        try:
+            return await run_threaded(Account.get, self.min_level(), self.max_level())
+        except InsufficientAccountsException:
+            raise InsufficientAccountsException("No more accounts available in DB #1")
+
+    async def new_account(self, after_remove=False, direct_from_db=False):
+        if direct_from_db:
+            self.account = await self.get_account_from_db()
+            self.log.warning('Acquired new account {} direct from DB.', self.account.get('username'))
+        else:
+            if (conf.CAPTCHA_KEY
+                    and (conf.FAVOR_CAPTCHA or self.extra_queue.empty())
+                    and not self.captcha_queue.empty()):
+                self.account = self.captcha_queue.get()
+            else:
+                try:
+                    self.account = self.extra_queue.get_nowait()
+                except Empty as e:
+                    if after_remove:
+                        raise InsufficientAccountsException("No more accounts available in DB #2")
+                    else:
+                        self.account = await run_threaded(self.extra_queue.get)
+                except InsufficientAccountsException:
+                    raise InsufficientAccountsException("No more accounts available in DB #3")
         self.username = self.account['username']
         try:
             self.location = self.account['location'][:2]

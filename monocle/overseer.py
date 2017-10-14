@@ -95,7 +95,7 @@ class Overseer:
 
         for x in range(conf.GRID[0] * conf.GRID[1]):
             try:
-                self.workers.append(Worker(worker_no=x))
+                self.workers.append(Worker(worker_no=x,overseer=self))
             except Exception as e:
                 traceback.print_exc()
                 self.log.error("Worker initialization error: {}", e)
@@ -103,7 +103,7 @@ class Overseer:
 
         db_proc.start()
         LOOP.call_later(10, self.update_count)
-        LOOP.call_later(max(conf.SWAP_OLDEST, conf.MINIMUM_RUNTIME), self.swap_oldest)
+        LOOP.call_later(max(conf.SWAP_OLDEST, conf.MINIMUM_RUNTIME * 60), self.swap_oldest)
         LOOP.call_soon(self.update_stats)
         if status_bar:
             LOOP.call_soon(self.print_status)
@@ -117,7 +117,7 @@ class Overseer:
         LOOP.call_later(10, self.update_count)
 
     def swap_oldest(self, interval=conf.SWAP_OLDEST, minimum=conf.MINIMUM_RUNTIME):
-        if not self.paused and not self.extra_queue.empty():
+        if not self.paused and (Account.estimated_extra_accounts() > 0 or not self.extra_queue.empty()):
             oldest, minutes = self.longest_running()
             if minutes > minimum:
                 LOOP.create_task(oldest.lock_and_swap(minutes))
@@ -169,10 +169,11 @@ class Overseer:
         account_clean = account_stats[2]['clean']
         account_test = account_stats[2]['test']
 
-        self.log.info("Accounts {}, fresh/clean: {}, hibernated: {}",
+        self.log.info("Accounts {}, fresh/clean: {}, hibernated: {}, extra: {}",
                 account_reasons,
                 account_clean,
-                account_test)
+                account_test,
+                self.extra_queue.qsize())
 
         stats_template = (
             'Seen per worker: min {}, max {}, med {:.0f}\n'

@@ -296,7 +296,7 @@ class Account(db.Base):
     @staticmethod
     def stats():
         if Account.stats_info:
-            if Account.stats_info[0] > int(time() - 5 * 60):
+            if Account.stats_info[0] > int(time() - 1 * 60):
                 return Account.stats_info
 
         with db.session_scope() as session:
@@ -313,21 +313,25 @@ class Account(db.Base):
 
             db_wide = {}
             common = db.get_common(session, 'account_stats_updated')
-            if not common.val or int(common.val) < int(time() - 5 * 60):
+            if not common.val or int(common.val) < int(time() - 1 * 60):
+                common.val = str(int(time()))
+                session.merge(common)
+                session.commit()
+
                 accounts = session.query(Account) \
                         .filter(Account.instance == None,
+                                Account.level < 30,
                                 Account.reason == None) \
                         .count()
                 db_wide['clean'] = accounts
 
                 accounts = session.query(Account) \
                         .filter(Account.instance == None,
+                                Account.level < 30,
                                 Account.reason != None) \
                         .count()
                 db_wide['test'] = accounts 
 
-                common.val = str(int(time()))
-                session.merge(common)
                 common = db.get_common(session, 'account_stats_clean',lock=True)
                 common.val = str(db_wide['clean'])
                 session.merge(common)
@@ -344,6 +348,13 @@ class Account(db.Base):
 
         return Account.stats_info
 
+    @classmethod
+    def estimated_extra_accounts(cls):
+        dbwide = cls.stats_info[2]
+        if dbwide:
+            return dbwide['clean'] + dbwide['test']
+        else:
+            return 0
 
     @staticmethod
     def import_file(file_location, level=0, assign_instance=True):
