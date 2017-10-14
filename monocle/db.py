@@ -570,7 +570,7 @@ def get_common(session, key, lock=False):
     if not common:
         common = Common()
         common.key = key
-        session.merge(common)
+        session.add(common)
         session.commit()
     return common
 

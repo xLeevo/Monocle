@@ -27,6 +27,13 @@ SPEED_LIMIT = 19.5    # limit worker speed to this many SPEED_UNITs per hour
 # Provide more accounts than the product of your grid to allow swapping.
 GRID = (4, 4)  # rows, columns
 
+### Extra accounts to pull from DB in percentage of total workers for swap.
+### Default 0.0 (0%)
+#EXTRA_ACCOUNT_PERCENT = 0.0
+#
+### For example, if you want to have extra 10% accounts for periodic swapping, set
+#EXTRA_ACCOUNT_PERCENT = 0.1
+
 # the corner points of a rectangle for your workers to spread out over before
 # any spawn points have been discovered
 MAP_START = (40.7913, -111.9398)
