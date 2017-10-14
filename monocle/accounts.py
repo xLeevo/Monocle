@@ -314,6 +314,10 @@ class Account(db.Base):
             db_wide = {}
             common = db.get_common(session, 'account_stats_updated')
             if not common.val or int(common.val) < int(time() - 1 * 60):
+                common.val = str(int(time()))
+                session.merge(common)
+                session.commit()
+
                 accounts = session.query(Account) \
                         .filter(Account.instance == None,
                                 Account.level < 30,
@@ -328,8 +332,6 @@ class Account(db.Base):
                         .count()
                 db_wide['test'] = accounts 
 
-                common.val = str(int(time()))
-                session.merge(common)
                 common = db.get_common(session, 'account_stats_clean',lock=True)
                 common.val = str(db_wide['clean'])
                 session.merge(common)
