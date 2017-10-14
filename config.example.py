@@ -93,9 +93,19 @@ SEARCH_SLEEP = 2.5
 # key for Bossland's hashing server, needed if you're not using Go Hash.
 #HASH_KEY = '9d87af14461b93cb3605'  # this key is fake
 
-GO_HASH = False
+#GO_HASH = False
+
 # key for Go Hash a new hashing service that acts as a hash surge buffer on top of Bosslands hash server with a pay per hash model. Needed if you're not using a key direct from Bossland
 #GO_HASH_KEY = 'PH7B03W1LSD4S2LHY8UH' # this is a fake key
+
+### Optional conguration for hash server.
+### Do not mess with the following hash configs if you don't know what you are doing.
+#
+### Buddyauth endpoint
+#HASH_ENDPOINT="http://pokehash.buddyauth.com"
+#
+### Gohash endpoint 
+#GOHASH_ENDPOINT="http://hash.gomanager.biz"
 
 # Skip PokéStop spinning and egg incubation if your request rate is too high
 # for your hashing subscription.
