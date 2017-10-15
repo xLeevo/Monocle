@@ -117,10 +117,16 @@ class Overseer:
         LOOP.call_later(10, self.update_count)
 
     def swap_oldest(self, interval=conf.SWAP_OLDEST, minimum=conf.MINIMUM_RUNTIME):
-        if not self.paused and (Account.estimated_extra_accounts() > 0 or not self.extra_queue.empty()):
-            oldest, minutes = self.longest_running()
-            if minutes > minimum:
-                LOOP.create_task(oldest.lock_and_swap(minutes))
+        if (not self.paused and
+                conf.EXTRA_ACCOUNT_PERCENT > 0.0 and
+                (Account.estimated_extra_accounts() > 0 or
+                    not self.extra_queue.empty())):
+            try:
+                oldest, minutes = self.longest_running()
+                if minutes > minimum:
+                    LOOP.create_task(oldest.lock_and_swap(minutes))
+            except StopIteration as e:
+                pass
         LOOP.call_later(interval, self.swap_oldest)
 
     def print_status(self, refresh=conf.REFRESH_RATE):
