@@ -197,7 +197,7 @@ _defaults = {
     'COMPLETE_TUTORIAL': False,
     'CONTROL_SOCKS': None,
     'COROUTINES_LIMIT': worker_count,
-    'DB_POOL_RECYCLE': 600,
+    'DB_POOL_RECYCLE': 299,
     'DIRECTORY': '.',
     'DISCORD_INVITE_ID': None,
     'ENCOUNTER': None,

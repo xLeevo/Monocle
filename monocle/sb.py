@@ -1,7 +1,7 @@
 from time import time
 from asyncio import Semaphore
 
-from .db import Session
+from .db import session_scope 
 from .shared import get_logger, SessionManager, LOOP
 from . import sanitized as conf
 
@@ -17,7 +17,6 @@ class SbDetector:
     def __init__(self):
         self.ran_at = {}
 
-        self.session = Session(autocommit=True)
         if conf.SB_WEBHOOK:
             from .notification import Notifier
             self.notifier = Notifier()
@@ -59,28 +58,32 @@ class SbDetector:
         """
 
         try:
-            result = self.session.execute(query, {
-                'username': username,
-                'non_sb_pokemon_ids': conf.SB_UNCOMMON_POKEMON_IDS,
-                'min_expire_timestamp': time() - conf.SB_QUARANTINE_SECONDS,
-                }).first()
+            sbanned = False
+            with session_scope() as session:
+                result = session.execute(query, {
+                    'username': username,
+                    'non_sb_pokemon_ids': conf.SB_UNCOMMON_POKEMON_IDS,
+                    'min_expire_timestamp': time() - conf.SB_QUARANTINE_SECONDS,
+                    }).first()
 
-            if result:
-                sightings = result[1]
-                uncommon = int(result[2])
-                sbanned = (sightings >= conf.SB_MIN_SIGHTING_COUNT and uncommon <= conf.SB_MAX_UNCOMMON_COUNT)
+                if result:
+                    sightings = result[1]
+                    uncommon = int(result[2])
+                    sbanned = (sightings >= conf.SB_MIN_SIGHTING_COUNT and uncommon <= conf.SB_MAX_UNCOMMON_COUNT)
 
-                log.info("Username: {}, sightings: {}, uncommon: {}, sbanned: {}",
-                        result[0],
-                        sightings,
-                        uncommon,
-                        sbanned)
+                    log.info("Username: {}, sightings: {}, uncommon: {}, sbanned: {}",
+                            result[0],
+                            sightings,
+                            uncommon,
+                            sbanned)
+                else:
+                    log.info("Username: {} has no sightings yet. sbanned: {}", username, sbanned)
         
-                if sbanned:
-                    if self.notifier:
-                        await self.webhook(self.notifier, conf.SB_WEBHOOK, username)
+            if sbanned:
+                if self.notifier:
+                    await self.webhook(self.notifier, conf.SB_WEBHOOK, username)
 
-                    raise SbAccountException()
+                raise SbAccountException()
         except SbAccountException as e:
             raise e
         except Exception as e:
