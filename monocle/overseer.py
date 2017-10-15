@@ -163,11 +163,18 @@ class Overseer:
             speeds.append(w.speed)
 
 
-        account_stats = Account.stats()
-        account_reasons = ', '.join(['%s: %s' % (k,v) for k,v in account_stats[1].items()])
-        account_refresh = datetime.fromtimestamp(account_stats[0]).strftime('%Y-%m-%d %H:%M:%S')
-        account_clean = account_stats[2]['clean']
-        account_test = account_stats[2]['test']
+        try: 
+            account_stats = Account.stats()
+            account_reasons = ', '.join(['%s: %s' % (k,v) for k,v in account_stats[1].items()])
+            account_refresh = datetime.fromtimestamp(account_stats[0]).strftime('%Y-%m-%d %H:%M:%S')
+            account_clean = account_stats[2]['clean']
+            account_test = account_stats[2]['test']
+        except Exception as e:
+            self.log.error("Unexpected error in overseer.update_stats: {}", e)
+            account_reasons = None 
+            account_refresh = None
+            account_clean = None
+            account_test = None
 
         self.log.info("Accounts {}, fresh/clean: {}, hibernated: {}, extra: {}",
                 account_reasons,
