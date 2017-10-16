@@ -460,9 +460,8 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 ## Shadown ban module
 # SB_DETECTOR = False
 # SB_UNCOMMON_POKEMON_IDS = (16,19,23,27,29,32,41,43,46,52,54,60,69,72,74,77,81,98,118,120,129,161,165,167,177,183,187,191,194,198,209,218)
-# SB_MAX_UNCOMMON_COUNT = 0     # Maximum uncommon counts required to flag SB
-# SB_MIN_SIGHTING_COUNT = 30    # Minimum sightings required to flag SB
-# SB_QUARANTINE_SECONDS = 2700 # How many seconds to set as investigation period?
+# SB_MIN_SIGHTING_COUNT = 25    # Minimum sightings required to flag SB
+# SB_QUARANTINE_SECONDS = 3600 # How many seconds to set as investigation period?
 # SB_COOLDOWN = 300             # How many seconds to wait before next sb detection for the account
 # SB_WEBHOOK = None             # Define webhook end point for SB. Payload is {type: "sban", message: {username: :username}}
 
