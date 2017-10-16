@@ -69,7 +69,7 @@ class SbDetector:
                 if result:
                     sightings = result[1]
                     uncommon = int(result[2])
-                    sbanned = (sightings >= conf.SB_MIN_SIGHTING_COUNT and uncommon <= conf.SB_MAX_UNCOMMON_COUNT)
+                    sbanned = (sightings >= conf.SB_MIN_SIGHTING_COUNT and uncommon <= 0)
 
                     log.info("Username: {}, sightings: {}, uncommon: {}, sbanned: {}",
                             result[0],
