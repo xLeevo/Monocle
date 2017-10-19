@@ -8,7 +8,7 @@ from pogeo import get_distance
 
 from .db import SightingCache, Sighting, Spawnpoint, session_scope
 from .utils import randomize_point
-from .worker import Worker, UNIT, sb_detector
+from .worker import Worker, UNIT, sb_detector, HARDCORE_HYPERDRIVE
 from .shared import LOOP, call_at, get_logger
 from .accounts import get_accounts30, Account
 from . import db_proc, bounds, spawns, sanitized as conf
@@ -112,7 +112,7 @@ class Worker30(Worker):
 
     async def sleep_travel_time(self, point):
         distance = get_distance(self.location, point, UNIT)
-        if conf.LV30_MAX_SPEED and conf.LV30_GMO:
+        if conf.LV30_MAX_SPEED and not HARDCORE_HYPERDRIVE:
             time_needed = 3600.0 * distance / conf.LV30_MAX_SPEED 
             if self.username:
                 if time_needed > 0.0:
@@ -124,7 +124,7 @@ class Worker30(Worker):
     @classmethod
     async def try_point(self, job):
         try:
-            encounter_only = (not conf.LV30_GMO)
+            encounter_only = HARDCORE_HYPERDRIVE
             if job in ENCOUNTER_CACHE:
                 return
             point = (job['lat'], job['lon'])

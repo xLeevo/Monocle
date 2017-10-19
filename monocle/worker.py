@@ -22,6 +22,8 @@ from .accounts import Account, get_accounts, InsufficientAccountsException, Logi
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
 from .notification import Notifier
 
+HARDCORE_HYPERDRIVE = (not conf.LV30_GMO)
+
 if conf.CACHE_CELLS:
     from array import typecodes
     if 'Q' in typecodes:
@@ -557,7 +559,7 @@ class Worker:
             if inbox:
                 request.get_inbox(is_history=True)
 
-        if action:
+        if action and (not HARDCORE_HYPERDRIVE):
             now = time()
             # wait for the time required, or at least a half-second
             if self.last_action > now + .5:
@@ -1345,7 +1347,8 @@ class Worker:
             self.simulate_jitter()
             delay_required = 1.1
 
-        await self.random_sleep(delay_required, delay_required + 1.5)
+        if not HARDCORE_HYPERDRIVE:
+            await self.random_sleep(delay_required, delay_required + 1.5)
 
         request = self.api.create_request()
         request = request.encounter(encounter_id=pokemon['encounter_id'],
