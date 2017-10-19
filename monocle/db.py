@@ -5,8 +5,10 @@ from enum import Enum
 from time import time, mktime
 from datetime import datetime
 
-from sqlalchemy import Column, Boolean, Integer, String, Float, SmallInteger, BigInteger, ForeignKey, Index, UniqueConstraint, create_engine, cast, func, desc, asc, desc, and_, exists
-from sqlalchemy.orm import sessionmaker, relationship, eagerload, foreign, remote
+from sqlalchemy import Column, Boolean, Integer, String, Float, SmallInteger, \
+        BigInteger, ForeignKey, Index, UniqueConstraint, \
+        create_engine, cast, func, desc, asc, desc, and_, exists
+from sqlalchemy.orm import sessionmaker, relationship, eagerload, joinedload, foreign, remote
 from sqlalchemy.types import TypeDecorator, Numeric, Text, TIMESTAMP
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -577,13 +579,19 @@ def get_common(session, key, lock=False):
 
 
 def add_sighting(session, pokemon):
-    if conf.KEEP_SPAWNPOINT_HISTORY or pokemon['spawn_id'] == 0:
-        sighting = None
-    else:
+    if pokemon['spawn_id'] == 0 or pokemon.get('check_duplicate'):
         sighting = session.query(Sighting) \
+                .options(joinedload(Sighting.user, innerjoin=False)) \
+                .filter(Sighting.encounter_id==pokemon['encounter_id']) \
+                .first()
+    elif not conf.KEEP_SPAWNPOINT_HISTORY:
+        sighting = session.query(Sighting) \
+                .options(joinedload(Sighting.user, innerjoin=False)) \
                 .filter(Sighting.spawn_id==pokemon['spawn_id']) \
                 .order_by(desc(Sighting.id)) \
                 .first()
+    else:
+        sighting = None
 
     if not sighting:
         sighting = Sighting()
@@ -607,7 +615,10 @@ def add_sighting(session, pokemon):
     if conf.SB_DETECTOR:
         username = pokemon.get('username', None)
         if username:
-            sighting.user = SightingUser(username=username)
+            if sighting.user:
+                sighting.user.username = username
+            else:
+                sighting.user = SightingUser(username=username)
 
     session.merge(sighting)
 

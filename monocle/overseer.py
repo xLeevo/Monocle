@@ -17,6 +17,7 @@ from .shared import get_logger, LOOP, run_threaded
 from .accounts import get_accounts, Account
 from . import bounds, db_proc, spawns, sanitized as conf
 from .worker import Worker
+from .worker30 import Worker30, ENCOUNTER_CACHE
 from .notification import Notifier
 
 ANSI = '\x1b[2J\x1b[H'
@@ -73,32 +74,31 @@ class Overseer:
         self.all_seen = False
         self.idle_seconds = 0
         self.log.info('Overseer initialized')
+        self.status_log_at = 0
         self.pokemon_found = ''
 
     def start(self, status_bar):
         self.captcha_queue = self.manager.captcha_queue()
-        Worker.captcha_queue = self.manager.captcha_queue()
         self.extra_queue = self.manager.extra_queue()
-        Worker.extra_queue = self.manager.extra_queue()
         if conf.MAP_WORKERS:
-            Worker.worker_dict = self.manager.worker_dict()
+            self.worker_dict = self.manager.worker_dict()
+        else:
+            self.worker_dict = None
 
-        ACCOUNTS = get_accounts()
-        for username, account in ACCOUNTS.items():
-            account['username'] = username
-            if account.get('banned') or account.get('warn') or account.get('sbanned'):
-                continue
-            if account.get('captcha'):
-                self.captcha_queue.put(account)
-            else:
-                self.extra_queue.put(account)
-
+        self.account_dict = get_accounts()
+        self.add_accounts_to_queue(self.account_dict, self.captcha_queue, self.extra_queue)
+    
         for x in range(conf.GRID[0] * conf.GRID[1]):
             try:
-                self.workers.append(Worker(worker_no=x,overseer=self))
+                self.workers.append(Worker(worker_no=x,
+                    overseer=self,
+                    captcha_queue=self.captcha_queue,
+                    account_queue=self.extra_queue,
+                    worker_dict=self.worker_dict,
+                    account_dict=self.account_dict))
             except Exception as e:
-                traceback.print_exc()
                 self.log.error("Worker initialization error: {}", e)
+                traceback.print_exc()
         self.log.info("Worker count: ({}/{})", len(self.workers), conf.GRID[0] * conf.GRID[1])
 
         db_proc.start()
@@ -107,6 +107,16 @@ class Overseer:
         LOOP.call_soon(self.update_stats)
         if status_bar:
             LOOP.call_soon(self.print_status)
+
+    def add_accounts_to_queue(self, account_dict, captcha_queue, account_queue):
+        for username, account in account_dict.items():
+            account['username'] = username
+            if account.get('banned') or account.get('warn') or account.get('sbanned'):
+                continue
+            if account.get('captcha'):
+                captcha_queue.put(account)
+            else:
+                account_queue.put(account)
 
     def update_count(self):
         self.things_count.append(str(db_proc.count))
@@ -173,26 +183,25 @@ class Overseer:
             account_stats = Account.stats()
             account_reasons = ', '.join(['%s: %s' % (k,v) for k,v in account_stats[1].items()])
             account_refresh = datetime.fromtimestamp(account_stats[0]).strftime('%Y-%m-%d %H:%M:%S')
-            account_clean = account_stats[2]['clean']
-            account_test = account_stats[2]['test']
+            account_clean = account_stats[2].get('clean')
+            account_test = account_stats[2].get('test')
+            account30_clean = account_stats[2].get('clean30')
+            account30_test = account_stats[2].get('test30')
         except Exception as e:
             self.log.error("Unexpected error in overseer.update_stats: {}", e)
             account_reasons = None 
             account_refresh = None
             account_clean = None
             account_test = None
-
-        self.log.info("Accounts {}, fresh/clean: {}, hibernated: {}, extra: {}",
-                account_reasons,
-                account_clean,
-                account_test,
-                self.extra_queue.qsize())
+            account30_clean = None
+            account30_test = None
 
         stats_template = (
             'Seen per worker: min {}, max {}, med {:.0f}\n'
             'Visits per worker: min {}, max {}, med {:.0f}\n'
             'Visit delay: min {:.1f}, max {:.1f}, med {:.1f}\n'
             'Speed: min {:.1f}, max {:.1f}, med {:.1f}\n'
+            'Worker30: {}, jobs: {}, caches: {}, encounters: {}, visits: {}, skips: {}, late: {}, hash wastes: {}\n'
             'Extra accounts: {}, CAPTCHAs needed: {}\n'
             'Accounts (this instance) {} (refreshed: {})\n'
             'Accounts (DB-wide) fresh/clean: {}, hibernated: {}\n'
@@ -203,6 +212,9 @@ class Overseer:
                 min(visits), max(visits), med(visits),
                 min(after_spawns), max(after_spawns), med(after_spawns),
                 min(speeds), max(speeds), med(speeds),
+                len(Worker30.workers), Worker30.job_queue.qsize(), len(ENCOUNTER_CACHE),
+                Worker30.encounters, Worker30.visits,
+                Worker30.skipped, Worker30.lates, Worker30.hash_burn,
                 self.extra_queue.qsize(), self.captcha_queue.qsize(),
                 account_reasons, account_refresh,
                 account_clean, account_test
@@ -213,18 +225,18 @@ class Overseer:
                 0, 0, 0,
                 0, 0, 0,
                 0, 0, 0,
+                0, 0, 0,
+                0, 0,
+                0, 0, 0,
                 0, 0,
                 None, None,
                 0, 0
             )
 
-        self.sighting_cache_size = len(SIGHTING_CACHE.store)
-        self.mystery_cache_size = len(MYSTERY_CACHE.store)
-
         self.update_coroutines_count()
         counts_template = (
             'Known spawns: {}, unknown: {}, more: {}\n'
-            '{} workers, {} coroutines\n'
+            'workers: {}, coroutines: {}\n'
             'sightings cache: {}, mystery cache: {}, DB queue: {}\n'
         )
         try:
@@ -239,7 +251,25 @@ class Overseer:
                 0, 0,
                 0, 0, 0
             )
-        self.log.info("{} etc.", self.counts.replace('\n',', '))
+
+        if self.status_log_at < time() - 15.0:
+            self.status_log_at = time()
+            self.log.info("Accounts {}, fresh/clean: {}, hibernated: {}, extra: {}",
+                    account_reasons,
+                    account_clean,
+                    account_test,
+                    self.extra_queue.qsize())
+
+            self.log.info("Accounts(Lv.30) fresh/clean: {}, hibernated: {}",
+                    account30_clean,
+                    account30_test)
+
+            self.log.info("Worker30: {}, jobs: {}, cache: {}, encounters: {}, visits: {}, skips: {}, late: {}, hash wastes: {}",
+                    len(Worker30.workers), Worker30.job_queue.qsize(), len(ENCOUNTER_CACHE),
+                    Worker30.encounters, Worker30.visits,
+                    Worker30.skipped, Worker30.lates, Worker30.hash_burn)
+
+            self.log.info("{}etc.", self.counts.replace('\n',', '))
         LOOP.call_later(refresh, self.update_stats)
 
     def get_dots_and_messages(self):
@@ -417,9 +447,17 @@ class Overseer:
         await self.update_spawns(initial=True)
 
         FORT_CACHE.preload()
-        #if pickle:
-        #    FORT_CACHE.unpickle()
         FORT_CACHE.pickle()
+
+        try:
+            SIGHTING_CACHE.preload()
+            ENCOUNTER_CACHE.preload()
+        except Exception as e:
+            self.log.error("Preload error: {}", e)
+
+        self.Worker30 = Worker30
+        self.ENCOUNTER_CACHE = ENCOUNTER_CACHE
+        self.worker30 = LOOP.create_task(Worker30.launch(overseer=self))
 
         if not spawns or bootstrap:
             try:
@@ -475,6 +513,7 @@ class Overseer:
                 pass
 
             spawn_time = spawn_seconds + current_hour
+            spawns.spawn_timestamps[spawn_id] = spawn_time
 
             # negative = hasn't happened yet
             # positive = already happened

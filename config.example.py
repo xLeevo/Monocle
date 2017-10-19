@@ -34,6 +34,35 @@ GRID = (4, 4)  # rows, columns
 ### For example, if you want to have extra 10% accounts for periodic swapping, set
 #EXTRA_ACCOUNT_PERCENT = 0.1
 
+### Lv30 accounts to pull from DB in percentage of total workers for encounter.
+### Setting this will enable Lv30 pool for encounters
+### Default 0.0(0%)
+#LV30_PERCENT_OF_WORKERS = 0.0
+#
+### For example, if you want to have 5% level 30 acccounts for encounter, set
+#LV30_PERCENT_OF_WORKERS = 0.05
+
+### Do GMO requests for lv30 accounts.
+### Setting False will increase encounter rate and reduce hashing usage as it will apply insta-teleport encounter.
+### Setting True will reduce account ban risks as it will apply normal Monocle behavior.
+### Default True.
+#LV30_GMO = True
+
+### Maximum speed for lv30 accounts in SPEED_UNIT/hr.
+### Defaults to 745.6454 miles/hr (1200 km/hr) hypothetical hyperloop speed.
+### Set it to 0.0 to disable.
+### When disabled, worker will not take any traveling time to encounter. (insta-teleport activated!)
+#LV30_MAX_SPEED = 745.6454
+
+### If encounter jobs queue up more than this amount, new sightings will be saved without encounter.
+### Defaults to 0, which means no max limit.
+#LV30_MAX_QUEUE = 0
+#
+###It is recommended to set it to this formula if you decided to cap the max queue size.
+#LV30_MAX_QUEUE = int(LV30_PERCENT_OF_WORKERS * GRID[0] * GRID[1] * 10.0)
+
+
+
 # the corner points of a rectangle for your workers to spread out over before
 # any spawn points have been discovered
 MAP_START = (40.7913, -111.9398)
@@ -457,13 +486,13 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 ## provide corner points to create a polygon of the area since OpenStreetMap does not have a shape for it
 #LANDMARKS.add('Yalecrest', points=((40.750263, -111.836502), (40.750377, -111.851108), (40.751515, -111.853833), (40.741212, -111.853909), (40.741188, -111.836519)), is_area=True)
 
-## Shadown ban module
-# SB_DETECTOR = False
-# SB_UNCOMMON_POKEMON_IDS = (16,19,23,27,29,32,41,43,46,52,54,60,69,72,74,77,81,98,118,120,129,161,165,167,177,183,187,191,194,198,209,218)
-# SB_MIN_SIGHTING_COUNT = 25    # Minimum sightings required to flag SB
-# SB_QUARANTINE_SECONDS = 3600 # How many seconds to set as investigation period?
-# SB_COOLDOWN = 300             # How many seconds to wait before next sb detection for the account
-# SB_WEBHOOK = None             # Define webhook end point for SB. Payload is {type: "sban", message: {username: :username}}
+### Shadown ban module
+#SB_DETECTOR = False
+#SB_COMMON_POKEMON_IDS = (16,19,23,27,29,32,41,43,46,52,54,60,69,72,74,77,81,98,118,120,129,161,165,167,177,183,187,191,194,198,209,218)
+#SB_MAX_ENC_MISS = 3           # Number of encounter misses before account is marked as sbanned
+#SB_MIN_SIGHTING_COUNT = 30    # Minimum sightings required to flag SB
+#SB_QUARANTINE_SECONDS = 900   # How many seconds to set as investigation period?
+#SB_WEBHOOK = None             # Define webhook end point for SB. Payload is Discord type.
 
 ####
 ### PgScout (Credit to Avatar690)

@@ -3,6 +3,7 @@
 from asyncio import get_event_loop, sleep
 from multiprocessing.managers import BaseManager
 from time import time
+from queue import Empty, Full
 
 from aiopogo import PGoApi, close_sessions, activate_hash_server, exceptions as ex
 from aiopogo.auth_ptc import AuthPtc
@@ -48,18 +49,40 @@ async def main():
         class AccountManager(BaseManager): pass
         AccountManager.register('captcha_queue')
         AccountManager.register('extra_queue')
+        AccountManager.register('lv30_captcha_queue')
+        AccountManager.register('lv30_account_queue')
         manager = AccountManager(address=get_address(), authkey=conf.AUTHKEY)
         manager.connect()
         captcha_queue = manager.captcha_queue()
         extra_queue = manager.extra_queue()
+        lv30_captcha_queue = manager.lv30_captcha_queue()
+        lv30_account_queue = manager.lv30_account_queue()
+
+        def put_account_queue(account):
+            if account.get('level', 0) < 30:
+                extra_queue.put(account)
+            else:
+                lv30_account_queue.put(account)
+
+        def put_captcha_queue(account):
+            if account.get('leve', 0) < 30:
+                captcha_queue.put(account)
+            else:
+                lv30_captcha_queue.put(account)
 
         activate_hash_server(conf.HASH_KEY)
 
         driver = webdriver.Chrome()
         driver.set_window_size(803, 807)
 
-        while not captcha_queue.empty():
-            account = captcha_queue.get()
+        while not captcha_queue.empty() or not lv30_captcha_queue.empty():
+            try:
+                account = captcha_queue.get()
+            except Empty:
+                try:
+                    account = lv30_captcha_queue.get()
+                except Empty:
+                    break
             username = account.get('username')
             location = account.get('location')
             if location and location != (0,0,0):
@@ -116,23 +139,23 @@ async def main():
                 if challenge_url == ' ':
                     account['captcha'] = False
                     print('No CAPTCHA was pending on {}.'.format(username))
-                    extra_queue.put(account)
+                    put_account_queue(account)
                 else:
                     if await solve_captcha(challenge_url, api, driver, timestamp):
                         account['time'] = time()
                         account['captcha'] = False
                         print('Solved CAPTCHA for {}, putting back in rotation.'.format(username))
-                        extra_queue.put(account)
+                        put_account_queue(account)
                     else:
                         account['time'] = time()
                         print('Failed to solve for {}'.format(username))
-                        captcha_queue.put(account)
+                        put_captcha_queue(account)
             except KeyboardInterrupt:
-                captcha_queue.put(account)
+                put_captcha_queue(account)
                 break
             except KeyError:
                 print('Unexpected or empty response for {}, putting back on queue.'.format(username))
-                captcha_queue.put(account)
+                put_captcha_queue(account)
                 try:
                     print(response)
                 except Exception:
@@ -140,14 +163,14 @@ async def main():
                 await sleep(3)
             except (ex.AuthException, ex.AuthTokenExpiredException) as e:
                 print('Authentication error on {}: {}'.format(username, e))
-                captcha_queue.put(account)
+                put_captcha_queue(account)
                 await sleep(3)
             except ex.AiopogoError as e:
                 print('aiopogo error on {}: {}'.format(username, e))
-                captcha_queue.put(account)
+                put_captcha_queue(account)
                 await sleep(3)
             except Exception:
-                captcha_queue.put(account)
+                put_captcha_queue(account)
                 raise
     finally:
         try:

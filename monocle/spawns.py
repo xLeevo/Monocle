@@ -21,6 +21,8 @@ class BaseSpawns:
         self.updated_at = {}
         # {spawn_id: spawnpoints.id}
         self.internal_ids = {}
+        # {spawn_id: timestamp}
+        self.spawn_timestamps = {}
 
         ## Spawns with unknown times
         # {(lat, lon)}

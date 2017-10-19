@@ -1,7 +1,8 @@
+import traceback
 from asyncio import gather, Lock, Semaphore, sleep, CancelledError
 from collections import deque
 from time import time, monotonic
-from queue import Empty
+from queue import Empty, Full
 from itertools import cycle
 from sys import exit
 from math import ceil
@@ -19,9 +20,7 @@ from .shared import get_logger, LOOP, SessionManager, run_threaded
 from .sb import SbDetector, SbAccountException
 from .accounts import Account, get_accounts, InsufficientAccountsException, LoginCredentialsException, EmailUnverifiedException
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
-
-if conf.NOTIFY or conf.NOTIFY_RAIDS or conf.NOTIFY_RAIDS_WEBHOOK:
-    from .notification import Notifier
+from .notification import Notifier
 
 if conf.CACHE_CELLS:
     from array import typecodes
@@ -85,30 +84,39 @@ class Worker:
     else:
         proxies = None
 
-    if conf.NOTIFY or conf.NOTIFY_RAIDS or conf.NOTIFY_RAIDS_WEBHOOK:
-        notifier = Notifier()
+    notifier = Notifier()
 
     if conf.PGSCOUT_ENDPOINT:
 	    PGScout_cycle=cycle(conf.PGSCOUT_ENDPOINT)
 
-    def __init__(self, worker_no, overseer):
+    def __init__(self, worker_no, overseer, captcha_queue, account_queue, worker_dict, account_dict, start_coords=None):
+        name = self.__class__.__name__.lower()
         self.worker_no = worker_no
         self.overseer = overseer
-        self.log = get_logger('worker-{}'.format(worker_no))
+        self.log = get_logger('{}-{}'.format(name, worker_no))
+        self.worker_no = worker_no
+        self.account_queue = account_queue
+        self.captcha_queue = captcha_queue
+        self.worker_dict = worker_dict
+        self.account_dict = account_dict
         # account information
         try:
-            self.account = self.extra_queue.get_nowait()
+            self.account = self.account_queue.get_nowait()
         except (Empty, InsufficientAccountsException) as e:
             try:
                 self.account = self.captcha_queue.get_nowait()
             except Empty as e:
                 self.account = None
+                self.username = None
                 #raise InsufficientAccountsException("You don't have enough accounts for the number of workers specified in GRID.") from e
         self.altitude = None
         try:
             self.location = self.account['location'][:2]
         except Exception as e:
-            self.location = get_start_coords(worker_no)
+            if start_coords:
+                self.location = start_coords
+            else:
+                self.location = self.get_start_coords()
         if self.account:
             self.username = self.account['username']
             # last time of any request
@@ -155,6 +163,15 @@ class Worker:
 
     def max_level(self):
         return 29
+
+    def get_start_coords(self):
+        return get_start_coords(self.worker_no)
+
+    def estimated_extra_accounts(self):
+        return Account.estimated_extra_accounts()
+
+    def required_extra_accounts(self):
+        return int(ceil(conf.EXTRA_ACCOUNT_PERCENT * conf.GRID[0] * conf.GRID[1]))
 
     def initialize_api(self):
         device_info = get_device_info(self.account)
@@ -314,7 +331,7 @@ class Worker:
         await self.call(request, inbox=False, action=1)
 
     async def app_simulation_login(self, version):
-        self.log.info('Starting RPC login sequence (iOS app simulation)')
+        self.log.info('{} is starting RPC login sequence (iOS app simulation)', self.username)
 
         # empty request
         request = self.api.create_request()
@@ -413,7 +430,7 @@ class Worker:
             await self.call(request, chain=False)
             await self.random_sleep(.43, .97)
 
-            self.log.info('Finished RPC login sequence (iOS app simulation)')
+            self.log.info('{} finished RPC login sequence (iOS app simulation)', self.username)
             await self.random_sleep(.5, 1.3)
         self.error_code = None
         return True
@@ -672,6 +689,12 @@ class Worker:
         speed = (distance / time_diff) * 3600
         return speed
 
+    async def account_promotion(self):
+        if self.player_level and self.player_level >= 30:
+            self.log.warning('Congratulations {} has reached Lv.30. Moving it out of low-level slave pool', self.username)
+            await sleep(1, loop=LOOP)
+            await self.remove_account(flag='level30')
+
     async def bootstrap_visit(self, point):
         for _ in range(3):
             if await self.visit(point, bootstrap=True):
@@ -680,12 +703,13 @@ class Worker:
             self.simulate_jitter(0.00005)
         return False
 
-    async def visit(self, point, spawn_id=None, bootstrap=False):
+    async def visit(self, point, spawn_id=None, bootstrap=False,
+            encounter_id=None, encounter_only=False, sighting=None):
         """Wrapper for self.visit_point - runs it a few times before giving up
 
         Also is capable of restarting in case an error occurs.
         """
-        while self.overseer.running and self.account is None:
+        while self.overseer.running and not self.account:
             self.error_code = 'D'
             self.log.warning("No account being set for visit. Probably due to insufficient accounts. Retrying in 30s.")
             await sleep(10, loop=LOOP)
@@ -697,13 +721,10 @@ class Worker:
             return
 
         try:
-            if self.player_level and self.player_level >= 30:
-                self.log.warning('Congratulations {} has reached Lv.30. Moving it out of low-level slave pool', self.username)
-                await sleep(1, loop=LOOP)
-                await self.remove_account(flag='level30')
+            await self.account_promotion()
 
             if sb_detector:
-                await sb_detector.detect(self.username)
+                await sb_detector.detect(self.account)
             try:
                 self.altitude = altitudes.get(point)
             except KeyError:
@@ -712,13 +733,20 @@ class Worker:
             self.api.set_position(*self.location, self.altitude)
             if not self.authenticated:
                 await self.login()
-            return await self.visit_point(point, spawn_id, bootstrap)
+            if encounter_only and sighting:
+                return await self.visit_encounter(point, sighting)
+            else:
+                return await self.visit_point(point, spawn_id, bootstrap,
+                        encounter_id=encounter_id)
         except ex.NotLoggedInException:
             self.error_code = 'NOT AUTHENTICATED'
             await sleep(1, loop=LOOP)
             if not await self.login(reauth=True):
                 await self.swap_account(reason='reauth failed')
-            return await self.visit(point, spawn_id, bootstrap)
+            return await self.visit(point, spawn_id, bootstrap,
+                    encounter_id=encounter_id,
+                    encounter_only=encounter_only,
+                    sighting=sighting)
         except ex.AuthException as e:
             self.log.warning('Auth error on {} in visit: {}', self.username, e)
             self.error_code = 'NOT AUTHENTICATED'
@@ -819,11 +847,11 @@ class Worker:
 
     async def visit_point(self, point, spawn_id, bootstrap,
             encounter_conf=conf.ENCOUNTER, notify_conf=conf.NOTIFY,
-            more_points=conf.MORE_POINTS):
+            more_points=conf.MORE_POINTS, encounter_id=None):
         self.handle.cancel()
         self.error_code = '∞' if bootstrap else '!'
 
-        self.log.info('Visiting {0[0]:.4f},{0[1]:.4f}', point)
+        self.log.info('{0} is visiting {1[0]:.4f}, {1[1]:.4f}', self.username, point)
         start = time()
 
         cell_ids = self.get_cell_ids(point)
@@ -859,6 +887,7 @@ class Worker:
         forts_seen = 0
         points_seen = 0
         seen_target = not spawn_id
+        seen_encounter = not encounter_id
 
         if conf.ITEM_LIMITS and self.bag_items >= self.item_capacity:
             await self.clean_bag()
@@ -869,11 +898,15 @@ class Worker:
                 pokemon_seen += 1
 
                 normalized = self.normalize_pokemon(pokemon, username=self.username)
+                normalized['time_of_day'] = map_objects.time_of_day
                 seen_target = seen_target or normalized['spawn_id'] == spawn_id
+                seen_encounter = seen_encounter or normalized['encounter_id'] == encounter_id
 
                 # This line does not only checks the cache, it also updates the mystery seen time.
                 # Tricky.
                 in_mystery_cache = normalized in MYSTERY_CACHE
+
+                sb_detector.add_sighting(self.account, normalized)
 
                 # Check if already marked for save as mystery
                 if normalized['type'] == 'mystery':
@@ -882,12 +915,8 @@ class Worker:
                     else:
                         MYSTERY_CACHE.add(normalized)
 
-                # Check if already marked for save as sighting
-                if normalized in SIGHTING_CACHE:
-                    continue
-                elif 'expire_timestamp' in normalized:
-                    SIGHTING_CACHE.add(normalized)
-                    if normalized.get('expire_timestamp',0) <= time():
+                if not encounter_id:
+                    if self.should_skip_sighting(normalized, SIGHTING_CACHE):
                         continue
                 
                 # Check against insert list
@@ -904,31 +933,62 @@ class Worker:
                     db_proc.count += 1
                     continue
 
-                should_encounter = (encounter_conf == 'all'
-                        or (encounter_conf == 'some'
-                            and normalized['pokemon_id'] in conf.ENCOUNTER_IDS))
-                should_notify = (notify_conf and self.notifier.eligible(normalized))
-                should_notify_with_iv = (should_notify and not conf.IGNORE_IVS)
+                should_delegate_encounter = (conf.LV30_PERCENT_OF_WORKERS > 0.0 and
+                        (not self.player_level or self.player_level < 30))
+                should_notify = self.should_notify(normalized)
+                should_encounter = self.should_encounter(normalized, should_notify=should_notify)
+                    
+                if encounter_id:
+                    cache = self.overseer.ENCOUNTER_CACHE if should_encounter else SIGHTING_CACHE
+                    if self.should_skip_sighting(normalized, cache):
+                        continue
 
                 encountered = False
 
-                if (should_encounter or should_notify_with_iv):
-                    if conf.PGSCOUT_ENDPOINT:
-                        async with ClientSession(loop=LOOP) as session:
-                            encountered = await self.pgscout(session, normalized, pokemon.spawn_point_id)
-
-                    if (not encountered and self.player_level and self.player_level >= 30):
+                if (self.overseer.running and should_encounter):
+                    if should_delegate_encounter:
+                        if (normalized not in self.overseer.ENCOUNTER_CACHE and
+                                'expire_timestamp' in normalized and
+                                normalized['expire_timestamp']):
+                            try:
+                                self.overseer.Worker30.add_job(normalized)
+                                self.log.debug("{} added encounter job {}, {}, ({}, {})",
+                                        self.username,
+                                        normalized['pokemon_id'],
+                                        normalized['encounter_id'],
+                                        normalized['lat'],
+                                        normalized['lon'])
+                                continue
+                            except Full:
+                                self.overseer.ENCOUNTER_CACHE.add(normalized)
+                                self.log.warning('Encounter job queue is full. Skipping encounter delegation for {}', normalized['encounter_id'])
+                            except Exception as e:
+                                self.overseer.ENCOUNTER_CACHE.add(normalized)
+                                self.log.warning('Unexpected error while adding encounter job: {}', e)
+                                traceback.print_exc()
+                        else:
+                            continue
+                    elif not encountered and self.player_level >= 30:
+                        normalized['check_duplicate'] = True
                         try:
-                            await self.encounter(normalized, pokemon.spawn_point_id)
-                            encountered = True
+                            if await self.encounter(normalized, pokemon.spawn_point_id):
+                                self.overseer.Worker30.encounters += 1
+                                await self.random_sleep(2.0, 5.0)
+                                encountered = True
+                            else:
+                                sb_detector.add_encounter_miss(self.account)
                         except CancelledError:
                             db_proc.add(normalized)
                             raise
                         except Exception as e:
-                            self.log.warning('{} during encounter', e.__class__.__name__)
+                            self.log.warning('{} during encounter by {}', e.__class__.__name__, self.username)
+
+                    if not encountered and conf.PGSCOUT_ENDPOINT:
+                        async with ClientSession(loop=LOOP) as session:
+                            encountered = await self.pgscout(session, normalized, pokemon.spawn_point_id)
 
                 if should_notify:
-                    LOOP.create_task(self.notifier.notify(normalized, map_objects.time_of_day))
+                    LOOP.create_task(self.notifier.notify(normalized, normalized['time_of_day']))
 
                 db_proc.add(normalized)
 
@@ -944,6 +1004,7 @@ class Worker:
                 if fort.type == 1:  # pokestops
                     if fort.HasField('lure_info'):
                         norm = self.normalize_lured(fort, request_time_ms)
+                        sb_detector.add_sighting(self.account, norm)
                         pokemon_seen += 1
                         if norm not in SIGHTING_CACHE:
                             SIGHTING_CACHE.add(norm)
@@ -1021,7 +1082,7 @@ class Worker:
                 await self.swap_account(reason)
         self.visits += 1
 
-        if conf.MAP_WORKERS:
+        if self.worker_dict:
             self.worker_dict.update([(self.worker_no,
                 (point, start, self.speed, self.total_seen,
                 self.visits, pokemon_seen))])
@@ -1034,8 +1095,65 @@ class Worker:
 
         self.update_accounts_dict()
         self.handle = LOOP.call_later(60, self.unset_code)
+
+        if not seen_encounter:
+            return -1 
+
         return pokemon_seen + forts_seen + points_seen
 
+    async def visit_encounter(self, point, sighting):
+        self.handle.cancel()
+        start = time()
+        try:
+            if await self.encounter(sighting, sighting['spawn_point_id']):
+                self.overseer.Worker30.encounters += 1
+                sb_detector.add_sighting(self.account, sighting)
+            else:
+                sb_detector.add_encounter_miss(self.account)
+        except CancelledError:
+            db_proc.add(sighting)
+            raise
+        except Exception as e:
+            self.log.warning('{} during encounter by {}', e.__class__.__name__, self.username)
+
+        should_notify = self.should_notify(sighting)
+        if should_notify:
+            LOOP.create_task(self.notifier.notify(sighting, sighting['time_of_day']))
+
+        db_proc.add(sighting)
+        self.last_gmo = self.last_request
+
+        pokemon_seen = 0
+
+        if self.worker_dict:
+            self.worker_dict.update([(self.worker_no,
+                (point, start, self.speed, self.total_seen,
+                self.visits, pokemon_seen))])
+
+        self.update_accounts_dict()
+        self.handle = LOOP.call_later(60, self.unset_code)
+        return True 
+
+    def should_skip_sighting(self, sighting, cache):
+        # Check if already marked for save as sighting
+        if sighting in cache:
+            return True
+        elif 'expire_timestamp' in sighting:
+            cache.add(sighting)
+            if sighting.get('expire_timestamp',0) <= time():
+                return True
+        return False
+
+    def should_notify(self, sighting):
+        return (conf.NOTIFY and self.notifier.eligible(sighting))
+
+    def should_encounter(self, sighting, should_notify):
+        encounter_conf = conf.ENCOUNTER
+        encounter_whitelisted = (encounter_conf == 'all'
+                or (encounter_conf == 'some'
+                    and sighting['pokemon_id'] in conf.ENCOUNTER_IDS))
+        should_notify_with_iv = (should_notify and not conf.IGNORE_IVS)
+        return encounter_whitelisted or should_notify_with_iv
 
     async def pgscout(self, session, pokemon, spawn_id):
         PGScout_address=next(self.PGScout_cycle)
@@ -1205,7 +1323,7 @@ class Worker:
 
     async def encounter(self, pokemon, spawn_id):
         distance_to_pokemon = get_distance(self.location, (pokemon['lat'], pokemon['lon']))
-
+        self.log.info("{} is encountering pokemon: {}, {}", self.username, pokemon['pokemon_id'], pokemon['encounter_id'])
         self.error_code = '~'
 
         if distance_to_pokemon > 48:
@@ -1233,7 +1351,18 @@ class Worker:
         responses = await self.call(request, action=2.25)
 
         try:
-            pdata = responses['ENCOUNTER'].wild_pokemon.pokemon_data
+            encounter = responses.get('ENCOUNTER')
+            if not encounter:
+                return False
+            status = encounter.status
+
+            if status == 8:
+                raise SbAccountException("Blocked by anticheat during encounter")
+
+            # Not success
+            if status != 1:
+                return False
+            pdata = encounter.wild_pokemon.pokemon_data
             pokemon['move_1'] = pdata.move_1
             pokemon['move_2'] = pdata.move_2
             pokemon['individual_attack'] = pdata.individual_attack
@@ -1246,7 +1375,14 @@ class Worker:
             pokemon['level'] = calc_pokemon_level(pdata.cp_multiplier)
         except KeyError:
             self.log.error('Missing encounter response.')
+            return False
+        except SbAccountException as e:
+            raise e
+        except Exception as e:
+            self.log.error("Unexpected error during encounter: {}", e)
+            raise e
         self.error_code = '!'
+        return True
 
     async def clean_bag(self):
         self.error_code = '|'
@@ -1390,7 +1526,7 @@ class Worker:
         except AttributeError:
             pass
 
-        ACCOUNTS = get_accounts()
+        ACCOUNTS = self.account_dict
         if 'remove' in self.account and self.account['remove']:
             if self.username in ACCOUNTS:
                 del ACCOUNTS[self.username]
@@ -1455,10 +1591,9 @@ class Worker:
         else:
             self.log.warning('Swapping out {} because {}.', self.username, reason)
         self.update_accounts_dict()
-        accounts_in_queues = self.extra_queue.qsize() + self.captcha_queue.qsize()
-        self.extra_queue.put(self.account)
-        extra_accounts_required = int(ceil(conf.EXTRA_ACCOUNT_PERCENT * conf.GRID[0] * conf.GRID[1]))
-        direct_from_db = accounts_in_queues < extra_accounts_required
+        accounts_in_queues = self.account_queue.qsize() + self.captcha_queue.qsize()
+        self.account_queue.put(self.account)
+        direct_from_db = accounts_in_queues < self.required_extra_accounts()
         await self.new_account(direct_from_db=direct_from_db)
 
     async def get_account_from_db(self):
@@ -1473,40 +1608,40 @@ class Worker:
             self.log.warning('Acquired new account {} direct from DB.', self.account.get('username'))
         else:
             if (conf.CAPTCHA_KEY
-                    and (conf.FAVOR_CAPTCHA or self.extra_queue.empty())
+                    and (conf.FAVOR_CAPTCHA or self.account_queue.empty())
                     and not self.captcha_queue.empty()):
                 self.account = self.captcha_queue.get()
             else:
                 try:
-                    self.account = self.extra_queue.get_nowait()
+                    self.account = self.account_queue.get_nowait()
                 except Empty as e:
                     if after_remove:
                         raise InsufficientAccountsException("No more accounts available in DB #2")
                     else:
-                        self.account = await run_threaded(self.extra_queue.get)
+                        self.account = await run_threaded(self.account_queue.get)
                 except InsufficientAccountsException:
                     raise InsufficientAccountsException("No more accounts available in DB #3")
-        self.username = self.account['username']
-        try:
-            self.location = self.account['location'][:2]
-        except KeyError:
-            self.location = get_start_coords(self.worker_no)
-        self.inventory_timestamp = self.account.get('inventory_timestamp', 0) if self.items else 0
-        self.player_level = self.account.get('level')
-        self.last_request = self.account.get('time', 0)
-        self.last_action = self.last_request
-        self.last_gmo = self.last_request
-        try:
-            self.items = self.account['items']
-            self.bag_items = sum(self.items.values())
-        except KeyError:
-            self.account['items'] = {}
-            self.items = self.account['items']
-        self.num_captchas = 0
-        self.eggs = {}
-        self.unused_incubators = deque()
-        self.initialize_api()
-        self.error_code = None
+            self.username = self.account['username']
+            try:
+                self.location = self.account['location'][:2]
+            except KeyError:
+                self.location = self.get_start_coords()
+            self.inventory_timestamp = self.account.get('inventory_timestamp', 0) if self.items else 0
+            self.player_level = self.account.get('level')
+            self.last_request = self.account.get('time', 0)
+            self.last_action = self.last_request
+            self.last_gmo = self.last_request
+            try:
+                self.items = self.account['items']
+                self.bag_items = sum(self.items.values())
+            except KeyError:
+                self.account['items'] = {}
+                self.items = self.account['items']
+            self.num_captchas = 0
+            self.eggs = {}
+            self.unused_incubators = deque()
+            self.initialize_api()
+            self.error_code = None
 
     def within_distance(self, fort, max_distance=445):
         gym_location = fort.latitude, fort.longitude
@@ -1554,6 +1689,7 @@ class Worker:
             'lat': raw.latitude,
             'lon': raw.longitude,
             'spawn_id': spawn_id,
+            'spawn_point_id': raw.spawn_point_id,
             'seen': tss,
             'gender': raw.pokemon_data.pokemon_display.gender,
             'form': raw.pokemon_data.pokemon_display.form,
@@ -1587,6 +1723,7 @@ class Worker:
             'lat': raw.latitude,
             'lon': raw.longitude,
             'spawn_id': 0,
+            'spawn_point_id': None,
             'time_till_hidden': (lure.lure_expires_timestamp_ms - now) / 1000,
             'inferred': 'pokestop'
         }

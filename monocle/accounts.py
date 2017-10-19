@@ -6,7 +6,7 @@ from time import time
 from queue import Queue
 from threading import Semaphore
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, UniqueConstraint, exists, func, or_
+from sqlalchemy import Column, UniqueConstraint, Index, exists, func, or_
 from sqlalchemy.types import Integer, Boolean, Enum, SmallInteger, String
 from . import db, utils, sanitized as conf
 from .shared import LOOP, get_logger, run_threaded
@@ -16,6 +16,9 @@ log = get_logger(__name__)
 instance_id = conf.INSTANCE_ID[-32:]
 bucket = {}
 account_get_sem = Semaphore()
+
+RESERVE_TYPE_SLAVE = 0
+RESERVE_TYPE_CAPTAIN = 1
 
 class Provider(enum.Enum):
     ptc = 1
@@ -47,6 +50,7 @@ class Account(db.Base):
     password = Column(String(32), nullable=False)
     provider = Column(String(12), nullable=False)
     level = Column(SmallInteger, default=1, nullable=False, index=True)
+    reserve_type = Column(SmallInteger, default=0, nullable=True)
     model = Column(String(20))
     device_version = Column(String(20))
     device_id = Column(String(64))
@@ -62,6 +66,7 @@ class Account(db.Base):
             'username',
             name='ix_accounts_username_unique'
         ),
+        Index('ix_accounts_acquisition', "reserve_type", "instance", "hibernated", "created"),
     )
 
     stats_info = (0, None, None)
@@ -81,7 +86,7 @@ class Account(db.Base):
                 }
         if account.remove:
             d['remove'] = True
-        if account.captchaed:
+        if account.captchaed and not conf.CAPTCHA_KEY:
             d['captcha'] = True
         if account.hibernated:
             if account.reason == 'sbanned':
@@ -165,7 +170,8 @@ class Account(db.Base):
         if 'password' in account:
             account_db.password = account.get('password')
         if 'level' in account:
-            account_db.level = account.get('level')
+            account_db.level = account.get('level', 0)
+            account_db.reserve_type = RESERVE_TYPE_SLAVE if account_db.level < 30 else RESERVE_TYPE_CAPTAIN
         if 'model' in account:
             account_db.model = account.get('model')
         if 'iOS' in account:
@@ -229,13 +235,16 @@ class Account(db.Base):
     def query_builder(session, min_level, max_level):
         q = session.query(Account) \
                 .filter(Account.instance==None,
-                        Account.hibernated==None,
-                        Account.captchaed==None) \
-                .order_by(Account.id)
+                        Account.hibernated==None) \
+                .order_by(Account.created, Account.id)
         if min_level:
             q = q.filter(Account.level >= min_level)
         if max_level:
             q = q.filter(Account.level <= max_level)
+        if max_level < 30:
+            q = q.filter(Account.reserve_type == RESERVE_TYPE_SLAVE)
+        elif min_level >= 30:
+            q = q.filter(Account.reserve_type == RESERVE_TYPE_CAPTAIN)
         return q
 
     @staticmethod
@@ -247,7 +256,7 @@ class Account(db.Base):
                 if account:
                     account.instance = instance_id
                     account_dict = Account.to_account_dict(account)
-                    log.info("New account {} acquired and binded to this instance in DB.", account.username)
+                    log.info("New account {}(Lv.{}) acquired and binded to this instance in DB.", account.username, account.level)
                 else:
                     account_dict = None
         return account_dict
@@ -320,39 +329,67 @@ class Account(db.Base):
 
                 accounts = session.query(Account) \
                         .filter(Account.instance == None,
-                                Account.level < 30,
+                                Account.reserve_type == RESERVE_TYPE_SLAVE,
                                 Account.reason == None) \
                         .count()
                 db_wide['clean'] = accounts
-
-                accounts = session.query(Account) \
-                        .filter(Account.instance == None,
-                                Account.level < 30,
-                                Account.reason != None) \
-                        .count()
-                db_wide['test'] = accounts 
-
                 common = db.get_common(session, 'account_stats_clean',lock=True)
                 common.val = str(db_wide['clean'])
                 session.merge(common)
+
+                accounts = session.query(Account) \
+                        .filter(Account.instance == None,
+                                Account.reserve_type == RESERVE_TYPE_SLAVE,
+                                Account.hibernated == None,
+                                Account.reason != None) \
+                        .count()
+                db_wide['test'] = accounts 
                 common = db.get_common(session, 'account_stats_test',lock=True)
                 common.val = str(db_wide['test'])
                 session.merge(common)
+
+                accounts = session.query(Account) \
+                        .filter(Account.instance == None,
+                                Account.reserve_type == RESERVE_TYPE_CAPTAIN,
+                                Account.reason == None) \
+                        .count()
+                db_wide['clean30'] = accounts 
+                common = db.get_common(session, 'account_stats_clean30',lock=True)
+                common.val = str(db_wide['clean30'])
+                session.merge(common)
+
+                accounts = session.query(Account) \
+                        .filter(Account.instance == None,
+                                Account.reserve_type == RESERVE_TYPE_CAPTAIN,
+                                Account.hibernated == None,
+                                Account.reason != None) \
+                        .count()
+                db_wide['test30'] = accounts 
+                common = db.get_common(session, 'account_stats_test30',lock=True)
+                common.val = str(db_wide['test30'])
+                session.merge(common)
             else:
                 common = db.get_common(session, 'account_stats_clean')
-                db_wide['clean'] = int(common.val)
+                db_wide['clean'] = int(common.val or 0)
                 common = db.get_common(session, 'account_stats_test')
-                db_wide['test'] = int(common.val)
+                db_wide['test'] = int(common.val or 0)
+                common = db.get_common(session, 'account_stats_clean30')
+                db_wide['clean30'] = int(common.val or 0)
+                common = db.get_common(session, 'account_stats_test30')
+                db_wide['test30'] = int(common.val or 0)
 
             Account.stats_info = (time(), instance, db_wide)
 
         return Account.stats_info
 
     @classmethod
-    def estimated_extra_accounts(cls):
+    def estimated_extra_accounts(cls, level30=False):
         dbwide = cls.stats_info[2]
         if dbwide:
-            return dbwide['clean'] + dbwide['test']
+            if not level30:
+                return dbwide.get('clean', 0) + dbwide.get('test', 0)
+            else:
+                return dbwide.get('clean30', 0) + dbwide('test30', 0)
         else:
             return 0
 
@@ -363,7 +400,7 @@ class Account(db.Base):
         Otherwise, it will be set to 0 when level info is not available in pickles. 
         Level will be automatically updated upon login.
         """
-        clean_accounts, pickled_accounts = load_accounts_tuple()
+        clean_accounts, pickled_accounts, clean_accounts30 = load_accounts_tuple()
 
         imported = {}
 
@@ -467,7 +504,32 @@ class LoginCredentialsException(Exception):
 class EmailUnverifiedException(Exception):
     pass
 
+class CustomQueue(Queue):
+    def full_wait(self, maxsize=0, timeout=None):
+        '''Block until queue size falls below maxsize'''
+        starttime = monotonic()
+        with self.not_full:
+            if maxsize > 0:
+                if timeout is None:
+                    while self._qsize() >= maxsize:
+                        self.not_full.wait()
+                elif timeout < 0:
+                    raise ValueError("'timeout' must be a non-negative number")
+                else:
+                    endtime = monotonic() + timeout
+                    while self._qsize() >= maxsize:
+                        remaining = endtime - monotonic()
+                        if remaining <= 0.0:
+                            raise Full
+                        self.not_full.wait(remaining)
+            self.not_empty.notify()
+        endtime = monotonic()
+        return endtime - starttime
+
 class AccountQueue(Queue):
+    def min_max_level(self):
+        return (0,29)
+
     def _put(self, item):
         Account.put(item)
         if 'remove' in item and item['remove']:
@@ -477,15 +539,19 @@ class AccountQueue(Queue):
 
     def get(self, block=True, timeout=None):
         if self.qsize() == 0:
-            new_account = Account.get(0,29)
+            min_lv, max_lv = self.min_max_level()
+            new_account = Account.get(min_lv, max_lv)
             if new_account:
                 self.queue.append(new_account)
             else:
-                raise InsufficientAccountsException("Not enough accounts in DB") 
+                raise InsufficientAccountsException("Not enough accounts in DB in {}".format(self.__class__.__name__)) 
         return super().get(block=block, timeout=timeout)
 
+class Lv30AccountQueue(AccountQueue):
+    def min_max_level(self):
+        return (30,100)
 
-class CaptchaAccountQueue(Queue):
+class CaptchaAccountQueue(CustomQueue):
     def _init(self, maxsize):
         super()._init(maxsize)
 
@@ -522,6 +588,10 @@ def add_account_to_keep(dirty_accounts, add_account, clean_accounts):
 
 def load_accounts_tuple():
     pickled_accounts = utils.load_pickle('accounts')
+    accounts30 = utils.load_pickle('accounts30')
+
+    if not accounts30:
+        accounts30 = {}
 
     if conf.ACCOUNTS_CSV:
         accounts = load_accounts_csv()
@@ -550,13 +620,13 @@ def load_accounts_tuple():
     # Sync db and pickle
     accounts_dicts = Account.load_my_accounts(instance_id, accounts.keys())
     clean_accounts = {}
+    clean_accounts30 = {}
     for account_dict in accounts_dicts:
         level = account_dict['level']
-        if level < 30:
+        if not level or level < 30:
             add_account_to_keep(accounts, account_dict, clean_accounts)
         else:
-            # Nothing to do with Lv.30s yet
-            pass
+            add_account_to_keep(accounts30, account_dict, clean_accounts30)
 
     # Save once those accounts found in pickles and configs
     for username in accounts:
@@ -569,12 +639,8 @@ def load_accounts_tuple():
                 username, account_dict.get('level', 0))
 
     utils.dump_pickle('accounts', clean_accounts)
-    return clean_accounts, pickled_accounts
-
-
-def load_accounts():
-    return load_accounts_tuple()[0]
-
+    utils.dump_pickle('accounts30', clean_accounts30)
+    return clean_accounts, pickled_accounts, clean_accounts30
 
 def create_account_dict(account):
     if isinstance(account, (tuple, list)):
@@ -651,8 +717,12 @@ def accounts_from_csv(new_accounts, pickled_accounts):
         accounts[username] = account
     return accounts
 
-
 def get_accounts():
     if 'ACCOUNTS' not in bucket:
-        bucket['ACCOUNTS'] = load_accounts()
+        bucket['ACCOUNTS'], _, bucket['ACCOUNTS30'] = load_accounts_tuple() 
     return bucket['ACCOUNTS'] 
+
+def get_accounts30():
+    if 'ACCOUNTS30' not in bucket:
+        bucket['ACCOUNTS'], _, bucket['ACCOUNTS30'] = load_accounts_tuple() 
+    return bucket['ACCOUNTS30'] 
