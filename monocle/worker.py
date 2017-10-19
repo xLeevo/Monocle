@@ -906,7 +906,8 @@ class Worker:
                 # Tricky.
                 in_mystery_cache = normalized in MYSTERY_CACHE
 
-                sb_detector.add_sighting(self.account, normalized)
+                if sb_detector:
+                    sb_detector.add_sighting(self.account, normalized)
 
                 # Check if already marked for save as mystery
                 if normalized['type'] == 'mystery':
@@ -976,7 +977,8 @@ class Worker:
                                 await self.random_sleep(2.0, 5.0)
                                 encountered = True
                             else:
-                                sb_detector.add_encounter_miss(self.account)
+                                if sb_detector:
+                                    sb_detector.add_encounter_miss(self.account)
                         except CancelledError:
                             db_proc.add(normalized)
                             raise
@@ -1004,7 +1006,8 @@ class Worker:
                 if fort.type == 1:  # pokestops
                     if fort.HasField('lure_info'):
                         norm = self.normalize_lured(fort, request_time_ms)
-                        sb_detector.add_sighting(self.account, norm)
+                        if sb_detector:
+                            sb_detector.add_sighting(self.account, norm)
                         pokemon_seen += 1
                         if norm not in SIGHTING_CACHE:
                             SIGHTING_CACHE.add(norm)
@@ -1107,9 +1110,11 @@ class Worker:
         try:
             if await self.encounter(sighting, sighting['spawn_point_id']):
                 self.overseer.Worker30.encounters += 1
-                sb_detector.add_sighting(self.account, sighting)
+                if sb_detector:
+                    sb_detector.add_sighting(self.account, sighting)
             else:
-                sb_detector.add_encounter_miss(self.account)
+                if sb_detector:
+                    sb_detector.add_encounter_miss(self.account)
         except CancelledError:
             db_proc.add(sighting)
             raise
