@@ -1082,7 +1082,7 @@ class Worker:
                 await self.swap_account(reason)
         self.visits += 1
 
-        if self.worker_dict:
+        if self.worker_dict is not None:
             self.worker_dict.update([(self.worker_no,
                 (point, start, self.speed, self.total_seen,
                 self.visits, pokemon_seen))])
@@ -1125,7 +1125,7 @@ class Worker:
 
         pokemon_seen = 0
 
-        if self.worker_dict:
+        if self.worker_dict is not None:
             self.worker_dict.update([(self.worker_no,
                 (point, start, self.speed, self.total_seen,
                 self.visits, pokemon_seen))])
