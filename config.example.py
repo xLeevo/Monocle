@@ -166,7 +166,6 @@ INCUBATE_EGGS = True      # incubate eggs if available
 ## valid options:
 # 'all' will encounter every Pokémon that hasn't been already been encountered
 # 'some' will encounter Pokémon if they are in ENCOUNTER_IDS or eligible for notification
-# 'notifying' will encounter Pokémon that are eligible for notifications
 # None will never encounter Pokémon
 ENCOUNTER = None
 #ENCOUNTER_IDS = (3, 6, 9, 45, 62, 71, 80, 85, 87, 89, 91, 94, 114, 130, 131, 134)
