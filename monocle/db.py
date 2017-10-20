@@ -347,7 +347,7 @@ class Sighting(Base):
     __tablename__ = 'sightings'
 
     id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
-    pokemon_id = Column(TINY_TYPE)
+    pokemon_id = Column(SmallInteger)
     spawn_id = Column(BigInteger)
     expire_timestamp = Column(Integer, index=True)
     encounter_id = Column(UNSIGNED_HUGE_TYPE, index=True)
@@ -406,7 +406,7 @@ class Raid(Base):
     external_id = Column(BigInteger, unique=True)
     fort_id = Column(Integer, ForeignKey('forts.id'))
     level = Column(TINY_TYPE)
-    pokemon_id = Column(TINY_TYPE)
+    pokemon_id = Column(SmallInteger)
     move_1 = Column(SmallInteger)
     move_2 = Column(SmallInteger)
     time_spawn = Column(Integer, index=True)
@@ -419,7 +419,7 @@ class Mystery(Base):
     __tablename__ = 'mystery_sightings'
 
     id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
-    pokemon_id = Column(TINY_TYPE)
+    pokemon_id = Column(SmallInteger)
     spawn_id = Column(BigInteger, index=True)
     encounter_id = Column(UNSIGNED_HUGE_TYPE, index=True)
     lat = Column(FLOAT_TYPE)
@@ -504,7 +504,7 @@ class FortSighting(Base):
     fort_id = Column(Integer, ForeignKey('forts.id'))
     last_modified = Column(Integer, index=True)
     team = Column(TINY_TYPE)
-    guard_pokemon_id = Column(TINY_TYPE)
+    guard_pokemon_id = Column(SmallInteger)
     slots_available = Column(SmallInteger)
     is_in_battle = Column(Boolean, default=False)
     updated = Column(Integer,default=time,onupdate=time)
@@ -523,7 +523,7 @@ class GymDefender(Base):
     id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
     fort_id = Column(Integer, ForeignKey('forts.id', onupdate="CASCADE", ondelete="CASCADE"), nullable=False, index=True)
     external_id = Column(UNSIGNED_HUGE_TYPE, nullable=False)
-    pokemon_id = Column(Integer)
+    pokemon_id = Column(SmallInteger)
     owner_name = Column(String(128))
     nickname = Column(String(128))
     cp = Column(Integer)
