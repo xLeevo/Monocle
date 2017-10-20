@@ -1093,7 +1093,7 @@ def get_pokemon_ranking(session):
     if conf.REPORT_SINCE:
         query = query.filter(Sighting.expire_timestamp > SINCE_TIME)
     ranked = [r[0] for r in query]
-    none_seen = [x for x in range(1,252) if x not in ranked]
+    none_seen = [x for x in range(1,387) if x not in ranked]
     return none_seen + ranked
 
 def get_gym(session,raw_fort):
@@ -1119,7 +1119,7 @@ def sightings_to_csv(since=None, output='sightings.csv'):
     with session_scope() as session:
         sightings = get_sightings_per_pokemon(session)
     od = OrderedDict()
-    for pokemon_id in range(1, 252):
+    for pokemon_id in range(1, 387):
         if pokemon_id not in sightings:
             od[pokemon_id] = 0
     od.update(sightings)
@@ -1150,7 +1150,7 @@ def get_nonexistent_pokemon(session):
         {report_since}
     '''.format(report_since=SINCE_QUERY))
     db_ids = [r[0] for r in query]
-    return [x for x in range(1,252) if x not in db_ids]
+    return [x for x in range(1,387) if x not in db_ids]
 
 
 def get_all_sightings(session, pokemon_ids):
