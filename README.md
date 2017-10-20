@@ -1,6 +1,6 @@
 # Monocle/Monkey
 
-Read [wiki](https://github.com/MonkeyTedBaker/Monocle/wiki) first before looking for help in [Discord](https://discord.gg/AbrXxMU).
+Read [wiki](https://github.com/MonkeyTedBaker/Monocle/wiki) first before looking for help on Discord at `PMSF#monkey`.
 
 # Monocle
 
