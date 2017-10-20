@@ -265,7 +265,7 @@ class Sighting(Base):
     __tablename__ = 'sightings'
 
     id = Column(Integer, primary_key=True)
-    pokemon_id = Column(TINY_TYPE)
+    pokemon_id = Column(SmallInteger)
     spawn_id = Column(ID_TYPE)
     expire_timestamp = Column(Integer, index=True)
     encounter_id = Column(HUGE_TYPE, index=True)
@@ -294,7 +294,7 @@ class Raid(Base):
     external_id = Column(String(35), unique=True)
     fort_id = Column(Integer, ForeignKey('forts.id'))
     level = Column(TINY_TYPE)
-    pokemon_id = Column(TINY_TYPE)
+    pokemon_id = Column(SmallInteger)
     move_1 = Column(SmallInteger)
     move_2 = Column(SmallInteger)
     time_spawn = Column(Integer, index=True)
@@ -306,7 +306,7 @@ class Mystery(Base):
     __tablename__ = 'mystery_sightings'
 
     id = Column(Integer, primary_key=True)
-    pokemon_id = Column(TINY_TYPE)
+    pokemon_id = Column(SmallInteger)
     spawn_id = Column(ID_TYPE, index=True)
     encounter_id = Column(HUGE_TYPE, index=True)
     lat = Column(FLOAT_TYPE)
@@ -372,7 +372,7 @@ class FortSighting(Base):
     last_modified = Column(Integer, index=True)
     team = Column(TINY_TYPE)
     prestige = Column(MEDIUM_TYPE)
-    guard_pokemon_id = Column(TINY_TYPE)
+    guard_pokemon_id = Column(SmallInteger)
     slots_available = Column(Integer)
 
     __table_args__ = (
