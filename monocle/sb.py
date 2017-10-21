@@ -12,13 +12,15 @@ SB_RAN = 1
 SB_SIGHTING = 2
 SB_UNCOMMON = 3
 SB_ENC_MISS = 4
+SB_VISIT = 5
+SB_EMPTY_VISIT = 6
 
 class SbAccountException(Exception):
     """Raised when an account is shadow banned"""
 
 class SbDetector:
         
-    sb_cooldown = min(max(60, conf.GRID[0] * conf.GRID[1]), 300)
+    sb_cooldown = min(max(30, conf.GRID[0] * conf.GRID[1]), 300)
 
     def __init__(self):
         if conf.SB_WEBHOOK:
@@ -27,35 +29,47 @@ class SbDetector:
             self.notifier = None
         log.info("SbDetector initialized with cooldown: {}s.", self.sb_cooldown)
 
+    def new_quarantine(self):
+        return [int(time()), 0, 0, 0, 0, 0, 0]
+
+    def reset_quarantine(self, quarantine):
+        quarantine[SB_START] = int(time())
+        quarantine[SB_RAN] = 0
+        quarantine[SB_SIGHTING] = 0
+        quarantine[SB_UNCOMMON] = 0
+        quarantine[SB_ENC_MISS] = 0
+        quarantine[SB_VISIT] = 0
+        quarantine[SB_EMPTY_VISIT] = 0
+
     @contextmanager
     def quarantine(self, account):
         quarantine = account.get('sb_quarantine')
 
-        if not quarantine:
-            #(start time, detect ran at, common, uncommon, encounter_miss)
-            quarantine = [int(time()), 0, 0, 0, 0]
+        if not quarantine or len(quarantine) < 7:
+            quarantine = self.new_quarantine()
 
         yield quarantine
 
-        if quarantine[SB_START] < time() - conf.SB_QUARANTINE_SECONDS:
-            quarantine[SB_START] = int(time()) # quarantine start
-            # quarantine[SB_RAN] # ran at
-            quarantine[SB_SIGHTING] = 0 # common
-            quarantine[SB_UNCOMMON] = 0 # uncommon
-            quarantine[SB_ENC_MISS] = 0 # encounter miss
-
-        account['sb_quarantine'] = quarantine
+        account['sb_quarantine'] = quarantine 
                 
     def add_sighting(self, account, sighting):
         with self.quarantine(account) as quarantine:
-            quarantine[SB_SIGHTING] += 1 # common
+            quarantine[SB_SIGHTING] += 1
             pokemon_id = sighting.get('pokemon_id')
             if pokemon_id and pokemon_id not in conf.SB_COMMON_POKEMON_IDS:
-                quarantine[SB_UNCOMMON] += 1 # uncommon
+                quarantine[SB_UNCOMMON] += 1
 
     def add_encounter_miss(self, account):
         with self.quarantine(account) as quarantine:
-            quarantine[SB_ENC_MISS] += 1 # encounter miss
+            quarantine[SB_ENC_MISS] += 1
+
+    def add_visit(self, account):
+        with self.quarantine(account) as quarantine:
+            quarantine[SB_VISIT] += 1
+
+    def add_empty_visit(self, account):
+        with self.quarantine(account) as quarantine:
+            quarantine[SB_EMPTY_VISIT] += 1
 
     async def detect(self, account):
         username = account.get('username')
@@ -71,36 +85,51 @@ class SbDetector:
             sightings = quarantine[SB_SIGHTING]
             uncommon = quarantine[SB_UNCOMMON]
             enc_miss = quarantine[SB_ENC_MISS]
+            visits = quarantine[SB_VISIT]
+            empty_visits = quarantine[SB_EMPTY_VISIT]
 
             try:
+                if visits >= conf.SB_QUARANTINE_VISITS and empty_visits < sightings and sightings > 0 and uncommon <= 0:
+                    raise SbAccountException("No uncommons seen after {} visits".format(conf.SB_QUARANTINE_VISITS))
+
                 if sightings > conf.SB_MIN_SIGHTING_COUNT and uncommon <= 0:
                     raise SbAccountException("No uncommons seen after {} sightings".format(sightings))
 
                 if enc_miss >= conf.SB_MAX_ENC_MISS and uncommon <= 0:
                     raise SbAccountException("Encounter missed for {} times".format(enc_miss))
 
-                log.info("Username: {}(Lv.{}), sightings: {}, uncommon: {}, enc_miss: {}, quarantined: {}s, sbanned: {}",
+                if quarantine[SB_VISIT] > conf.SB_QUARANTINE_VISITS:
+                    self.reset_quarantine(quarantine)
+
+                log.info("Username: {}(Lv.{}), visits: ({}/{}), empty: {}, sightings: {}, uncommon: {}, enc_miss: {}, quarantined: {}s, sbanned: {}",
                         username,
                         account.get('level',0),
+                        visits, conf.SB_QUARANTINE_VISITS,
+                        empty_visits,
                         sightings,
                         uncommon,
                         enc_miss,
                         elapsed,
                         False)
+                return
 
             except SbAccountException as e:
-                log.info("Username: {}(Lv.{}), sightings: {}, uncommon: {}, enc_miss: {}, quarntined: {}s, sbanned: {}",
+                log.info("Username: {}(Lv.{}), visits: ({}/{}), empty: {}, sightings: {}, uncommon: {}, enc_miss: {}, quarntined: {}s, sbanned: {} ({})",
                         username,
                         account.get('level',0),
+                        visits, conf.SB_QUARANTINE_VISITS,
+                        empty_visits,
                         sightings,
                         uncommon,
                         enc_miss,
                         elapsed,
-                        True)
+                        True,
+                        e)
                 if self.notifier:
                     LOOP.create_task(self.webhook(self.notifier, conf.SB_WEBHOOK, username,
-                        message="{}\nlevel: {}, sightings: {}, uncommon: {}, enc miss: {}, quarantined: {}".format(e,
-                            account.get('level',0), sightings, uncommon, enc_miss, elapsed)))
+                        message="{}\nlevel: {}, visits: ({}/{}), empty: {}, sightings: {}, uncommon: {}, enc_miss: {}, quarantined: {}s".format(e,
+                            account.get('level',0), visits, conf.SB_QUARANTINE_VISITS,
+                            empty, sightings, uncommon, enc_miss, elapsed)))
                 raise e
 
     async def webhook(self, notifier, endpoint, username, message):

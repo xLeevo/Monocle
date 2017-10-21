@@ -856,6 +856,9 @@ class Worker:
         self.log.info('{0} is visiting {1[0]:.4f}, {1[1]:.4f}', self.username, point)
         start = time()
 
+        if sb_detector:
+            sb_detector.add_visit(self.account)
+
         cell_ids = self.get_cell_ids(point)
         since_timestamp_ms = (0,) * len(cell_ids)
         request = self.api.create_request()
@@ -1077,6 +1080,8 @@ class Worker:
             self.empty_visits = 0
         else:
             self.empty_visits += 1
+            if sb_detector:
+                sb_detector.add_empty_visit(self.account)
             if forts_seen == 0:
                 self.log.warning('Nothing seen by {}. Speed: {:.2f}', self.username, self.speed)
                 self.error_code = '0 SEEN'
@@ -1109,6 +1114,8 @@ class Worker:
     async def visit_encounter(self, point, sighting):
         self.handle.cancel()
         start = time()
+        if sb_detector:
+            sb_detector.add_visit(self.account)
         try:
             if await self.encounter(sighting, sighting['spawn_point_id']):
                 self.overseer.Worker30.encounters += 1

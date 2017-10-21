@@ -490,7 +490,7 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #SB_COMMON_POKEMON_IDS = (16,19,23,27,29,32,41,43,46,52,54,60,69,72,74,77,81,98,118,120,129,161,165,167,177,183,187,191,194,198,209,218)
 #SB_MAX_ENC_MISS = 3           # Number of encounter misses before account is marked as sbanned
 #SB_MIN_SIGHTING_COUNT = 30    # Minimum sightings required to flag SB
-#SB_QUARANTINE_SECONDS = 900   # How many seconds to set as investigation period?
+#SB_QUARANTINE_VISITS = 12     # Number of mininum visits needed to check if an account has seen any uncommon
 #SB_WEBHOOK = None             # Define webhook end point for SB. Payload is Discord type.
 
 ####
