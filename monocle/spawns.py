@@ -60,7 +60,7 @@ class BaseSpawns:
                     self.unknown.add(point)
                     continue
 
-                if spawn.despawn_time:
+                if spawn.despawn_time is not None:
                     if spawn.duration == 60:
                         spawn_time = spawn.despawn_time
                     else:
