@@ -87,7 +87,5 @@ if conf.BOUNDARIES:
         sys.modules[__name__] = MultiPolyBounds()
     else:
         raise TypeError('BOUNDARIES must be a shapely Polygon.')
-elif conf.STAY_WITHIN_MAP:
-    sys.modules[__name__] = RectBounds()
 else:
-    sys.modules[__name__] = Bounds()
+    sys.modules[__name__] = RectBounds()

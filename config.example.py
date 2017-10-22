@@ -68,10 +68,6 @@ GRID = (4, 4)  # rows, columns
 MAP_START = (40.7913, -111.9398)
 MAP_END = (40.7143, -111.8046)
 
-# do not visit spawn points outside of your MAP_START and MAP_END rectangle
-# the boundaries will be the rectangle created by MAP_START and MAP_END, unless
-STAY_WITHIN_MAP = True
-
 # ensure that you visit within this many meters of every part of your map during bootstrap
 # lower values are more thorough but will take longer
 BOOTSTRAP_RADIUS = 120
@@ -120,7 +116,6 @@ GOOD_ENOUGH = 0.1
 SEARCH_SLEEP = 2.5
 
 ## alternatively define a Polygon to use as boundaries (requires shapely)
-## if BOUNDARIES is set, STAY_WITHIN_MAP will be ignored
 ## more information available in the shapely manual:
 ## http://toblerity.org/shapely/manual.html#polygons
 #from shapely.geometry import Polygon

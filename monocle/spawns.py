@@ -46,11 +46,8 @@ class BaseSpawns:
 
         with db.session_scope() as session:
             query = session.query(db.Spawnpoint)
-            if bound or conf.STAY_WITHIN_MAP:
-                query = query.filter(db.Spawnpoint.lat >= bounds.south,
-                                     db.Spawnpoint.lat <= bounds.north,
-                                     db.Spawnpoint.lon >= bounds.west,
-                                     db.Spawnpoint.lon <= bounds.east)
+            query = query.filter(db.Spawnpoint.lat.between(bounds.south, bounds.north),
+                                 db.Spawnpoint.lon.between(bounds.west, bounds.east))
             known = {}
             for spawn in query:
                 point = spawn.lat, spawn.lon
@@ -75,6 +72,8 @@ class BaseSpawns:
 
                 self.updated_at[spawn.spawn_id] = spawn.updated
                 self.internal_ids[spawn.spawn_id] = spawn.id
+            self.log.info('Preloaded {} known spawnpoints', len(known))
+            self.log.info('Preloaded {} unknown spawnpoints', len(self.unknown))
         self.known = OrderedDict(sorted(known.items(), key=lambda k: k[1][1]))
 
     def after_last(self):

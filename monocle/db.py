@@ -121,25 +121,26 @@ class SightingCache:
             sightings = session.query(Sighting) \
                 .join(Sighting.spawnpoint) \
                 .filter(Sighting.expire_timestamp >= time()) \
-                .filter(Spawnpoint.lat.between(bounds.south - 0.015, bounds.north + 0.015),
-                        Spawnpoint.lon.between(bounds.west - 0.015, bounds.east + 0.015))
+                .filter(Spawnpoint.lat.between(bounds.south, bounds.north),
+                        Spawnpoint.lon.between(bounds.west, bounds.east))
 
             sightings_lured = session.query(Sighting) \
                 .filter(Sighting.spawn_id == 0) \
                 .filter(Sighting.expire_timestamp >= time()) \
-                .filter(Sighting.lat.between(bounds.south - 0.015, bounds.north + 0.015),
-                        Sighting.lon.between(bounds.west - 0.015, bounds.east + 0.015))
+                .filter(Sighting.lat.between(bounds.south, bounds.north),
+                        Sighting.lon.between(bounds.west, bounds.east))
 
             sightings = sightings.union(sightings_lured)
-
             for sighting in sightings:
+                if (sighting.lat, sighting.lon) not in bounds:
+                    continue
                 obj = {
                     'encounter_id': sighting.encounter_id,
                     'spawn_id': sighting.spawn_id,
                     'expire_timestamp': sighting.expire_timestamp,
                 }
                 self.add(obj)
-            log.info("Preloaded {} sightings", sightings.count())
+            log.info("Preloaded {} sightings", len(self))
 
 
 class MysteryCache:
@@ -228,16 +229,19 @@ class RaidCache:
                 .options(eagerload(Raid.fort)) \
                 .join(Fort, Fort.id == Raid.fort_id) \
                 .filter(Raid.time_end > time()) \
-                .filter(Fort.lat.between(bounds.south - 0.015, bounds.north + 0.015),
-                        Fort.lon.between(bounds.west - 0.015, bounds.east + 0.015))
-    
+                .filter(Fort.lat.between(bounds.south, bounds.north),
+                        Fort.lon.between(bounds.west, bounds.east))
             for raid in raids:
                 fort = raid.fort
+                if (fort.lat, fort.lon) not in bounds:
+                    continue
                 r = {}
                 r['fort_external_id'] = fort.external_id
                 r['time_end'] = raid.time_end
                 r['pokemon_id'] = raid.pokemon_id
                 self.add(r)
+            log.info("Preloaded {} raids", len(self))
+            
 
 
 class FortCache:
@@ -283,13 +287,11 @@ class FortCache:
         with session_scope() as session:
             fort_sightings = session.query(FortSighting) \
                 .join(FortSighting.fort) \
-                .filter(Fort.lat.between(bounds.south - 0.015, bounds.north + 0.015),
-                        Fort.lon.between(bounds.west - 0.015, bounds.east + 0.015))
-            total = 0
+                .filter(Fort.lat.between(bounds.south, bounds.north),
+                        Fort.lon.between(bounds.west, bounds.east))
             for fort_sighting in fort_sightings:
                 if (fort_sighting.fort.lat, fort_sighting.fort.lon) not in bounds:
                     continue
-                total += 1
                 fort = fort_sighting.fort
                 external_id = fort.external_id
                 self.internal_ids[external_id] = fort_sighting.fort_id
@@ -300,20 +302,18 @@ class FortCache:
                     'last_modified': fort_sighting.last_modified,
                 }
                 self.add(obj)
-            log.info("Preloaded {} fort_sightings ", total)
+            log.info("Preloaded {} fort_sightings ", len(self))
 
             pokestops = session.query(Pokestop) \
-                .filter(Pokestop.lat.between(bounds.south - 0.015, bounds.north + 0.015),
-                        Pokestop.lon.between(bounds.west - 0.015, bounds.east + 0.015))
-            total = 0
+                .filter(Pokestop.lat.between(bounds.south, bounds.north),
+                        Pokestop.lon.between(bounds.west, bounds.east))
             for pokestop in pokestops:
                 if (pokestop.lat, pokestop.lon) not in bounds:
                     continue
-                total += 1
                 self.pokestops.add(pokestop.external_id)
                 if pokestop.name:
                     self.pokestop_names.add(pokestop.external_id)
-            log.info("Preloaded {} pokestops", total)
+            log.info("Preloaded {} pokestops", len(self.pokestop_names))
 
 
 SIGHTING_CACHE = SightingCache()
