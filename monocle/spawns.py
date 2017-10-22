@@ -28,6 +28,8 @@ class BaseSpawns:
         # {(lat, lon)}
         self.unknown = set()
 
+        self.have_point_cache = {}
+
         self.class_version = 3.1 
         self.db_hash = sha256(conf.DB_ENGINE.encode()).digest()
         self.log = get_logger('spawns')
@@ -159,7 +161,6 @@ class MoreSpawns(BaseSpawns):
         ## May or may not be actual spawn points, more research is needed.
         # {(lat, lon)}
         self.cell_points = set()
-        self.have_point_cache = {}
 
     def items(self):
         # return a copy since it may be modified

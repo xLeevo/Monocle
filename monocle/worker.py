@@ -1070,7 +1070,7 @@ class Worker:
                                     LOOP.create_task(self.notifier.webhook_raid(normalized_raid, normalized_fort))
                             db_proc.add(normalized_raid)
 
-            if more_points:
+            if more_points and self.worker_no < 10:
                 try:
                     for p in map_cell.spawn_points:
                         points_seen += 1
