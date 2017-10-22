@@ -230,7 +230,7 @@ _defaults = {
     'ITEM_LIMITS': None,
     'IV_FONT': 'monospace',
     'KEEP_GYM_HISTORY': False,
-    'KEEP_SPAWNPOINT_HISTORY': True,
+    'KEEP_SPAWNPOINT_HISTORY': False,
     'LANDMARKS': None,
     'LANGUAGE': 'EN',
     'LAST_MIGRATION': 1481932800,

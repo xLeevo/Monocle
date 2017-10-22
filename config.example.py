@@ -526,7 +526,7 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #
 ### If True, new sightings inserted. Else, existing sighting for the same spawnpoint will be updated (if found).
 ### Default is True
-#KEEP_SPAWNPOINT_HISTORY = True 
+#KEEP_SPAWNPOINT_HISTORY = False
 
 
 ### Cleanup
