@@ -8,7 +8,7 @@ from datetime import datetime
 from sqlalchemy import Column, Boolean, Integer, String, Float, SmallInteger, \
         BigInteger, ForeignKey, Index, UniqueConstraint, \
         create_engine, cast, func, desc, asc, desc, and_, exists
-from sqlalchemy.orm import sessionmaker, relationship, eagerload, joinedload, foreign, remote
+from sqlalchemy.orm import sessionmaker, relationship, eagerload, foreign, remote
 from sqlalchemy.types import TypeDecorator, Numeric, Text, TIMESTAMP
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -364,11 +364,6 @@ class Sighting(Base):
     level = Column(SmallInteger)
     updated = Column(Integer,default=time,onupdate=time)
 
-    user = relationship("SightingUser",
-            uselist=False,
-            back_populates="sighting",
-            cascade="all, delete-orphan")
-
     spawnpoint = relationship("Spawnpoint",
             uselist=False,
             primaryjoin="foreign(Sighting.spawn_id)==remote(Spawnpoint.spawn_id)",
@@ -379,23 +374,6 @@ class Sighting(Base):
             'encounter_id',
             'expire_timestamp',
             name='timestamp_encounter_id_unique'
-        ),
-    )
-
-class SightingUser(Base):
-    __tablename__ = 'sighting_users'
-
-    id = Column(PRIMARY_HUGE_TYPE, primary_key=True)
-    username = Column(String(32))
-    sighting_id = Column(HUGE_TYPE, ForeignKey('sightings.id', onupdate="CASCADE", ondelete="CASCADE"), nullable=False, index=True)
-
-    sighting = relationship("Sighting", uselist=False, back_populates="user")
-
-    __table_args__ = (
-        UniqueConstraint(
-            'username',
-            'sighting_id',
-            name='ix_username_sighting_id'
         ),
     )
 
@@ -581,12 +559,10 @@ def get_common(session, key, lock=False):
 def add_sighting(session, pokemon):
     if pokemon['spawn_id'] == 0 or pokemon.get('check_duplicate'):
         sighting = session.query(Sighting) \
-                .options(joinedload(Sighting.user, innerjoin=False)) \
                 .filter(Sighting.encounter_id==pokemon['encounter_id']) \
                 .first()
     elif not conf.KEEP_SPAWNPOINT_HISTORY:
         sighting = session.query(Sighting) \
-                .options(joinedload(Sighting.user, innerjoin=False)) \
                 .filter(Sighting.spawn_id==pokemon['spawn_id']) \
                 .order_by(desc(Sighting.id)) \
                 .first()
@@ -611,14 +587,6 @@ def add_sighting(session, pokemon):
     sighting.form = pokemon.get('form', 0)
     sighting.cp = pokemon.get('cp')
     sighting.level = pokemon.get('level')
-
-    if conf.SB_DETECTOR:
-        username = pokemon.get('username', None)
-        if username:
-            if sighting.user:
-                sighting.user.username = username
-            else:
-                sighting.user = SightingUser(username=username)
 
     session.merge(sighting)
 
