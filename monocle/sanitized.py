@@ -250,7 +250,7 @@ _defaults = {
     'MAX_CAPTCHAS': 0,
     'MAX_RETRIES': 3,
     'MINIMUM_RUNTIME': 10,
-    'MORE_POINTS': True,
+    'MORE_POINTS': False,
     'MOVE_FONT': 'sans-serif',
     'NAME_FONT': 'sans-serif',
     'NEVER_NOTIFY_IDS': (),
