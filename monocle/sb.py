@@ -129,7 +129,7 @@ class SbDetector:
                     LOOP.create_task(self.webhook(self.notifier, conf.SB_WEBHOOK, username,
                         message="{}\nlevel: {}, visits: ({}/{}), empty: {}, sightings: {}, uncommon: {}, enc_miss: {}, quarantined: {}s".format(e,
                             account.get('level',0), visits, conf.SB_QUARANTINE_VISITS,
-                            empty, sightings, uncommon, enc_miss, elapsed)))
+                            empty_visits, sightings, uncommon, enc_miss, elapsed)))
                 raise e
 
     async def webhook(self, notifier, endpoint, username, message):
