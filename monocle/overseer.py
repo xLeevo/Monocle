@@ -267,7 +267,7 @@ class Overseer:
                     Worker30.encounters, Worker30.visits,
                     Worker30.skipped, Worker30.lates, Worker30.hash_burn)
             self.log.info("{}etc.", self.counts.replace('\n',', '))
-            self.log.info("BorderCache: {}", Worker.in_bounds.cache_info())
+            self.log.info("BorderCache: {}, MorePointTestCache: {}", Worker.in_bounds.cache_info(), len(spawns.have_point_cache))
         LOOP.call_later(refresh, self.update_stats)
 
     def get_dots_and_messages(self):

@@ -195,7 +195,7 @@ class Worker:
         except KeyError:
             pass
 
-    @lru_cache(maxsize=65536)
+    @lru_cache(maxsize=524288)
     def in_bounds(self, lat, lon):
         return (lat, lon) in bounds
 
@@ -1079,7 +1079,7 @@ class Worker:
                         p = p.latitude, p.longitude
                         if spawns.have_point(p):
                             continue
-                        spawns.cell_points.add(p)
+                        spawns.add_cell_point(p)
                 except KeyError:
                     pass
 

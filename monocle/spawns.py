@@ -159,6 +159,7 @@ class MoreSpawns(BaseSpawns):
         ## May or may not be actual spawn points, more research is needed.
         # {(lat, lon)}
         self.cell_points = set()
+        self.have_point_cache = {}
 
     def items(self):
         # return a copy since it may be modified
@@ -170,13 +171,27 @@ class MoreSpawns(BaseSpawns):
         self.known[point] = None
         self.unknown.discard(point)
         self.cell_points.discard(point)
+        if point in self.have_point_cache:
+            del self.have_point_cache[point]
 
     def add_unknown(self, point):
         self.unknown.add(point)
         self.cell_points.discard(point)
+        if point in self.have_point_cache:
+            del self.have_point_cache[point]
 
     def have_point(self, point):
-        return point in chain(self.cell_points, self.known, self.unknown)
+        try:
+            return self.have_point_cache[point]
+        except KeyError:
+            result = point in chain(self.cell_points, self.known, self.unknown)
+            self.have_point_cache[point] = result
+            return result
+
+    def add_cell_point(self, point):
+        self.cell_points.add(point)
+        if point in self.have_point_cache:
+            del self.have_point_cache[point]
 
     def mystery_gen(self):
         for mystery in chain(self.unknown.copy(), self.cell_points.copy()):
