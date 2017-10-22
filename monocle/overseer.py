@@ -11,7 +11,7 @@ from time import time, monotonic
 from aiopogo import HashServer
 from sqlalchemy.exc import OperationalError
 
-from .db import SIGHTING_CACHE, MYSTERY_CACHE, FORT_CACHE
+from .db import SIGHTING_CACHE, MYSTERY_CACHE, FORT_CACHE, RAID_CACHE
 from .utils import get_current_hour, dump_pickle, get_start_coords, get_bootstrap_points, randomize_point, best_factors, percentage_split
 from .shared import get_logger, LOOP, run_threaded
 from .accounts import get_accounts, Account
@@ -254,19 +254,12 @@ class Overseer:
 
         if self.status_log_at < time() - 15.0:
             self.status_log_at = time()
-            self.log.info("Accounts {}, fresh/clean: {}, hibernated: {}, extra: {}",
-                    account_reasons,
-                    account_clean,
-                    account_test,
-                    self.extra_queue.qsize())
-            self.log.info("Accounts(Lv.30) fresh/clean: {}, hibernated: {}",
-                    account30_clean,
-                    account30_test)
-            self.log.info("Worker30: {}, jobs: {}, cache: {}, encounters: {}, visits: {}, skips: {}, late: {}, hash wastes: {}",
-                    len(Worker30.workers), Worker30.job_queue.qsize(), len(ENCOUNTER_CACHE),
-                    Worker30.encounters, Worker30.visits,
-                    Worker30.skipped, Worker30.lates, Worker30.hash_burn)
-            self.log.info("{}etc.", self.counts.replace('\n',', '))
+            for line in self.stats.split('\n'):
+                if line.strip():
+                    self.log.info(line)
+            for line in self.counts.split('\n'):
+                if line.strip():
+                    self.log.info(line)
             self.log.info("BorderCache: {}, MorePointTestCache: {}", Worker.in_bounds.cache_info(), len(spawns.have_point_cache))
         LOOP.call_later(refresh, self.update_stats)
 
@@ -446,12 +439,9 @@ class Overseer:
 
         FORT_CACHE.preload()
         FORT_CACHE.pickle()
-
-        try:
-            SIGHTING_CACHE.preload()
-            ENCOUNTER_CACHE.preload()
-        except Exception as e:
-            self.log.error("Preload error: {}", e)
+        SIGHTING_CACHE.preload()
+        ENCOUNTER_CACHE.preload()
+        RAID_CACHE.preload()
 
         self.Worker30 = Worker30
         self.ENCOUNTER_CACHE = ENCOUNTER_CACHE
