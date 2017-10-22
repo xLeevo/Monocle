@@ -259,17 +259,15 @@ class Overseer:
                     account_clean,
                     account_test,
                     self.extra_queue.qsize())
-
             self.log.info("Accounts(Lv.30) fresh/clean: {}, hibernated: {}",
                     account30_clean,
                     account30_test)
-
             self.log.info("Worker30: {}, jobs: {}, cache: {}, encounters: {}, visits: {}, skips: {}, late: {}, hash wastes: {}",
                     len(Worker30.workers), Worker30.job_queue.qsize(), len(ENCOUNTER_CACHE),
                     Worker30.encounters, Worker30.visits,
                     Worker30.skipped, Worker30.lates, Worker30.hash_burn)
-
             self.log.info("{}etc.", self.counts.replace('\n',', '))
+            self.log.info("BorderCache: {}", Worker.in_bounds.cache_info())
         LOOP.call_later(refresh, self.update_stats)
 
     def get_dots_and_messages(self):

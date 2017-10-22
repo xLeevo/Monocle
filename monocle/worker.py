@@ -7,6 +7,7 @@ from itertools import cycle
 from sys import exit
 from math import ceil
 from distutils.version import StrictVersion
+from functools import lru_cache
 
 from aiohttp import ClientSession
 from aiopogo import PGoApi, HashServer, json_loads, exceptions as ex
@@ -193,6 +194,10 @@ class Worker:
                     self.api.auth_provider.authenticated = True
         except KeyError:
             pass
+
+    @lru_cache(maxsize=65536)
+    def in_bounds(self, lat, lon):
+        return (lat, lon) in bounds
 
     def swap_proxy(self):
         proxy = self.api.proxy
@@ -908,6 +913,9 @@ class Worker:
         for map_cell in map_objects.map_cells:
             request_time_ms = map_cell.current_timestamp_ms
             for pokemon in map_cell.wild_pokemons:
+                if not self.in_bounds(pokemon.latitude, pokemon.longitude):
+                    continue
+
                 pokemon_seen += 1
 
                 normalized = self.normalize_pokemon(pokemon, username=self.username)
@@ -1015,6 +1023,8 @@ class Worker:
             for fort in map_cell.forts:
                 if not fort.enabled:
                     continue
+                if not self.in_bounds(fort.latitude, fort.longitude):
+                    continue
                 forts_seen += 1
                 if fort.type == 1:  # pokestops
                     if fort.HasField('lure_info'):
@@ -1064,8 +1074,10 @@ class Worker:
                 try:
                     for p in map_cell.spawn_points:
                         points_seen += 1
+                        if not self.in_bounds(p.latitude, p.longitude):
+                            continue
                         p = p.latitude, p.longitude
-                        if spawns.have_point(p) or p not in bounds:
+                        if spawns.have_point(p):
                             continue
                         spawns.cell_points.add(p)
                 except KeyError:
