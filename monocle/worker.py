@@ -18,7 +18,8 @@ from .db import FORT_CACHE, MYSTERY_CACHE, SIGHTING_CACHE, RAID_CACHE
 from .utils import round_coords, load_pickle, get_device_info, get_start_coords, Units, randomize_point, calc_pokemon_level
 from .shared import get_logger, LOOP, SessionManager, run_threaded
 from .sb import SbDetector, SbAccountException
-from .accounts import Account, get_accounts, InsufficientAccountsException, LoginCredentialsException, EmailUnverifiedException
+from .accounts import Account, get_accounts, InsufficientAccountsException, LoginCredentialsException, \
+        EmailUnverifiedException, SecurityLockException
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
 from .notification import Notifier
 
@@ -222,6 +223,8 @@ class Worker:
                     raise LoginCredentialsException("Username or password is wrong.")
                 elif "email not verified" in msg:
                     raise EmailUnverifiedException("Account email not verified")
+                elif "has been locked for security reasons" in msg:
+                    raise SecurityLockException("Account locked for security reason. Reset password needed")
                 err = e
                 await sleep(2, loop=LOOP)
             else:
@@ -759,6 +762,11 @@ class Worker:
             self.error_code = 'WRONG CREDENTIALS'
             await sleep(3, loop=LOOP)
             await self.remove_account(flag='credentials')
+        except SecurityLockException as e:
+            self.log.warning('Security lock error on {}: {}', self.username, e)
+            self.error_code = 'SECURITY LOCK'
+            await sleep(3, loop=LOOP)
+            await self.remove_account(flag='security')
         except EmailUnverifiedException as e:
             self.log.warning('Email verification error on {}: {}', self.username, e)
             self.error_code = 'UNVERIFIED'
@@ -1565,6 +1573,9 @@ class Worker:
         elif flag == 'unverified':
             self.account['unverified'] = True
             self.log.warning('Removing {} due to unverified email.', self.username)
+        elif flag == 'security':
+            self.account['security'] = True
+            self.log.warning('Removing {} due to security lock.', self.username)
         elif flag == 'level30':
             self.account['graduated'] = True
             self.log.warning('Removing {} from slave pool due to graduation to Lv.30.', self.username)

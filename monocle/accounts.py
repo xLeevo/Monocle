@@ -101,6 +101,8 @@ class Account(db.Base):
                 d['credentials'] = True
             elif account.reason == 'unverified':
                 d['unverified'] = True
+            elif account.reason == 'security':
+                d['security'] = True
         return d
 
     @staticmethod
@@ -139,6 +141,10 @@ class Account(db.Base):
             to_dict['unverified'] = from_dict.get('unverified')
         elif 'unverified' in to_dict:
             del to_dict['unverified']
+        if 'security' in from_dict:
+            to_dict['security'] = from_dict.get('security')
+        elif 'security' in to_dict:
+            del to_dict['security']
 
     @staticmethod
     def from_account_dict(session, account_dict, account_db=None, assign_instance=True, update_flags=True):
@@ -207,6 +213,9 @@ class Account(db.Base):
             elif 'unverified' in account and account['unverified']:
                 account_db.hibernated = int(time())
                 account_db.reason = 'unverified'
+            elif 'security' in account and account['security']:
+                account_db.hibernated = int(time())
+                account_db.reason = 'security'
             else:
                 account_db.hibernated = None
                 account_db.reason = None
@@ -502,6 +511,9 @@ class LoginCredentialsException(Exception):
     pass
 
 class EmailUnverifiedException(Exception):
+    pass
+
+class SecurityLockException(Exception):
     pass
 
 class CustomQueue(Queue):
