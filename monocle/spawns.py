@@ -185,7 +185,7 @@ class MoreSpawns(BaseSpawns):
         try:
             return self.have_point_cache[point]
         except KeyError:
-            result = point in chain(self.cell_points, self.known, self.unknown)
+            result = ((point in self.cell_points) or (point in self.known) or (point in self.unknown))
             self.have_point_cache[point] = result
             return result
 

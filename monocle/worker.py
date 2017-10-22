@@ -17,7 +17,7 @@ from pogeo import get_distance
 
 from .db import FORT_CACHE, MYSTERY_CACHE, SIGHTING_CACHE, RAID_CACHE
 from .utils import round_coords, load_pickle, get_device_info, get_start_coords, Units, randomize_point, calc_pokemon_level
-from .shared import get_logger, LOOP, SessionManager, run_threaded
+from .shared import get_logger, LOOP, SessionManager, run_threaded, TtlCache
 from .sb import SbDetector, SbAccountException
 from .accounts import Account, get_accounts, InsufficientAccountsException, LoginCredentialsException, \
         EmailUnverifiedException, SecurityLockException
@@ -61,6 +61,7 @@ class Worker:
     download_hash = ''
     scan_delay = conf.SCAN_DELAY if conf.SCAN_DELAY >= 10 else 10
     g = {'seen': 0, 'captchas': 0}
+    more_point_cell_cache = TtlCache(ttl=300) 
 
     if conf.CACHE_CELLS:
         cells = load_pickle('cells') or {}
@@ -195,7 +196,7 @@ class Worker:
         except KeyError:
             pass
 
-    @lru_cache(maxsize=524288)
+    @lru_cache(maxsize=2097152)
     def in_bounds(self, lat, lon):
         return (lat, lon) in bounds
 
@@ -1070,18 +1071,16 @@ class Worker:
                                     LOOP.create_task(self.notifier.webhook_raid(normalized_raid, normalized_fort))
                             db_proc.add(normalized_raid)
 
-            if more_points and self.worker_no < 10:
-                try:
-                    for p in map_cell.spawn_points:
-                        points_seen += 1
-                        if not self.in_bounds(p.latitude, p.longitude):
-                            continue
-                        p = p.latitude, p.longitude
-                        if spawns.have_point(p):
-                            continue
-                        spawns.add_cell_point(p)
-                except KeyError:
-                    pass
+            if more_points and (map_cell.s2_cell_id not in self.more_point_cell_cache):
+                self.more_point_cell_cache.add(map_cell.s2_cell_id)
+                for p in map_cell.spawn_points:
+                    points_seen += 1
+                    if not self.in_bounds(p.latitude, p.longitude):
+                        continue
+                    p = p.latitude, p.longitude
+                    if spawns.have_point(p):
+                        continue
+                    spawns.add_cell_point(p)
 
         if spawn_id:
             db_proc.add({
