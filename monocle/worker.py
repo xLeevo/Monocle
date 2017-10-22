@@ -1082,7 +1082,7 @@ class Worker:
                         continue
                     spawns.add_cell_point(p)
 
-        if spawn_id:
+        if spawn_id and not encounter_id:
             db_proc.add({
                 'type': 'target',
                 'seen': seen_target,

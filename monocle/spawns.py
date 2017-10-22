@@ -23,6 +23,8 @@ class BaseSpawns:
         self.internal_ids = {}
         # {spawn_id: timestamp}
         self.spawn_timestamps = {}
+        # {spawn_id: failure count}
+        self.failures = {}
 
         ## Spawns with unknown times
         # {(lat, lon)}
@@ -72,6 +74,8 @@ class BaseSpawns:
 
                 self.updated_at[spawn.spawn_id] = spawn.updated
                 self.internal_ids[spawn.spawn_id] = spawn.id
+                self.failures[spawn.spawn_id] = spawn.failures if spawn.failures is not None else 0
+
             self.log.info('Preloaded {} known spawnpoints', len(known))
             self.log.info('Preloaded {} unknown spawnpoints', len(self.unknown))
         self.known = OrderedDict(sorted(known.items(), key=lambda k: k[1][1]))
@@ -119,6 +123,19 @@ class BaseSpawns:
         state['last_migration'] = conf.LAST_MIGRATION
         dump_pickle('spawns', state)
 
+    def remove_known(self, spawn_id):
+        if spawn_id in self.despawn_times:
+            del self.despawn_times[spawn_id]
+        if spawn_id in self.failures:
+            del self.failures[spawn_id]
+        if spawn_id in self.updated_at:
+            del self.updated_at[spawn_id]
+        if spawn_id in self.internal_ids:
+            del self.internal_ids[spawn_id]
+        if spawn_id in self.spawn_timestamps:
+            del self.spawn_timestamps[spawn_id]
+
+
     @property
     def total_length(self):
         return len(self.despawn_times) + len(self.unknown) + self.cells_count
@@ -134,6 +151,7 @@ class Spawns(BaseSpawns):
 
     def add_known(self, spawn_id, despawn_time, point):
         self.despawn_times[spawn_id] = despawn_time
+        self.failures[spawn_id] = 0
         self.unknown.discard(point)
 
     def add_unknown(self, point):
@@ -167,6 +185,7 @@ class MoreSpawns(BaseSpawns):
 
     def add_known(self, spawn_id, despawn_time, point):
         self.despawn_times[spawn_id] = despawn_time
+        self.failures[spawn_id] = 0
         # add so that have_point() will be up to date
         self.known[point] = None
         self.unknown.discard(point)

@@ -272,16 +272,6 @@ class FortCache:
         state['bounds_hash'] = hash(bounds)
         dump_pickle('forts', state)
 
-    #def unpickle(self):
-    #    try:
-    #        state = load_pickle('forts', raise_exception=True)
-    #        if all((state['class_version'] == self.class_version,
-    #                state['db_hash'] == spawns.db_hash,
-    #                state['bounds_hash'] == hash(bounds))):
-    #            self.__dict__.update(state)
-    #    except (FileNotFoundError, TypeError, KeyError):
-    #        pass
-
     # Preloading from db
     def preload(self):
         with session_scope() as session:
@@ -590,6 +580,18 @@ def add_sighting(session, pokemon):
 
     session.merge(sighting)
 
+    # Reset failures to 0 if needed
+    spawn_id = pokemon['spawn_id']
+    failures = spawns.failures.get(spawn_id, 0)
+    if failures > 0:
+        spawns.failures[spawn_id] = 0
+        spawnpoint = session.query(Spawnpoint) \
+            .filter(Spawnpoint.spawn_id == spawn_id) \
+            .first()
+        if spawnpoint:
+            spawnpoint.failures = 0
+
+
 def add_gym_defenders(session, fort_internal_id, gym_defenders):
         
     session.query(GymDefender).filter(GymDefender.fort_id==fort_internal_id).delete()
@@ -672,7 +674,9 @@ def touch_spawnpoint(session, spawn_id):
     now = int(time())
     spawnpoint = session.query(Spawnpoint) \
         .filter(Spawnpoint.id == internal_id) \
-        .update({'updated': now})
+        .first()
+    if spawnpoint:
+        spawnpoint.updated = now
     return now
 
 
@@ -899,19 +903,25 @@ def update_failures(session, spawn_id, success, allowed=conf.FAILURES_ALLOWED):
         elif spawnpoint.failures >= allowed:
             if spawnpoint.duration == 60:
                 spawnpoint.duration = None
+                spawnpoint.failures = 0
                 log.warning('{} consecutive failures on {}, no longer treating as an hour spawn.', allowed + 1, spawn_id)
+            elif conf.SB_DETECTOR:
+                session.delete(spawnpoint)
+                spawns.remove_known(spawn_id)
+                log.warning('{} consecutive failures on {}, deleted.', allowed + 1, spawn_id)
+                return
             else:
                 spawnpoint.updated = 0
-                try:
-                    del spawns.despawn_times[spawn_id]
-                except KeyError:
-                    pass
+                spawnpoint.failures = 0
+                spawns.remove_known(spawn_id)
                 log.warning('{} consecutive failures on {}, will treat as an unknown from now on.', allowed + 1, spawn_id)
-            spawnpoint.failures = 0
+                return
         else:
             spawnpoint.failures += 1
+        spawns.failures[spawn_id] = spawnpoint.failures
     except TypeError:
         spawnpoint.failures = 1
+        spawns.failures[spawn_id] = spawnpoint.failures
 
 
 def update_mystery(session, mystery):

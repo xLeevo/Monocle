@@ -206,7 +206,7 @@ _defaults = {
     'ENCOUNTER_IDS': None,
     'EXTRA_ACCOUNT_PERCENT': 0.0,
     'FAVOR_CAPTCHA': True,
-    'FAILURES_ALLOWED': 20,
+    'FAILURES_ALLOWED': 3,
     'FB_PAGE_ID': None,
     'FIXED_OPACITY': False,
     'FORCED_KILL': None,
