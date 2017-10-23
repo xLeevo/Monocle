@@ -218,7 +218,7 @@ MAX_RETRIES = 3
 LOGIN_TIMEOUT = 2.5
 
 # add spawn points reported in cell_ids to the unknown spawns list
-#MORE_POINTS = True
+#MORE_POINTS = False 
 
 # Set to True to kill the scanner when a newer version is forced
 #FORCED_KILL = False
