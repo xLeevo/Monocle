@@ -54,8 +54,10 @@ class Worker30(Worker):
         return 0
     
     async def account_promotion(self):
-        # Do nothing
-        pass
+        if self.player_level and self.player_level < 30:
+            self.log.warning('{} is marked as Lv.30 while it is in fact Lv.{}. Moving it out of high-level captain pool', self.username, self.player_level)
+            await sleep(1, loop=LOOP)
+            await self.remove_account(flag='level1')
 
     @classmethod
     def add_job(self, pokemon):

@@ -186,6 +186,8 @@ class Account(db.Base):
             account_db.device_id = account.get('id')
         if 'graduated' in account and account['graduated']:
             account_db.instance = None
+        if 'demoted' in account and account['demoted']:
+            account_db.instance = None
         if 'remove' in account:
             account_db.remove = account.get('remove', False)
 

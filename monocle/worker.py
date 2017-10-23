@@ -1590,6 +1590,9 @@ class Worker:
         elif flag == 'level30':
             self.account['graduated'] = True
             self.log.warning('Removing {} from slave pool due to graduation to Lv.30.', self.username)
+        elif flag == 'level1':
+            self.account['demoted'] = True
+            self.log.warning('Removing {} from captain pool due to insufficient level.', self.username)
         else:
             self.account['banned'] = True
             self.log.warning('Hibernating {} due to ban.', self.username)
