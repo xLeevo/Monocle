@@ -196,7 +196,7 @@ class Worker:
         except KeyError:
             pass
 
-    @lru_cache(maxsize=2097152)
+    @lru_cache(maxsize=1048576)
     def in_bounds(self, lat, lon):
         return (lat, lon) in bounds
 
