@@ -804,6 +804,15 @@ def add_fort_sighting(session, raw_fort):
 
 
 def add_raid(session, raw_raid):
+    fort_external_id = raw_raid['fort_external_id']
+    if fort_external_id in FORT_CACHE.internal_ids and FORT_CACHE.internal_ids[fort_external_id]:
+        fort_id = FORT_CACHE.internal_ids[fort_external_id]
+    else:
+        fort_id = session.query(Fort.id) \
+            .filter(Fort.external_id == fort_external_id) \
+            .scalar()
+        FORT_CACHE.internal_ids[fort_external_id] = fort_id
+
     raid = session.query(Raid) \
         .filter(Raid.external_id == raw_raid['external_id']) \
         .first()
@@ -816,15 +825,6 @@ def add_raid(session, raw_raid):
             session.merge(raid)
             touch_fort_sighting(session, fort_id)
         return
-
-    fort_external_id = raw_raid['fort_external_id']
-    if fort_external_id in FORT_CACHE.internal_ids and FORT_CACHE.internal_ids[fort_external_id]:
-        fort_id = FORT_CACHE.internal_ids[fort_external_id]
-    else:
-        fort_id = session.query(Fort.id) \
-            .filter(Fort.external_id == fort_external_id) \
-            .scalar()
-        FORT_CACHE.internal_ids[fort_external_id] = fort_id
 
     if fort_id:
         if conf.KEEP_GYM_HISTORY:
