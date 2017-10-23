@@ -814,6 +814,7 @@ def add_raid(session, raw_raid):
             raid.move_1 = raw_raid['move_1']
             raid.move_2 = raw_raid['move_2']
             session.merge(raid)
+            touch_fort_sighting(session, fort_id)
         return
 
     fort_external_id = raw_raid['fort_external_id']
@@ -849,11 +850,16 @@ def add_raid(session, raw_raid):
         raid.move_2 = raw_raid['move_2']
 
         session.merge(raid)
+        touch_fort_sighting(session, fort_id)
 
-        # touch fort_sightings
-        fort_sighting = session.query(FortSighting).filter(FortSighting.id==fort_id).first()
-        if fort_sighting:
-            fort_sighting.updated = int(time())
+        
+def touch_fort_sighting(session, fort_id):
+    fort_sighting = session.query(FortSighting) \
+            .filter(FortSighting.fort_id==fort_id) \
+            .order_by(desc(FortSighting.last_modified)) \
+            .first()
+    if fort_sighting:
+        fort_sighting.updated = int(time())
 
 
 def add_pokestop(session, raw_pokestop):
