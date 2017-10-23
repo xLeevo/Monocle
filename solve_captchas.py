@@ -70,7 +70,14 @@ async def main():
             else:
                 lv30_captcha_queue.put(account)
 
-        activate_hash_server(conf.HASH_KEY)
+        if conf.GO_HASH:
+            hashkey = conf.GO_HASH_KEY
+        else:
+            hashkey = conf.HASH_KEY
+        activate_hash_server(hashkey,
+            go_hash=conf.GO_HASH,
+            hash_endpoint=conf.HASH_ENDPOINT,
+            gohash_endpoint=conf.GOHASH_ENDPOINT)
 
         driver = webdriver.Chrome()
         driver.set_window_size(803, 807)
