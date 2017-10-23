@@ -204,7 +204,7 @@ class Overseer:
             'Worker30: {}, jobs: {}, caches: {}, encounters: {}, visits: {}, skips: {}, late: {}, hash wastes: {}\n'
             'Extra accounts: {}, CAPTCHAs needed: {}\n'
             'Accounts (this instance) {} (refreshed: {})\n'
-            'Accounts (DB-wide) fresh/clean: {}, hibernated: {}\n'
+            'Accounts (DB-wide) fresh/clean: {}, hibernated: {}, (Lv.30) fresh/clean: {}, hibernated: {}\n'
             )
         try:
             self.stats = stats_template.format(
@@ -217,7 +217,8 @@ class Overseer:
                 Worker30.skipped, Worker30.lates, Worker30.hash_burn,
                 self.extra_queue.qsize(), self.captcha_queue.qsize(),
                 account_reasons, account_refresh,
-                account_clean, account_test
+                account_clean, account_test,
+                account30_clean, account30_test
             )
         except Exception as e:
             self.stats = stats_template.format(
@@ -230,6 +231,7 @@ class Overseer:
                 0, 0, 0,
                 0, 0,
                 None, None,
+                0, 0,
                 0, 0
             )
 
@@ -254,13 +256,20 @@ class Overseer:
 
         if self.status_log_at < time() - 15.0:
             self.status_log_at = time()
+            visits =  """Visits: {}, Skipped: {}, Unnecessary: {}""".format(
+                    self.visits,
+                    self.skipped, self.redundant)
             for line in self.stats.split('\n'):
                 if line.strip():
                     self.log.info(line)
             for line in self.counts.split('\n'):
                 if line.strip():
                     self.log.info(line)
+            for line in visits.split('\n'):
+                if line.strip():
+                    self.log.info(line)
             self.log.info("BorderCache: {}, MorePointTestCache: {}", Worker.in_bounds.cache_info(), len(spawns.have_point_cache))
+
         LOOP.call_later(refresh, self.update_stats)
 
     def get_dots_and_messages(self):
