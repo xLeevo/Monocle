@@ -50,12 +50,12 @@ def parse_args():
         help='Run cleanups for sightings, fort_sightings, mystery_sightings and raids. Recommended to run this once a minute',
         action='store_true'
     )
-    parser.add_argument(
-        '--heavy',
-        dest='heavy',
-        help='Run cleanup for spawnpoints. Recommended to run every hour.',
-        action='store_true'
-    )
+    #parser.add_argument(
+    #    '--heavy',
+    #    dest='heavy',
+    #    help='Run cleanup for spawnpoints. Recommended to run every hour.',
+    #    action='store_true'
+    #)
     parser.add_argument(
         '--swapin',
         dest='swapin',
@@ -73,9 +73,9 @@ def cron_jobs():
     job_light = cron.new(command="{} --light >> {}/logs/cron.log 2>&1".format(command, root_dir),comment="{} --light".format(tag))
     jobs.append(job_light)
     
-    job_heavy = cron.new(command="{} --heavy >> {}/logs/cron.log 2>&1".format(command, root_dir),comment="{} --heavy".format(tag))
-    job_heavy.minute.on(5)
-    jobs.append(job_heavy)
+    #job_heavy = cron.new(command="{} --heavy >> {}/logs/cron.log 2>&1".format(command, root_dir),comment="{} --heavy".format(tag))
+    #job_heavy.minute.on(5)
+    #jobs.append(job_heavy)
 
     job_swapin = cron.new(command="{} --swapin >> {}/logs/cron.log 2>&1".format(command, root_dir),comment="{} --swapin".format(tag))
     job_swapin.minute.on(10)
@@ -113,9 +113,9 @@ def main():
     elif args.light:
         log.info("Performing light cleanup.")
         Cleanup.light()
-    elif args.heavy:
-        log.info("Performing heavy cleanup.")
-        Cleanup.heavy()
+    #elif args.heavy:
+    #    log.info("Performing heavy cleanup.")
+    #    Cleanup.heavy()
     elif args.swapin:
         log.info("Performing swap-in of hibernated accounts.")
         Account.swapin()

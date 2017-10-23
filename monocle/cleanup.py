@@ -81,13 +81,13 @@ def light():
     log.info("Light cleanup done.")
 
 
-def heavy():
-    now = time()
-
-    if is_service_alive():
-        if conf.CLEANUP_SPAWNPOINTS_OLDER_THAN_X_HR > 0:
-            cleanup_with_temp_table("spawnpoints", now - (conf.CLEANUP_SPAWNPOINTS_OLDER_THAN_X_HR * 3600))
-    else:
-        log.info("Skipping cleanup since updates seem to be stopped for more than 30 mins.")
-
-    log.info("Heavy cleanup done.")
+#def heavy():
+#    now = time()
+#
+#    if is_service_alive():
+#        if conf.CLEANUP_SPAWNPOINTS_OLDER_THAN_X_HR > 0:
+#            cleanup_with_temp_table("spawnpoints", now - (conf.CLEANUP_SPAWNPOINTS_OLDER_THAN_X_HR * 3600))
+#    else:
+#        log.info("Skipping cleanup since updates seem to be stopped for more than 30 mins.")
+#
+#    log.info("Heavy cleanup done.")
