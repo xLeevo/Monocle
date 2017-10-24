@@ -24,6 +24,9 @@ from .accounts import Account, get_accounts, InsufficientAccountsException, Logi
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
 from .notification import Notifier
 
+from python_anticaptcha import AnticaptchaClient, NoCaptchaTaskProxylessTask
+from python_anticaptcha.exceptions import AnticatpchaException
+
 HARDCORE_HYPERDRIVE = (not conf.LV30_GMO)
 
 if conf.CACHE_CELLS:
@@ -1481,59 +1484,73 @@ class Worker:
 
         self.error_code = 'C'
         self.num_captchas += 1
-
         session = SessionManager.get()
-        try:
-            params = {
-                'key': conf.CAPTCHA_KEY,
-                'method': 'userrecaptcha',
-                'googlekey': '6LeeTScTAAAAADqvhqVMhPpr_vB9D364Ia-1dSgK',
-                'pageurl': challenge_url,
-                'json': 1
-            }
-            async with session.post('http://2captcha.com/in.php', params=params) as resp:
-                response = await resp.json(loads=json_loads)
-        except CancelledError:
-            raise
-        except Exception as e:
-            self.log.error('Got an error while trying to solve CAPTCHA. '
-                           'Check your API Key and account balance.')
-            raise CaptchaSolveException from e
 
-        code = response.get('request')
-        if response.get('status') != 1:
-            if code in ('ERROR_WRONG_USER_KEY', 'ERROR_KEY_DOES_NOT_EXIST', 'ERROR_ZERO_BALANCE'):
-                conf.CAPTCHA_KEY = None
-                self.log.error('2Captcha reported: {}, disabling CAPTCHA solving', code)
-            else:
-                self.log.error("Failed to submit CAPTCHA for solving: {}", code)
-            raise CaptchaSolveException
-
-        try:
-            # Get the response, retry every 5 seconds if it's not ready
-            params = {
-                'key': conf.CAPTCHA_KEY,
-                'action': 'get',
-                'id': code,
-                'json': 1
-            }
-            while True:
-                async with session.get("http://2captcha.com/res.php", params=params, timeout=20) as resp:
+        if not conf.USE_ANTICAPTCHA:
+            try:
+                params = {
+                    'key': conf.CAPTCHA_KEY,
+                    'method': 'userrecaptcha',
+                    'googlekey': '6LeeTScTAAAAADqvhqVMhPpr_vB9D364Ia-1dSgK',
+                    'pageurl': challenge_url,
+                    'json': 1
+                }
+                async with session.post('http://2captcha.com/in.php', params=params) as resp:
                     response = await resp.json(loads=json_loads)
-                if response.get('request') != 'CAPCHA_NOT_READY':
-                    break
-                await sleep(5, loop=LOOP)
-        except CancelledError:
-            raise
-        except Exception as e:
-            self.log.error('Got an error while trying to solve CAPTCHA. '
-                              'Check your API Key and account balance.')
-            raise CaptchaSolveException from e
+            except CancelledError:
+                raise
+            except Exception as e:
+                self.log.error('Got an error while trying to solve CAPTCHA. '
+                               'Check your API Key and account balance.')
+                raise CaptchaSolveException from e
 
-        token = response.get('request')
-        if not response.get('status') == 1:
-            self.log.error("Failed to get CAPTCHA response: {}", token)
-            raise CaptchaSolveException
+            code = response.get('request')
+            if response.get('status') != 1:
+                if code in ('ERROR_WRONG_USER_KEY', 'ERROR_KEY_DOES_NOT_EXIST', 'ERROR_ZERO_BALANCE'):
+                    conf.CAPTCHA_KEY = None
+                    self.log.error('2Captcha reported: {}, disabling CAPTCHA solving', code)
+                else:
+                    self.log.error("Failed to submit CAPTCHA for solving: {}", code)
+                raise CaptchaSolveException
+
+            try:
+                # Get the response, retry every 5 seconds if it's not ready
+                params = {
+                    'key': conf.CAPTCHA_KEY,
+                    'action': 'get',
+                    'id': code,
+                    'json': 1
+                }
+                while True:
+                    async with session.get("http://2captcha.com/res.php", params=params, timeout=20) as resp:
+                        response = await resp.json(loads=json_loads)
+                    if response.get('request') != 'CAPCHA_NOT_READY':
+                        break
+                    await sleep(5, loop=LOOP)
+            except CancelledError:
+                raise
+            except Exception as e:
+                self.log.error('Got an error while trying to solve CAPTCHA. '
+                                  'Check your API Key and account balance.')
+                raise CaptchaSolveException from e
+
+            token = response.get('request')
+            if not response.get('status') == 1:
+                self.log.error("Failed to get CAPTCHA response: {}", token)
+                raise CaptchaSolveException
+        else:
+            try:
+                acclient = AnticaptchaClient(conf.CAPTCHA_KEY)
+                actask = NoCaptchaTaskProxylessTask(challenge_url, '6LeeTScTAAAAADqvhqVMhPpr_vB9D364Ia-1dSgK')
+                acjob = acclient.createTask(actask)
+                acjob.join()
+                token = acjob.get_solution_response()
+            except AnticatpchaException as e:
+                self.log.error('AntiCaptcha error: {}, {}', e.error_code, e.error_description)
+                raise CaptchaException from e
+            except Exception as e:
+                self.log.error('Other error from anticaptcha')
+                raise CaptchaException from e
 
         request = self.api.create_request()
         request.verify_challenge(token=token)
