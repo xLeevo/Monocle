@@ -268,7 +268,10 @@ class Overseer:
             for line in visits.split('\n'):
                 if line.strip():
                     self.log.info(line)
-            self.log.info("BorderCache: {}, MorePointTestCache: {}", Worker.in_bounds.cache_info(), len(spawns.have_point_cache))
+            self.log.info("BorderCache: {}, MorePointTestCache: {}, Worker30SemLock: {}",
+                    Worker.in_bounds.cache_info(),
+                    len(spawns.have_point_cache),
+                    Worker30.coroutine_semaphore.locked())
 
         LOOP.call_later(refresh, self.update_stats)
 

@@ -95,15 +95,18 @@ class Worker30(Worker):
             log.info("Worker30 count: ({}/{})", len(self.workers), self.workers_needed)
 
             while True:
-                while not self.job_queue.empty():
-                    job = self.job_queue.get()[2]
-                    log.debug("Job: {}", job)
+                try:
+                    while not self.job_queue.empty():
+                        job = self.job_queue.get()[2]
+                        log.debug("Job: {}", job)
 
-                    if job in ENCOUNTER_CACHE:
-                        continue
+                        if job in ENCOUNTER_CACHE:
+                            continue
             
-                    await self.coroutine_semaphore.acquire()
-                    LOOP.create_task(self.try_point(job))
+                        await self.coroutine_semaphore.acquire()
+                        LOOP.create_task(self.try_point(job))
+                except Exception as e:
+                    log.warning("A wild error appeared in launcher loop: {}", e)
                 await sleep(1)
         except CancelledError:
             log.info("Coroutine cancelled.")
@@ -111,10 +114,13 @@ class Worker30(Worker):
                 job = self.job_queue.get()[2]
                 job['check_duplicate'] = True
                 db_proc.add(job)
+        except Exception as e:
+            log.warning("A wild error appeared in launcher: {}", e)
+
 
     async def sleep_travel_time(self, point):
-        distance = get_distance(self.location, point, UNIT)
         if conf.LV30_MAX_SPEED and not HARDCORE_HYPERDRIVE:
+            distance = get_distance(self.location, point, UNIT)
             time_needed = 3600.0 * distance / conf.LV30_MAX_SPEED 
             if self.username:
                 if time_needed > 0.0:
