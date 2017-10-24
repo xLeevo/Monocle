@@ -133,7 +133,7 @@ class Worker30(Worker):
             encounter_id = job['encounter_id']
             spawn_id = job['spawn_id']
             expire_timestamp = job['expire_timestamp']
-            if time() >= expire_timestamp - conf.GIVE_UP_KNOWN - 30.0:
+            if time() >= expire_timestamp - 30.0:
                 raise LateEncounterSkippedError("Insufficient time, {}s left"
                         .format(int(expire_timestamp - time())))
             spawn_time = spawns.spawn_timestamps.get(spawn_id, 0)
