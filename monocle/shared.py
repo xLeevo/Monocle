@@ -75,3 +75,32 @@ def call_at(when, cb, *args):
 async def run_threaded(cb, *args):
     with ThreadPoolExecutor(max_workers=1) as x:
         return await LOOP.run_in_executor(x, cb, *args)
+
+
+class TtlCache:
+    """Simple cache for storing Pokemon with unknown expiration times
+
+    It's used in order not to make as many queries to the database.
+    It schedules sightings to be removed an hour after being seen.
+    """
+    def __init__(self,ttl=300):
+        self.store = {}
+        self.ttl = ttl
+
+    def __len__(self):
+        return len(self.store)
+
+    def add(self, key):
+        now = time()
+        self.store[key] = True 
+        call_at(now + self.ttl, self.remove, key)
+
+    def __contains__(self, key):
+        return key in self.store
+
+    def remove(self, key):
+        if key in self.store:
+            del self.store[key]
+
+    def items(self):
+        return self.store.items()

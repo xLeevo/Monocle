@@ -3,7 +3,6 @@ import sys
 from . import sanitized as conf
 from .utils import get_distance
 
-
 class Bounds:
     def __init__(self):
         self.north = max(conf.MAP_START[0], conf.MAP_END[0])
@@ -88,7 +87,5 @@ if conf.BOUNDARIES:
         sys.modules[__name__] = MultiPolyBounds()
     else:
         raise TypeError('BOUNDARIES must be a shapely Polygon.')
-elif conf.STAY_WITHIN_MAP:
-    sys.modules[__name__] = RectBounds()
 else:
-    sys.modules[__name__] = Bounds()
+    sys.modules[__name__] = RectBounds()

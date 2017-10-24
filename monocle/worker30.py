@@ -54,8 +54,10 @@ class Worker30(Worker):
         return 0
     
     async def account_promotion(self):
-        # Do nothing
-        pass
+        if self.player_level and self.player_level < 30:
+            self.log.warning('{} is marked as Lv.30 while it is in fact Lv.{}. Moving it out of high-level captain pool', self.username, self.player_level)
+            await sleep(1, loop=LOOP)
+            await self.remove_account(flag='level1')
 
     @classmethod
     def add_job(self, pokemon):
@@ -131,7 +133,7 @@ class Worker30(Worker):
             encounter_id = job['encounter_id']
             spawn_id = job['spawn_id']
             expire_timestamp = job['expire_timestamp']
-            if time() >= expire_timestamp - conf.GIVE_UP_KNOWN - 30.0:
+            if time() >= expire_timestamp - 30.0:
                 raise LateEncounterSkippedError("Insufficient time, {}s left"
                         .format(int(expire_timestamp - time())))
             spawn_time = spawns.spawn_timestamps.get(spawn_id, 0)

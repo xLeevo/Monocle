@@ -7,6 +7,7 @@ from itertools import cycle
 from sys import exit
 from math import ceil
 from distutils.version import StrictVersion
+from functools import lru_cache
 
 from aiohttp import ClientSession
 from aiopogo import PGoApi, HashServer, json_loads, exceptions as ex
@@ -16,9 +17,10 @@ from pogeo import get_distance
 
 from .db import FORT_CACHE, MYSTERY_CACHE, SIGHTING_CACHE, RAID_CACHE
 from .utils import round_coords, load_pickle, get_device_info, get_start_coords, Units, randomize_point, calc_pokemon_level
-from .shared import get_logger, LOOP, SessionManager, run_threaded
+from .shared import get_logger, LOOP, SessionManager, run_threaded, TtlCache
 from .sb import SbDetector, SbAccountException
-from .accounts import Account, get_accounts, InsufficientAccountsException, LoginCredentialsException, EmailUnverifiedException
+from .accounts import Account, get_accounts, InsufficientAccountsException, LoginCredentialsException, \
+        EmailUnverifiedException, SecurityLockException
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
 from .notification import Notifier
 
@@ -59,6 +61,7 @@ class Worker:
     download_hash = ''
     scan_delay = conf.SCAN_DELAY if conf.SCAN_DELAY >= 10 else 10
     g = {'seen': 0, 'captchas': 0}
+    more_point_cell_cache = TtlCache(ttl=300) 
 
     if conf.CACHE_CELLS:
         cells = load_pickle('cells') or {}
@@ -193,6 +196,10 @@ class Worker:
         except KeyError:
             pass
 
+    @lru_cache(maxsize=1048576)
+    def in_bounds(self, lat, lon):
+        return (lat, lon) in bounds
+
     def swap_proxy(self):
         proxy = self.api.proxy
         while proxy == self.api.proxy:
@@ -222,6 +229,8 @@ class Worker:
                     raise LoginCredentialsException("Username or password is wrong.")
                 elif "email not verified" in msg:
                     raise EmailUnverifiedException("Account email not verified")
+                elif "has been locked for security reasons" in msg:
+                    raise SecurityLockException("Account locked for security reason. Reset password needed")
                 err = e
                 await sleep(2, loop=LOOP)
             else:
@@ -759,6 +768,11 @@ class Worker:
             self.error_code = 'WRONG CREDENTIALS'
             await sleep(3, loop=LOOP)
             await self.remove_account(flag='credentials')
+        except SecurityLockException as e:
+            self.log.warning('Security lock error on {}: {}', self.username, e)
+            self.error_code = 'SECURITY LOCK'
+            await sleep(3, loop=LOOP)
+            await self.remove_account(flag='security')
         except EmailUnverifiedException as e:
             self.log.warning('Email verification error on {}: {}', self.username, e)
             self.error_code = 'UNVERIFIED'
@@ -900,6 +914,9 @@ class Worker:
         for map_cell in map_objects.map_cells:
             request_time_ms = map_cell.current_timestamp_ms
             for pokemon in map_cell.wild_pokemons:
+                if not self.in_bounds(pokemon.latitude, pokemon.longitude):
+                    continue
+
                 pokemon_seen += 1
 
                 normalized = self.normalize_pokemon(pokemon, username=self.username)
@@ -1007,6 +1024,8 @@ class Worker:
             for fort in map_cell.forts:
                 if not fort.enabled:
                     continue
+                if not self.in_bounds(fort.latitude, fort.longitude):
+                    continue
                 forts_seen += 1
                 if fort.type == 1:  # pokestops
                     if fort.HasField('lure_info'):
@@ -1052,18 +1071,18 @@ class Worker:
                                     LOOP.create_task(self.notifier.webhook_raid(normalized_raid, normalized_fort))
                             db_proc.add(normalized_raid)
 
-            if more_points:
-                try:
-                    for p in map_cell.spawn_points:
-                        points_seen += 1
-                        p = p.latitude, p.longitude
-                        if spawns.have_point(p) or p not in bounds:
-                            continue
-                        spawns.cell_points.add(p)
-                except KeyError:
-                    pass
+            if more_points and (map_cell.s2_cell_id not in self.more_point_cell_cache):
+                self.more_point_cell_cache.add(map_cell.s2_cell_id)
+                for p in map_cell.spawn_points:
+                    points_seen += 1
+                    if not self.in_bounds(p.latitude, p.longitude):
+                        continue
+                    p = p.latitude, p.longitude
+                    if spawns.have_point(p):
+                        continue
+                    spawns.add_cell_point(p)
 
-        if spawn_id:
+        if spawn_id and not encounter_id:
             db_proc.add({
                 'type': 'target',
                 'seen': seen_target,
@@ -1565,9 +1584,15 @@ class Worker:
         elif flag == 'unverified':
             self.account['unverified'] = True
             self.log.warning('Removing {} due to unverified email.', self.username)
+        elif flag == 'security':
+            self.account['security'] = True
+            self.log.warning('Removing {} due to security lock.', self.username)
         elif flag == 'level30':
             self.account['graduated'] = True
             self.log.warning('Removing {} from slave pool due to graduation to Lv.30.', self.username)
+        elif flag == 'level1':
+            self.account['demoted'] = True
+            self.log.warning('Removing {} from captain pool due to insufficient level.', self.username)
         else:
             self.account['banned'] = True
             self.log.warning('Hibernating {} due to ban.', self.username)

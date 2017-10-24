@@ -68,10 +68,6 @@ GRID = (4, 4)  # rows, columns
 MAP_START = (40.7913, -111.9398)
 MAP_END = (40.7143, -111.8046)
 
-# do not visit spawn points outside of your MAP_START and MAP_END rectangle
-# the boundaries will be the rectangle created by MAP_START and MAP_END, unless
-STAY_WITHIN_MAP = True
-
 # ensure that you visit within this many meters of every part of your map during bootstrap
 # lower values are more thorough but will take longer
 BOOTSTRAP_RADIUS = 120
@@ -120,7 +116,6 @@ GOOD_ENOUGH = 0.1
 SEARCH_SLEEP = 2.5
 
 ## alternatively define a Polygon to use as boundaries (requires shapely)
-## if BOUNDARIES is set, STAY_WITHIN_MAP will be ignored
 ## more information available in the shapely manual:
 ## http://toblerity.org/shapely/manual.html#polygons
 #from shapely.geometry import Polygon
@@ -223,7 +218,7 @@ MAX_RETRIES = 3
 LOGIN_TIMEOUT = 2.5
 
 # add spawn points reported in cell_ids to the unknown spawns list
-#MORE_POINTS = False
+#MORE_POINTS = False 
 
 # Set to True to kill the scanner when a newer version is forced
 #FORCED_KILL = False
@@ -275,7 +270,7 @@ MAP_WORKERS = True
 LAST_MIGRATION = 1481932800  # Dec. 17th, 2016
 
 # Treat a spawn point's expiration time as unknown if nothing is seen at it on more than x consecutive visits
-#FAILURES_ALLOWED = 20
+#FAILURES_ALLOWED = 3 
 
 ## Map data provider and appearance, previews available at:
 ## https://leaflet-extras.github.io/leaflet-providers/preview/

@@ -23,10 +23,14 @@ class BaseSpawns:
         self.internal_ids = {}
         # {spawn_id: timestamp}
         self.spawn_timestamps = {}
+        # {spawn_id: failure count}
+        self.failures = {}
 
         ## Spawns with unknown times
         # {(lat, lon)}
         self.unknown = set()
+
+        self.have_point_cache = {}
 
         self.class_version = 3.1 
         self.db_hash = sha256(conf.DB_ENGINE.encode()).digest()
@@ -44,11 +48,8 @@ class BaseSpawns:
 
         with db.session_scope() as session:
             query = session.query(db.Spawnpoint)
-            if bound or conf.STAY_WITHIN_MAP:
-                query = query.filter(db.Spawnpoint.lat >= bounds.south,
-                                     db.Spawnpoint.lat <= bounds.north,
-                                     db.Spawnpoint.lon >= bounds.west,
-                                     db.Spawnpoint.lon <= bounds.east)
+            query = query.filter(db.Spawnpoint.lat.between(bounds.south, bounds.north),
+                                 db.Spawnpoint.lon.between(bounds.west, bounds.east))
             known = {}
             for spawn in query:
                 point = spawn.lat, spawn.lon
@@ -61,7 +62,7 @@ class BaseSpawns:
                     self.unknown.add(point)
                     continue
 
-                if spawn.despawn_time:
+                if spawn.despawn_time is not None:
                     if spawn.duration == 60:
                         spawn_time = spawn.despawn_time
                     else:
@@ -73,6 +74,10 @@ class BaseSpawns:
 
                 self.updated_at[spawn.spawn_id] = spawn.updated
                 self.internal_ids[spawn.spawn_id] = spawn.id
+                self.failures[spawn.spawn_id] = spawn.failures if spawn.failures is not None else 0
+
+            self.log.info('Preloaded {} known spawnpoints', len(known))
+            self.log.info('Preloaded {} unknown spawnpoints', len(self.unknown))
         self.known = OrderedDict(sorted(known.items(), key=lambda k: k[1][1]))
 
     def after_last(self):
@@ -118,6 +123,19 @@ class BaseSpawns:
         state['last_migration'] = conf.LAST_MIGRATION
         dump_pickle('spawns', state)
 
+    def remove_known(self, spawn_id):
+        if spawn_id in self.despawn_times:
+            del self.despawn_times[spawn_id]
+        if spawn_id in self.failures:
+            del self.failures[spawn_id]
+        if spawn_id in self.updated_at:
+            del self.updated_at[spawn_id]
+        if spawn_id in self.internal_ids:
+            del self.internal_ids[spawn_id]
+        if spawn_id in self.spawn_timestamps:
+            del self.spawn_timestamps[spawn_id]
+
+
     @property
     def total_length(self):
         return len(self.despawn_times) + len(self.unknown) + self.cells_count
@@ -133,6 +151,7 @@ class Spawns(BaseSpawns):
 
     def add_known(self, spawn_id, despawn_time, point):
         self.despawn_times[spawn_id] = despawn_time
+        self.failures[spawn_id] = 0
         self.unknown.discard(point)
 
     def add_unknown(self, point):
@@ -166,17 +185,32 @@ class MoreSpawns(BaseSpawns):
 
     def add_known(self, spawn_id, despawn_time, point):
         self.despawn_times[spawn_id] = despawn_time
+        self.failures[spawn_id] = 0
         # add so that have_point() will be up to date
         self.known[point] = None
         self.unknown.discard(point)
         self.cell_points.discard(point)
+        if point in self.have_point_cache:
+            del self.have_point_cache[point]
 
     def add_unknown(self, point):
         self.unknown.add(point)
         self.cell_points.discard(point)
+        if point in self.have_point_cache:
+            del self.have_point_cache[point]
 
     def have_point(self, point):
-        return point in chain(self.cell_points, self.known, self.unknown)
+        try:
+            return self.have_point_cache[point]
+        except KeyError:
+            result = ((point in self.cell_points) or (point in self.known) or (point in self.unknown))
+            self.have_point_cache[point] = result
+            return result
+
+    def add_cell_point(self, point):
+        self.cell_points.add(point)
+        if point in self.have_point_cache:
+            del self.have_point_cache[point]
 
     def mystery_gen(self):
         for mystery in chain(self.unknown.copy(), self.cell_points.copy()):
