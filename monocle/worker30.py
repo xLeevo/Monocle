@@ -171,13 +171,14 @@ class Worker30(Worker):
                             spawn_id=spawn_id,
                             encounter_only=encounter_only,
                             sighting=job)
-                if visit_result and visit_result > -1:
-                    if not encounter_only:
-                        self.visits += 1
-                elif visit_result and visit_result == -1:
-                    if sb_detector:
-                        sb_detector.add_encounter_miss(worker.account)
-                    raise RetriableEncounterSkippedError("Pokemon not seen. Possibly shadow banned.")
+                if visit_result:
+                    if visit_result == -1:
+                        if sb_detector:
+                            sb_detector.add_encounter_miss(worker.account)
+                        raise RetriableEncounterSkippedError("Pokemon not seen. Possibly shadow banned.")
+                    else:
+                        if not encounter_only:
+                            self.visits += 1
                 else:
                     raise RetriableEncounterSkippedError("Encounter request failed due to unknown error.")
         except CancelledError:

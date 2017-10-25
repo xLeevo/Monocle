@@ -840,7 +840,6 @@ class Worker:
             err = str(e)
             self.log.error(err)
             print(err)
-            # exit()
             time.sleep(5)
         except (ex.MalformedResponseException, ex.UnexpectedResponseException) as e:
             self.log.warning('{} Giving up.', e)
@@ -1006,6 +1005,7 @@ class Worker:
                             raise
                         except Exception as e:
                             self.log.warning('{} during encounter by {}', e.__class__.__name__, self.username)
+                            raise e
 
                     if not encountered and conf.PGSCOUT_ENDPOINT:
                         async with ClientSession(loop=LOOP) as session:
@@ -1148,6 +1148,7 @@ class Worker:
             raise
         except Exception as e:
             self.log.warning('{} during encounter by {}', e.__class__.__name__, self.username)
+            raise e
 
         should_notify = self.should_notify(sighting)
         if should_notify:
@@ -1165,7 +1166,7 @@ class Worker:
 
         self.update_accounts_dict()
         self.handle = LOOP.call_later(60, self.unset_code)
-        return True 
+        return 1 
 
     def should_skip_sighting(self, sighting, cache):
         # Check if already marked for save as sighting
