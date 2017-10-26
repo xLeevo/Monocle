@@ -250,8 +250,8 @@ class FortCache:
         self.gyms = {}
         self.internal_ids = {}
         self.gym_names = {}
-        self.pokestops = set()
-        self.pokestop_names = set()
+        self.pokestops = {}
+        self.pokestop_names = {}
         self.class_version = 2.1
 
     def __len__(self):
@@ -300,9 +300,9 @@ class FortCache:
             for pokestop in pokestops:
                 if (pokestop.lat, pokestop.lon) not in bounds:
                     continue
-                self.pokestops.add(pokestop.external_id)
+                self.pokestops[pokestop.external_id] = (pokestop.lat, pokestop.lon)
                 if pokestop.name:
-                    self.pokestop_names.add(pokestop.external_id)
+                    self.pokestop_names[pokestop.external_id] = pokestop.name
             log.info("Preloaded {} pokestops", len(self.pokestop_names))
 
 
@@ -867,7 +867,7 @@ def add_pokestop(session, raw_pokestop):
 
     if session.query(exists().where(
             Pokestop.external_id == pokestop_id)).scalar():
-        FORT_CACHE.pokestops.add(pokestop_id)
+        FORT_CACHE.pokestops[pokestop_id] = (raw_pokestop['lat'], raw_pokestop['lon'])
 
         if pokestop_id in FORT_CACHE.pokestop_names:
             return
@@ -892,9 +892,9 @@ def add_pokestop(session, raw_pokestop):
 
     session.add(pokestop)
 
-    FORT_CACHE.pokestops.add(pokestop_id)
+    FORT_CACHE.pokestops[pokestop_id] = (raw_pokestop['lat'], raw_pokestop['lon'])
     if raw_pokestop['name'] is not None:
-        FORT_CACHE.pokestop_names.add(pokestop_id)
+        FORT_CACHE.pokestop_names[pokestop_id] = raw_pokestop['name']
 
 
 def update_failures(session, spawn_id, success, allowed=conf.FAILURES_ALLOWED):
