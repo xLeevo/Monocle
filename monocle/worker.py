@@ -1629,7 +1629,7 @@ class Worker:
         else:
             self.account['banned'] = True
             self.log.warning('Hibernating {} due to ban.', self.username)
-        self.update_accounts_dict()
+        await self.update_accounts_dict()
         self.username = None
         self.account = None
         await self.new_account(after_remove=True)
@@ -1638,7 +1638,7 @@ class Worker:
         self.error_code = 'BENCHING'
         self.log.warning('Swapping {} due to CAPTCHA.', self.username)
         self.account['captcha'] = True
-        self.update_accounts_dict()
+        await self.update_accounts_dict()
         self.captcha_queue.put(self.account)
         await self.new_account()
 
@@ -1662,7 +1662,7 @@ class Worker:
             self.log.warning('Swapping {} which had been running for {}.', self.username, timestr)
         else:
             self.log.warning('Swapping out {} because {}.', self.username, reason)
-        self.update_accounts_dict()
+        await self.update_accounts_dict()
         accounts_in_queues = self.account_queue.qsize() + self.captcha_queue.qsize()
         self.account_queue.put(self.account)
         direct_from_db = accounts_in_queues < self.required_extra_accounts()
