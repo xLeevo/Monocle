@@ -150,6 +150,7 @@ class Worker:
         self.unused_incubators = deque()
         # State variables
         self.busy = Lock(loop=LOOP)
+        self.update_account_lock = Lock(loop=LOOP)
         # Other variables
         self.after_spawn = 0
         self.speed = 0
@@ -784,7 +785,7 @@ class Worker:
             await sleep(3, loop=LOOP)
             await self.remove_account(flag='unverified')
         except InsufficientAccountsException as e:
-            self.update_accounts_dict()
+            await self.update_accounts_dict()
             raise InsufficientAccountsException("No more accounts to pull from DB.") from e
         except CaptchaException:
             self.error_code = 'CAPTCHA'
@@ -1127,7 +1128,7 @@ class Worker:
             self.username
         )
 
-        self.update_accounts_dict()
+        await self.update_accounts_dict()
         self.handle = LOOP.call_later(60, self.unset_code)
 
         if not seen_encounter:
@@ -1193,7 +1194,7 @@ class Worker:
                 (point, start, self.speed, self.total_seen,
                 self.visits, pokemon_seen))])
 
-        self.update_accounts_dict()
+        await self.update_accounts_dict()
         self.handle = LOOP.call_later(60, self.unset_code)
         return 1 
 
@@ -1568,7 +1569,7 @@ class Worker:
         request = self.api.create_request()
         request.verify_challenge(token=token)
         await self.call(request, action=4)
-        self.update_accounts_dict()
+        await self.update_accounts_dict()
         self.log.warning("Successfully solved CAPTCHA")
 
     def simulate_jitter(self, amount=0.00002):
@@ -1577,7 +1578,7 @@ class Worker:
         self.altitude = uniform(self.altitude - 1, self.altitude + 1)
         self.api.set_position(*self.location, self.altitude)
 
-    def update_accounts_dict(self):
+    async def update_accounts_dict(self):
         self.account['location'] = self.location
         self.account['time'] = self.last_request
         self.account['inventory_timestamp'] = self.inventory_timestamp
@@ -1595,7 +1596,8 @@ class Worker:
             if self.username in ACCOUNTS:
                 del ACCOUNTS[self.username]
         else:
-            Account.put(self.account)
+            async with self.update_account_lock:
+                Account.put(self.account)
             ACCOUNTS[self.username] = self.account
 
     async def remove_account(self, flag='banned'):
