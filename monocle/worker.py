@@ -1149,6 +1149,8 @@ class Worker:
             if chosen_point:
                 closest = get_distance(from_point, point, UNIT)
                 time_needed = 3600.0 * closest / conf.SPEED_LIMIT
+                if self.last_request > 0 and time_needed > 300.0:
+                    return False
                 self.log.info("{}(Lv.{}) is going to {}{} for a spin which is {:.2f} {} away and will take {}s.",
                         self.username, self.player_level,
                         FORT_CACHE.pokestop_names.get(psid),
