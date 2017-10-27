@@ -225,8 +225,7 @@ class Worker:
                 await self.swap_account('unexpected auth error')
             except ex.AuthException as e:
                 msg = str(e)
-                if ("you have failed to log in correctly too many times" in msg
-                        or "Your username or password is incorrect" in msg):
+                if ("Your username or password is incorrect" in msg):
                     raise LoginCredentialsException("Username or password is wrong.")
                 elif "email not verified" in msg:
                     raise EmailUnverifiedException("Account email not verified")
