@@ -4,7 +4,7 @@ from math import sqrt
 from time import monotonic, time
 from pkg_resources import resource_stream
 from tempfile import TemporaryFile
-from asyncio import gather, CancelledError, TimeoutError
+from asyncio import gather, CancelledError, TimeoutError, Lock
 from base64 import b64encode
 
 from aiohttp import ClientError, ClientResponseError, ServerTimeoutError
@@ -582,6 +582,8 @@ class Notification:
 
 
 class Notifier:
+    
+    self.db_access_lock = Lock(loop=LOOP)
 
     def __init__(self):
         self.cache = NotificationCache()
@@ -744,8 +746,9 @@ class Notifier:
             seen = pokemon['seen'] % 3600
             cache_handle = self.cache.store.add(unique_id)
             try:
-                with session_scope() as session:
-                    tth = await run_threaded(estimate_remaining_time, session, pokemon['spawn_id'], seen)
+                async with self.db_access_lock:
+                    with session_scope() as session:
+                        tth = await run_threaded(estimate_remaining_time, session, pokemon['spawn_id'], seen)
             except Exception:
                 self.log.exception('An exception occurred while trying to estimate remaining time.')
                 now_epoch = time()
