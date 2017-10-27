@@ -583,7 +583,7 @@ class Notification:
 
 class Notifier:
     
-    self.db_access_lock = Lock(loop=LOOP)
+    db_access_lock = Lock(loop=LOOP)
 
     def __init__(self):
         self.cache = NotificationCache()

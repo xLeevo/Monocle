@@ -80,6 +80,7 @@ class Worker:
 
     login_semaphore = Semaphore(conf.SIMULTANEOUS_LOGINS, loop=LOOP)
     sim_semaphore = Semaphore(conf.SIMULTANEOUS_SIMULATION, loop=LOOP)
+    update_account_lock = Lock(loop=LOOP)
 
     multiproxy = False
     if conf.PROXIES:
@@ -150,7 +151,6 @@ class Worker:
         self.unused_incubators = deque()
         # State variables
         self.busy = Lock(loop=LOOP)
-        self.update_account_lock = Lock(loop=LOOP)
         # Other variables
         self.after_spawn = 0
         self.speed = 0
