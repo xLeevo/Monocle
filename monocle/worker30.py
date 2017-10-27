@@ -205,7 +205,11 @@ class Worker30(Worker):
                 ENCOUNTER_CACHE.add(job)
                 job['check_duplicate'] = True
                 db_proc.add(job)
-                log.info("Skipping encounter {} by {} due to error: {}", encounter_id, worker.username, e)
+                if worker:
+                    username = worker.username
+                else:
+                    username = "worker"
+                log.info("Skipping encounter {} by {} due to error: {}", encounter_id, username, e)
         except (LateEncounterSkippedError, EncounterSkippedError) as e:
             if isinstance(e, LateEncounterSkippedError):
                 self.lates += 1
@@ -214,8 +218,8 @@ class Worker30(Worker):
             job['check_duplicate'] = True
             db_proc.add(job)
             log.info("Skipping encounter {} due to error: {}.", encounter_id, e)
-        except Exception:
-            log.exception('An exception occurred in try_point')
+        except Exception as e:
+            log.error('An exception occurred in try_point: {}', e)
         finally:
             self.coroutine_semaphore.release()
 
