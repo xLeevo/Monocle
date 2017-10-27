@@ -78,7 +78,7 @@ def cron_jobs():
     #jobs.append(job_heavy)
 
     job_swapin = cron.new(command="{} --swapin >> {}/logs/cron.log 2>&1".format(command, root_dir),comment="{} --swapin".format(tag))
-    job_swapin.minute.on(10)
+    job_swapin.minute.every(5)
     jobs.append(job_swapin)
 
     return cron, jobs
