@@ -100,7 +100,7 @@ def parse_args():
 
 def configure_logger(filename='scan.log'):
     if filename:
-        handlers = (RotatingFileHandler(filename, maxBytes=500000, backupCount=conf.LOGGED_FILES),)
+        handlers = (RotatingFileHandler(filename, maxBytes=conf.LOGGED_SIZE, backupCount=conf.LOGGED_FILES),)
     else:
         handlers = None
     basicConfig(

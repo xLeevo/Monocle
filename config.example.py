@@ -98,6 +98,10 @@ ACCOUNTS_CSV = 'accounts.csv'
 # Monocle defaults to scan.log plus 4 for a total of 5
 #LOGGED_FILES = 4
 
+# Allows you to specify size for log files to keep 
+# Monocle defaults to scan.log 
+#LOGGED_SIZE = 500000
+
 # Limit the number of simultaneous logins to this many at a time.
 # Lower numbers will increase the amount of time it takes for all workers to
 # get started but are recommended to avoid suddenly flooding the servers with
