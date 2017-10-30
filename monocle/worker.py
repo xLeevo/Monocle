@@ -1218,7 +1218,8 @@ class Worker:
                 or (encounter_conf == 'some'
                     and sighting['pokemon_id'] in conf.ENCOUNTER_IDS))
         should_notify_with_iv = (should_notify and not conf.IGNORE_IVS)
-        return encounter_whitelisted or should_notify_with_iv
+        sp_discovered = ('despawn' in sighting)
+        return (sp_discovered and (encounter_whitelisted or should_notify_with_iv))
 
     async def pgscout(self, session, pokemon, spawn_id):
         PGScout_address=next(self.PGScout_cycle)
