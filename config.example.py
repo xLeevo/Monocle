@@ -10,6 +10,13 @@ DB_ENGINE = 'sqlite:///db.sqlite'
 #DB_ENGINE = 'mysql://user:pass@localhost/monocle'
 #DB_ENGINE = 'postgresql://user:pass@localhost/monocle
 
+### DB queue/pool size settings
+### These are to be used if you see errors relating to pool_size from sqlalchemy
+### DO not set extremely high
+#
+# DB_POOL_SIZE = 5     # sqlalchemy defualt
+# DB_MAX_OVERFLOW = 10 # sqlalchemy default
+
 ## Reconnect db session after x seconds. It solves lost connection error if DB wait_timeout is set to lower values.
 # DB_POOL_RECYCLE = 600
 

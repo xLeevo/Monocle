@@ -313,7 +313,7 @@ RAID_CACHE = RaidCache()
 
 Base = declarative_base()
 
-_engine = create_engine(conf.DB_ENGINE, pool_recycle=conf.DB_POOL_RECYCLE, isolation_level='READ_UNCOMMITTED')
+_engine = create_engine(conf.DB_ENGINE, pool_size=conf.DB_POOL_SIZE, max_overflow=conf.DB_MAX_OVERFLOW, pool_recycle=conf.DB_POOL_RECYCLE, isolation_level='READ_UNCOMMITTED')
 Session = sessionmaker(bind=_engine)
 DB_TYPE = _engine.name
 
