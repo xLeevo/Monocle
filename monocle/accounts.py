@@ -59,6 +59,7 @@ class Account(db.Base):
     reason = Column(String(12), index=True)
     captchaed = Column(Integer, index=True)
     created = Column(Integer, default=time)
+    binded = Column(Integer, default=time, index=True)
     updated = Column(Integer, default=time, onupdate=time)
     
     __table_args__ = (
@@ -266,6 +267,7 @@ class Account(db.Base):
                 account = q.with_lockmode("update").first()
                 if account:
                     account.instance = instance_id
+                    account.binded = time()
                     account_dict = Account.to_account_dict(account)
                     log.info("New account {}(Lv.{}) acquired and binded to this instance in DB.", account.username, account.level)
                 else:
