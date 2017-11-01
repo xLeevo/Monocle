@@ -153,9 +153,10 @@ class Worker30(Worker):
             async with worker.busy:
                 if spawn_time:
                     worker.after_spawn = time() - spawn_time
-                if await worker.sleep_travel_time(point):
-                    if job in ENCOUNTER_CACHE:
-                        return
+                if conf.LV30_MAX_SPEED and not HARDCORE_HYPERDRIVE:
+                    if await worker.sleep_travel_time(point, max_speed=conf.LV30_MAX_SPEED):
+                        if job in ENCOUNTER_CACHE:
+                            return
                 ENCOUNTER_CACHE.remove(job['encounter_id'], job['spawn_id'])
                 visit_result = await worker.visit(point,
                         encounter_id=encounter_id,

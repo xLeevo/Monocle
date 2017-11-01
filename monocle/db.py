@@ -799,6 +799,7 @@ def add_fort_sighting(session, raw_fort):
     fort_sighting.last_modified = raw_fort['last_modified']
     fort_sighting.slots_available = raw_fort['slots_available']
     fort_sighting.is_in_battle = raw_fort['is_in_battle']
+    fort_sighting.updated = int(time())
 
     session.merge(fort_sighting)
 

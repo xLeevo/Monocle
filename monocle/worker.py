@@ -65,6 +65,7 @@ class Worker:
     scan_delay = conf.SCAN_DELAY if conf.SCAN_DELAY >= 10 else 10
     g = {'seen': 0, 'captchas': 0}
     more_point_cell_cache = TtlCache(ttl=300) 
+    has_raiders = (conf.RAIDER_PERCENT_OF_WORKERS > 0)
 
     if conf.CACHE_CELLS:
         cells = load_pickle('cells') or {}
@@ -703,6 +704,16 @@ class Worker:
         speed = (distance / time_diff) * 3600
         return speed
 
+    async def sleep_travel_time(self, point, max_speed=conf.SPEED_LIMIT):
+        distance = get_distance(self.location, point, UNIT)
+        time_needed = 3600.0 * distance / max_speed
+        if self.username:
+            if time_needed > 0.0:
+                self.log.info("{} needs {}s of travel time.", self.username, int(time_needed))
+                await sleep(time_needed, loop=LOOP)
+                return True
+        return False
+
     async def account_promotion(self):
         if self.player_level and self.player_level >= 30:
             self.log.warning('Congratulations {} has reached Lv.30. Moving it out of low-level slave pool', self.username)
@@ -719,7 +730,7 @@ class Worker:
 
     async def visit(self, point, spawn_id=None, bootstrap=False,
             encounter_id=None, encounter_only=False, sighting=None,
-            visiting_pokestop=False):
+            visiting_pokestop=False, gym=None):
         """Wrapper for self.visit_point - runs it a few times before giving up
 
         Also is capable of restarting in case an error occurs.
@@ -756,7 +767,7 @@ class Worker:
                 return await self.visit_encounter(point, sighting)
             else:
                 return await self.visit_point(point, spawn_id, bootstrap,
-                        encounter_id=encounter_id)
+                        encounter_id=encounter_id, gym=gym)
         except ex.NotLoggedInException:
             self.error_code = 'NOT AUTHENTICATED'
             await sleep(1, loop=LOOP)
@@ -765,7 +776,8 @@ class Worker:
             return await self.visit(point, spawn_id, bootstrap,
                     encounter_id=encounter_id,
                     encounter_only=encounter_only,
-                    sighting=sighting)
+                    sighting=sighting,
+                    gym=gym)
         except ex.AuthException as e:
             self.log.warning('Auth error on {} in visit: {}', self.username, e)
             self.error_code = 'NOT AUTHENTICATED'
@@ -870,7 +882,7 @@ class Worker:
 
     async def visit_point(self, point, spawn_id, bootstrap,
             encounter_conf=conf.ENCOUNTER, notify_conf=conf.NOTIFY,
-            more_points=conf.MORE_POINTS, encounter_id=None):
+            more_points=conf.MORE_POINTS, encounter_id=None, gym=None):
         self.handle.cancel()
         self.error_code = '∞' if bootstrap else '!'
 
@@ -887,7 +899,6 @@ class Worker:
                                 since_timestamp_ms=since_timestamp_ms,
                                 latitude=point[0],
                                 longitude=point[1])
-
         diff = self.last_gmo + self.scan_delay - time()
         if diff > 0:
             await sleep(diff, loop=LOOP)
@@ -914,6 +925,10 @@ class Worker:
         points_seen = 0
         seen_target = not spawn_id
         seen_encounter = not encounter_id
+        seen_gym = not gym
+
+        passive_scan_gym = (not self.has_raiders)
+        scan_gym_external_id = gym.get('external_id') if gym else None
 
         if conf.ITEM_LIMITS and self.bag_items >= self.item_capacity:
             await self.clean_bag()
@@ -1024,7 +1039,7 @@ class Worker:
 
                 db_proc.add(normalized)
 
-            if self.gyms:
+            if self.gyms and passive_scan_gym:
                 priority_fort = self.prioritize_forts(map_cell.forts)
             else:
                 priority_fort = None
@@ -1057,15 +1072,27 @@ class Worker:
                         db_proc.add(pokestop)
                 else:
                     normalized_fort = self.normalize_gym(fort)
+                    is_target_gym = (scan_gym_external_id == fort.id)
+                    should_update_gym = False
+
+                    if is_target_gym:
+                        seen_gym = True
+                    self.log.info("GYM: {} {}, {}", scan_gym_external_id, fort.id, is_target_gym)
+
                     if fort not in FORT_CACHE:
                         FORT_CACHE.add(normalized_fort)
-                        if (priority_fort and
-                                priority_fort.id == fort.id and
-                                time() > self.next_gym and self.smart_throttle(1)):
+                        should_update_gym = True
 
-                            gym = await self.gym_get_info(normalized_fort)
-                            if gym:
-                                self.log.info('Got gym info for {}', normalized_fort["name"])
+                    if (is_target_gym or
+                            (priority_fort and
+                                priority_fort.id == fort.id and
+                                time() > self.next_gym and self.smart_throttle(1))):
+
+                        gym = await self.gym_get_info(normalized_fort)
+                        if gym:
+                            should_update_gym = True
+                            self.log.info('Got gym info for {}', normalized_fort["name"])
+                    if should_update_gym:
                         db_proc.add(normalized_fort)
 
                     if fort.HasField('raid_info'):
@@ -1135,6 +1162,9 @@ class Worker:
 
         if not seen_encounter:
             return -1 
+
+        if not seen_gym:
+            return -1
 
         return pokemon_seen + forts_seen + points_seen
 
