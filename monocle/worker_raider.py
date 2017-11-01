@@ -6,14 +6,13 @@ from asyncio import CancelledError, Semaphore, sleep
 from sqlalchemy import desc
 from sqlalchemy.orm import joinedload
 
-from pogeo import get_distance
 
 from .db import Fort, FortSighting, session_scope
 from .utils import randomize_point
-from .worker import Worker, UNIT, sb_detector, HARDCORE_HYPERDRIVE
+from .worker import Worker, UNIT
 from .shared import LOOP, call_at, get_logger
 from .accounts import Account
-from . import db_proc, bounds, spawns, sanitized as conf
+from . import bounds, sanitized as conf
 
 log = get_logger("workerraider")
 
@@ -183,7 +182,6 @@ class WorkerRaider(Worker):
             time_diff = int(time() - updated)
             min_time_diff = max(min(time_diff, tolerable_time_diff * 5), 0)
             speed_limit = (conf.SPEED_LIMIT * (1.0 + (min_time_diff / tolerable_time_diff)))
-            log.info("SPEED_LIMIT {}, time_diff: {}, speed_limit: {:.2f}, my_speed: {:.2f}", job.get('external_id'), time_diff, speed_limit, lowest_speed)
             if worker:# and lowest_speed < speed_limit:
                 worker.speed = lowest_speed
                 return worker

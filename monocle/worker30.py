@@ -8,12 +8,14 @@ from pogeo import get_distance
 
 from .db import SightingCache, Sighting, Spawnpoint, session_scope
 from .utils import randomize_point
-from .worker import Worker, UNIT, sb_detector, HARDCORE_HYPERDRIVE
+from .worker import Worker, UNIT, sb_detector
 from .shared import LOOP, call_at, get_logger
 from .accounts import get_accounts30, Account
 from . import db_proc, bounds, spawns, sanitized as conf
 
 log = get_logger("worker30")
+
+HARDCORE_HYPERDRIVE = not conf.LV30_GMO
 
 class EncounterSkippedError(Exception):
     """Raised when encounter is skipped without retry"""

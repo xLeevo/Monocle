@@ -56,6 +56,7 @@ class Account(db.Base):
     device_id = Column(String(64))
     remove = Column(Boolean, default=False)
     hibernated = Column(Integer, index=True)
+    last_hibernated = Column(Integer, index=True)
     reason = Column(String(12), index=True)
     captchaed = Column(Integer, index=True)
     created = Column(Integer, default=time)
@@ -199,29 +200,26 @@ class Account(db.Base):
                 account_db.captchaed = None
 
             if 'banned' in account and account['banned']:
-                account_db.hibernated = int(time())
                 account_db.reason = 'banned'
             elif 'sbanned' in account and account['sbanned']:
-                account_db.hibernated = int(time())
                 account_db.reason = 'sbanned'
             elif 'warn' in account and account['warn']:
-                account_db.hibernated = int(time())
                 account_db.reason = 'warn'
             elif 'code3' in account and account['code3']:
-                account_db.hibernated = int(time())
                 account_db.reason = 'code3'
             elif 'credentials' in account and account['credentials']:
-                account_db.hibernated = int(time())
                 account_db.reason = 'credentials'
             elif 'unverified' in account and account['unverified']:
-                account_db.hibernated = int(time())
                 account_db.reason = 'unverified'
             elif 'security' in account and account['security']:
-                account_db.hibernated = int(time())
                 account_db.reason = 'security'
             else:
                 account_db.hibernated = None
                 account_db.reason = None
+
+            if account_db.reason:
+                account_db.hibernated = int(time())
+                account_db.last_hibernated = account_db.hibernated
         return account_db
 
     @staticmethod

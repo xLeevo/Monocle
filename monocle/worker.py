@@ -900,10 +900,9 @@ class Worker:
                                 since_timestamp_ms=since_timestamp_ms,
                                 latitude=point[0],
                                 longitude=point[1])
-        if self.needs_sleep():
-            diff = self.last_gmo + self.scan_delay - time()
-            if diff > 0:
-                await sleep(diff, loop=LOOP)
+        diff = self.last_gmo + self.scan_delay - time()
+        if diff > 0:
+            await sleep(diff, loop=LOOP)
         responses = await self.call(request)
         self.last_gmo = self.last_request
 
@@ -1080,7 +1079,6 @@ class Worker:
 
                     if is_target_gym:
                         seen_gym = True
-                    self.log.info("GYM: {} {}, {}", scan_gym_external_id, fort.id, is_target_gym)
 
                     if fort not in FORT_CACHE:
                         FORT_CACHE.add(normalized_fort)
@@ -1136,7 +1134,8 @@ class Worker:
             self.g['seen'] += pokemon_seen
             self.empty_visits = 0
         else:
-            self.empty_visits += 1
+            if not gym:
+                self.empty_visits += 1
             if sb_detector:
                 sb_detector.add_empty_visit(self.account)
             if forts_seen == 0:
