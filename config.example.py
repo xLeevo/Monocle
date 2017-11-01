@@ -271,6 +271,8 @@ REPORT_MAPS = True  # Show maps on reports
 #CAPTCHAS_ALLOWED = 3
 ## Get new accounts from the CAPTCHA queue first if it's not empty
 #FAVOR_CAPTCHA = True
+## Use anticaptcha instead of 2captcha
+#USE_ANTICAPTCHA = True
 
 # allow displaying the live location of workers on the map
 MAP_WORKERS = True
