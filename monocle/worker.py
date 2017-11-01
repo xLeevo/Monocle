@@ -27,8 +27,6 @@ from .notification import Notifier
 from python_anticaptcha import AnticaptchaClient, NoCaptchaTaskProxylessTask
 from python_anticaptcha.exceptions import AnticatpchaException
 
-HARDCORE_HYPERDRIVE = (not conf.LV30_GMO)
-
 if conf.CACHE_CELLS:
     from array import typecodes
     if 'Q' in typecodes:
@@ -167,6 +165,9 @@ class Worker:
         self.next_spin = 0
         self.handle = HandleStub()
         self.next_gym = 0
+
+    def needs_sleep(self):
+        return True 
 
     def min_level(self):
         return 0
@@ -572,7 +573,7 @@ class Worker:
             if inbox:
                 request.get_inbox(is_history=True)
 
-        if action and (not HARDCORE_HYPERDRIVE):
+        if action and (self.needs_sleep()):
             now = time()
             # wait for the time required, or at least a half-second
             if self.last_action > now + .5:
@@ -899,9 +900,10 @@ class Worker:
                                 since_timestamp_ms=since_timestamp_ms,
                                 latitude=point[0],
                                 longitude=point[1])
-        diff = self.last_gmo + self.scan_delay - time()
-        if diff > 0:
-            await sleep(diff, loop=LOOP)
+        if self.needs_sleep():
+            diff = self.last_gmo + self.scan_delay - time()
+            if diff > 0:
+                await sleep(diff, loop=LOOP)
         responses = await self.call(request)
         self.last_gmo = self.last_request
 
@@ -1018,7 +1020,8 @@ class Worker:
                         try:
                             if await self.encounter(normalized, pokemon.spawn_point_id):
                                 self.overseer.Worker30.encounters += 1
-                                await self.random_sleep(2.0, 5.0)
+                                if self.needs_sleep():
+                                    await self.random_sleep(2.0, 5.0)
                                 encountered = True
                             else:
                                 if sb_detector:
@@ -1439,7 +1442,7 @@ class Worker:
             self.simulate_jitter()
             delay_required = 1.1
 
-        if not HARDCORE_HYPERDRIVE:
+        if self.needs_sleep():
             await self.random_sleep(delay_required, delay_required + 1.5)
 
         request = self.api.create_request()

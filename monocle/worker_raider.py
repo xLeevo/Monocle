@@ -39,6 +39,9 @@ class WorkerRaider(Worker):
         super().__init__(worker_no, overseer, captcha_queue, account_queue, worker_dict, account_dict, start_coords=start_coords)
         self.scan_delayed = 0
 
+    def needs_sleep(self):
+        return False 
+
     def get_start_coords(self):
         return bounds.center
 

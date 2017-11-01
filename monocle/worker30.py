@@ -38,6 +38,9 @@ class Worker30(Worker):
     job_queue = PriorityQueue(maxsize=conf.LV30_MAX_QUEUE)
     coroutine_semaphore = Semaphore(workers_needed, loop=LOOP)
 
+    def needs_sleep(self):
+        return False 
+
     def min_level(self):
         return 30
 
