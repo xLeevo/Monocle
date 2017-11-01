@@ -92,8 +92,10 @@ class BaseSpawns:
         hour = get_current_hour(now=seen)
         try:
             despawn_time = self.despawn_times[spawn_id] + hour
-            if seen > despawn_time:
+            if seen - despawn_time >= 3600:
                 despawn_time += 3600
+            elif seen > despawn_time:
+                return None
             return despawn_time
         except KeyError:
             return None

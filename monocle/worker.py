@@ -26,6 +26,8 @@ from .notification import Notifier
 
 HARDCORE_HYPERDRIVE = (not conf.LV30_GMO)
 
+log = get_logger('worker')
+
 if conf.CACHE_CELLS:
     from array import typecodes
     if 'Q' in typecodes:
@@ -1781,6 +1783,7 @@ class Worker:
                 norm['inferred'] = True
             else:
                 norm['type'] = 'mystery'
+                spawns.remove_known(spawn_id)
         if raw.pokemon_data.pokemon_display:
             if raw.pokemon_data.pokemon_display.form:
                 norm['display'] = raw.pokemon_data.pokemon_display.form
