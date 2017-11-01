@@ -26,13 +26,15 @@ class NothingSeenAtGymSpotError(Exception):
 
 class WorkerRaider(Worker):
     workers = [] 
+    gyms = set()
     gym_scans = 0
     skipped = 0
     visits = 0
     hash_burn = 0
-    workers_needed = int(ceil(conf.RAIDER_PERCENT_OF_WORKERS * conf.GRID[0] * conf.GRID[1]))
+    workers_needed = 0
     job_queue = PriorityQueue()
-    coroutine_semaphore = Semaphore(workers_needed, loop=LOOP)
+    last_semaphore_value = workers_needed
+    coroutine_semaphore = Semaphore(len(workers), loop=LOOP)
 
     def __init__(self, worker_no, overseer, captcha_queue, account_queue, worker_dict, account_dict, start_coords=None):
         super().__init__(worker_no, overseer, captcha_queue, account_queue, worker_dict, account_dict, start_coords=start_coords)
@@ -73,7 +75,7 @@ class WorkerRaider(Worker):
                         sighting = fort.sightings[0]
                         obj['last_modified'] = sighting.last_modified
                         obj['updated'] = sighting.updated
-                    self.add_job(obj)
+                    self.add_gym(obj)
             except Exception as e:
                 log.error("ERROR: {}", e)
             log.info("Loaded {} forts", self.job_queue.qsize())
@@ -83,6 +85,25 @@ class WorkerRaider(Worker):
         self.job_queue.put_nowait((gym.get('updated', gym.get('last_modified', 0)), time(), gym))
 
     @classmethod
+    def add_gym(self, gym):
+        if gym['external_id'] in self.gyms:
+            return
+        self.gyms.add(gym['external_id'])
+        self.workers_needed = int(ceil(conf.RAIDERS_PER_GYM * len(self.gyms)))
+        if len(self.workers) < self.workers_needed:
+            try:
+                self.workers.append(WorkerRaider(worker_no=len(self.workers),
+                    overseer=self.overseer,
+                    captcha_queue=self.overseer.captcha_queue,
+                    account_queue=self.overseer.extra_queue,
+                    worker_dict=self.overseer.worker_dict,
+                    account_dict=self.overseer.account_dict))
+            except Exception as e:
+                log.error("WorkerRaider initialization error: {}", e)
+                traceback.print_exc()
+        self.add_job(gym)
+
+    @classmethod
     async def launch(self, overseer):
         self.overseer = overseer
         self.preload()
@@ -90,30 +111,26 @@ class WorkerRaider(Worker):
             await sleep(5)
             log.info("Couroutine launched.")
         
-            # Initialize workers
-            for x in range(self.workers_needed):
-                try:
-                    self.workers.append(WorkerRaider(worker_no=x,
-                        overseer=overseer,
-                        captcha_queue=self.overseer.captcha_queue,
-                        account_queue=self.overseer.extra_queue,
-                        worker_dict=self.overseer.worker_dict,
-                        account_dict=self.overseer.account_dict))
-                except Exception as e:
-                    log.error("WorkerRaider initialization error: {}", e)
-                    traceback.print_exc()
             log.info("WorkerRaider count: ({}/{})", len(self.workers), self.workers_needed)
 
             while True:
                 try:
-                    while not self.job_queue.empty():
+                    while self.last_semaphore_value > 0 and self.last_semaphore_value == len(self.workers) and not self.job_queue.empty():
                         job = self.job_queue.get()[2]
                         log.debug("Job: {}", job)
 
                         await self.coroutine_semaphore.acquire()
                         LOOP.create_task(self.try_point(job))
+                except CancelledError:
+                    raise
                 except Exception as e:
                     log.warning("A wild error appeared in launcher loop: {}", e)
+
+                worker_count = len(self.workers)
+                if self.last_semaphore_value != worker_count:
+                    self.last_semaphore_value = worker_count
+                    self.coroutine_semaphore = Semaphore(worker_count, loop=LOOP)
+                    log.info("Semaphore updated with value {}", worker_count)
                 await sleep(1)
         except CancelledError:
             log.info("Coroutine cancelled.")
@@ -132,14 +149,11 @@ class WorkerRaider(Worker):
             if not worker:
                 return
             async with worker.busy:
-                #if worker.last_gmo:
-                #    await worker.sleep_travel_time(point)
                 visit_result = await worker.visit(point,
                         gym=job)
                 if visit_result == -1:
                     self.hash_burn += 1
                     point = randomize_point(point,amount=0.00001) # jitter around 3 meters
-                    #await worker.sleep_travel_time(point)
                     visit_result = await worker.visit(point,
                             gym=job)
                 if visit_result:
@@ -168,6 +182,7 @@ class WorkerRaider(Worker):
     async def best_worker(self, point, job, updated, skip_time):
         while self.overseer.running:
             gen = (w for w in self.workers if not w.busy.locked())
+            worker = None
             try:
                 worker = next(gen)
                 lowest_speed = worker.travel_speed(point)
@@ -178,10 +193,11 @@ class WorkerRaider(Worker):
                 if speed < lowest_speed:
                     lowest_speed = speed
                     worker = w
-            tolerable_time_diff = 300
-            time_diff = int(time() - updated)
-            min_time_diff = max(min(time_diff, tolerable_time_diff * 5), 0)
-            speed_limit = (conf.SPEED_LIMIT * (1.0 + (min_time_diff / tolerable_time_diff)))
+            #tolerable_time_diff = 300
+            #time_diff = int(time() - updated)
+            #min_time_diff = max(min(time_diff, tolerable_time_diff * 5), 0)
+            #speed_limit = (conf.SPEED_LIMIT * (1.0 + (min_time_diff / tolerable_time_diff)))
+            #log.info("SPEED_LIMIT {}, time_diff: {}, speed_limit: {:.2f}, my_speed: {:.2f}", job.get('external_id'), time_diff, speed_limit, lowest_speed)
             if worker:# and lowest_speed < speed_limit:
                 worker.speed = lowest_speed
                 return worker

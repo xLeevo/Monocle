@@ -63,7 +63,7 @@ class Worker:
     scan_delay = conf.SCAN_DELAY if conf.SCAN_DELAY >= 10 else 10
     g = {'seen': 0, 'captchas': 0}
     more_point_cell_cache = TtlCache(ttl=300) 
-    has_raiders = (conf.RAIDER_PERCENT_OF_WORKERS > 0)
+    has_raiders = (conf.RAIDERS_PER_GYM > 0)
 
     if conf.CACHE_CELLS:
         cells = load_pickle('cells') or {}
@@ -1082,6 +1082,7 @@ class Worker:
 
                     if fort not in FORT_CACHE:
                         FORT_CACHE.add(normalized_fort)
+                        self.overseer.WorkerRaider.add_gym(normalized_fort)
                         should_update_gym = True
 
                     if (is_target_gym or
@@ -1089,10 +1090,15 @@ class Worker:
                                 priority_fort.id == fort.id and
                                 time() > self.next_gym and self.smart_throttle(1))):
 
-                        gym = await self.gym_get_info(normalized_fort)
-                        if gym:
-                            should_update_gym = True
-                            self.log.info('Got gym info for {}', normalized_fort["name"])
+                        needs_name = (fort.id not in FORT_CACHE.gym_names)
+                        needs_defenders = conf.GYM_DEFENDERS
+
+                        if needs_name or needs_defenders:
+                            gym = await self.gym_get_info(normalized_fort)
+                            if gym:
+                                should_update_gym = True
+                                self.log.info('Got gym info for {}', normalized_fort["name"])
+
                     if should_update_gym:
                         db_proc.add(normalized_fort)
 
@@ -1134,7 +1140,7 @@ class Worker:
             self.g['seen'] += pokemon_seen
             self.empty_visits = 0
         else:
-            if not gym:
+            if (not gym) and (not encounter_id):
                 self.empty_visits += 1
             if sb_detector:
                 sb_detector.add_empty_visit(self.account)

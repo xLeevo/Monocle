@@ -207,7 +207,7 @@ class Overseer:
             'Extra accounts: {}, CAPTCHAs needed: {}\n'
             'Accounts (this instance) {} (refreshed: {})\n'
             'Accounts (DB-wide) fresh/clean: {}, hibernated: {}, (Lv.30) fresh/clean: {}, hibernated: {}\n'
-            'Raider workers: {}, queue: {}, oldest: {}s\n'
+            'Raider workers: {}, gyms: {}, queue: {}, oldest: {}s\n'
             )
         try:
             smallest = nsmallest(1, WorkerRaider.job_queue.queue)
@@ -225,7 +225,7 @@ class Overseer:
                 account_reasons, account_refresh,
                 account_clean, account_test,
                 account30_clean, account30_test,
-                len(WorkerRaider.workers), WorkerRaider.job_queue.qsize(), oldest_gym_raided
+                len(WorkerRaider.workers), len(WorkerRaider.gyms),  WorkerRaider.job_queue.qsize(), oldest_gym_raided
             )
         except Exception as e:
             self.stats = stats_template.format(
@@ -465,6 +465,8 @@ class Overseer:
         self.Worker30 = Worker30
         self.ENCOUNTER_CACHE = ENCOUNTER_CACHE
         self.worker30 = LOOP.create_task(Worker30.launch(overseer=self))
+
+        self.WorkerRaider = WorkerRaider
         self.worker_raider = LOOP.create_task(WorkerRaider.launch(overseer=self))
 
         if not spawns or bootstrap:

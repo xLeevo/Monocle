@@ -127,6 +127,8 @@ def cleanup(overseer, manager):
             overseer.print_handle.cancel()
         if hasattr(overseer, 'worker30'):
             overseer.worker30.cancel()
+        if hasattr(overseer, 'worker_raider'):
+            overseer.worker_raider.cancel()
         overseer.running = False
         print('Exiting, please wait until all tasks finish')
 

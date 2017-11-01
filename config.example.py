@@ -49,12 +49,13 @@ GRID = (4, 4)  # rows, columns
 ### For example, if you want to have 5% level 30 acccounts for encounter, set
 #LV30_PERCENT_OF_WORKERS = 0.05
 
-### Gym Raider accounts to pull from DB in percentage of total workers for gym scanning.
+### Gym Raider accounts to pull from DB in percentage of total gyms inside the borders for gym scanning.
 ### Default 0.0(0%) Monkey Raiders turned off by default
-#RAIDER_PERCENT_OF_WORKERS = 0
+#RAIDERS_PER_GYM = 0
 #
-### For example, if you want to have 5% level raider acccounts, set
-#RAIDER_PERCENT_OF_WORKERS = 0.05
+### For example, if you want to have 0.03 raiders per gym, set 0.03.
+### As a basic guideline, 0.03 would result in around 5 mins refresh time for all gyms
+#RAIDERS_PER_GYM = 0.03
 
 ### Do GMO requests for lv30 accounts.
 ### Setting False will increase encounter rate and reduce hashing usage as it will apply insta-teleport encounter.
@@ -194,6 +195,10 @@ SPIN_COOLDOWN = 300    # spin only one PokéStop every n seconds (default 300)
 
 # Toggles scanning for gym details. Smart throttle is applied in the same way as PokéStops.
 #GET_GYM_DETAILS = True 
+
+### Toggles scanning gyms for gym_defenders.
+### Set this to False if you want to call GYM_GET_INFO RPC only for gym names.
+#GYM_DEFENDERS = True
 
 # minimum number of each item to keep if the bag is cleaned
 # bag cleaning is disabled if this is not present or is commented out

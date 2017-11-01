@@ -492,6 +492,7 @@ class GymDefender(Base):
     fort_id = Column(Integer, ForeignKey('forts.id', onupdate="CASCADE", ondelete="CASCADE"), nullable=False, index=True)
     external_id = Column(UNSIGNED_HUGE_TYPE, nullable=False)
     pokemon_id = Column(SmallInteger)
+    team = Column(TINY_TYPE)
     owner_name = Column(String(128))
     nickname = Column(String(128))
     cp = Column(Integer)
@@ -612,6 +613,7 @@ def add_gym_defenders(session, fort_internal_id, gym_defenders, raw_fort):
             sta_iv=gym_defender['sta_iv'],
             move_1=gym_defender['move_1'],
             move_2=gym_defender['move_2'],
+            team=raw_fort.get('team',0),
             last_modified=raw_fort['last_modified'],
             battles_attacked=gym_defender['battles_attacked'],
             battles_defended=gym_defender['battles_defended'],
