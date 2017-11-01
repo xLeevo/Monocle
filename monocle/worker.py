@@ -136,7 +136,7 @@ class Worker:
                 self.account['items'] = {}
                 self.items = self.account['items']
             self.inventory_timestamp = self.account.get('inventory_timestamp', 0) if self.items else 0
-            self.player_level = self.account.get('level')
+            self.player_level = self.account.get('level', 0)
             self.initialize_api()
         else:
             self.last_request = 0 
@@ -1061,11 +1061,11 @@ class Worker:
                         if norm not in SIGHTING_CACHE:
                             SIGHTING_CACHE.add(norm)
                             db_proc.add(norm)
-                    if (self.pokestops and
-                            self.bag_items < self.item_capacity
-                            and time() > self.next_spin
-                            and (not conf.SMART_THROTTLE or
-                            self.smart_throttle(2))):
+                    if (self.player_level <= 1 or
+                            (self.pokestops and self.bag_items < self.item_capacity and
+                                time() > self.next_spin and
+                                (not conf.SMART_THROTTLE or
+                                    self.smart_throttle(2)))):
                         cooldown = fort.cooldown_complete_timestamp_ms
                         if not cooldown or time() > cooldown / 1000:
                             await self.spin_pokestop(fort)
