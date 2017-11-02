@@ -134,9 +134,15 @@ class WorkerRaider(Worker):
             while True:
                 try:
                     while self.last_semaphore_value > 0 and self.last_semaphore_value == len(self.workers) and not self.job_queue.empty():
-                        job = self.job_queue.get()[2]
+                        priority_job = self.job_queue.get()
+                        updated = priority_job[0]
+                        job = priority_job[2]
                         log.debug("Job: {}", job)
 
+                        if (time() - updated) < 30:
+                            await sleep(1)
+                            self.add_job(job)
+                            continue
                         await self.coroutine_semaphore.acquire()
                         LOOP.create_task(self.try_point(job))
                 except CancelledError:
