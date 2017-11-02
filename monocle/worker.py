@@ -63,7 +63,7 @@ class Worker:
     scan_delay = conf.SCAN_DELAY if conf.SCAN_DELAY >= 10 else 10
     g = {'seen': 0, 'captchas': 0}
     more_point_cell_cache = TtlCache(ttl=300) 
-    has_raiders = (conf.RAIDERS_PER_GYM > 0)
+    has_raiders = (conf.RAIDERS_PER_GYM and conf.RAIDERS_PER_GYM > 0)
     scan_gym = conf.GYM_NAMES or conf.GYM_DEFENDERS
     passive_scan_gym = (scan_gym and not has_raiders)
 
@@ -165,7 +165,6 @@ class Worker:
         self.pokestops = conf.SPIN_POKESTOPS
         self.next_spin = 0
         self.handle = HandleStub()
-        self.next_gym = 0
 
     def needs_sleep(self):
         return True 
@@ -1087,8 +1086,7 @@ class Worker:
 
                     if (is_target_gym or
                             (priority_fort and
-                                priority_fort.id == fort.id and
-                                time() > self.next_gym)):
+                                priority_fort.id == fort.id)):
 
                         needs_name = (conf.GYM_NAMES and (fort.id not in FORT_CACHE.gym_names))
                         needs_defenders = conf.GYM_DEFENDERS
@@ -1342,7 +1340,6 @@ class Worker:
             self.log.info('The server said {} was out of gym details range. {:.1f}m {:.1f}{}',
                 name, distance, self.speed, UNIT_STRING)
 
-        self.next_gym = time() + conf.GYM_COOLDOWN
         self.error_code = '!'
         
         return gym 

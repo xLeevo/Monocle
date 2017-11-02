@@ -191,9 +191,6 @@ SPIN_COOLDOWN = 300    # spin only one PokéStop every n seconds (default 300)
 
 ## Gyms
 
-# Cools down for x seconds for a worker after scanning a gym details.
-#GYM_COOLDOWN = 10
-
 ### Toggles scanning for gym names.
 #GYM_NAMES = True 
 

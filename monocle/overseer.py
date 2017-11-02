@@ -207,7 +207,6 @@ class Overseer:
             'Extra accounts: {}, CAPTCHAs needed: {}\n'
             'Accounts (this instance) {} (refreshed: {})\n'
             'Accounts (DB-wide) fresh/clean: {}, hibernated: {}, (Lv.30) fresh/clean: {}, hibernated: {}\n'
-            'Raider workers: {}, gyms: {}, queue: {}, oldest: {}s\n'
             )
         try:
             smallest = nsmallest(1, WorkerRaider.job_queue.queue)
@@ -225,7 +224,6 @@ class Overseer:
                 account_reasons, account_refresh,
                 account_clean, account_test,
                 account30_clean, account30_test,
-                len(WorkerRaider.workers), len(WorkerRaider.gyms),  WorkerRaider.job_queue.qsize(), oldest_gym_raided
             )
         except Exception as e:
             self.stats = stats_template.format(
@@ -240,6 +238,12 @@ class Overseer:
                 None, None,
                 0, 0,
                 0, 0
+            )
+            
+        if Worker.has_raiders:
+            self.stats += 'Raider workers: {}, gyms: {}, queue: {}, oldest: {}s\n'.format(
+                len(WorkerRaider.workers), len(WorkerRaider.gyms),
+                WorkerRaider.job_queue.qsize(), oldest_gym_raided
             )
 
         self.update_coroutines_count()
