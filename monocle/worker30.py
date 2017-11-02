@@ -225,7 +225,7 @@ class Worker30(Worker):
             ENCOUNTER_CACHE.add(job)
             job['check_duplicate'] = True
             db_proc.add(job)
-            log.info("Skipping encounter {} due to error: {}.", encounter_id, e)
+            log.info("Skipping encounter {} due to error: {}", encounter_id, e)
         except Exception as e:
             log.error('An exception occurred in try_point: {}', e)
         finally:

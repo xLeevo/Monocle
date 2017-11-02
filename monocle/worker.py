@@ -1741,12 +1741,13 @@ class Worker:
         try:
             return await run_threaded(Account.get, self.min_level(), self.max_level())
         except InsufficientAccountsException:
-            raise InsufficientAccountsException("No more accounts available in DB #1")
+            self.log.error("No more accounts available in DB #1")
 
     async def new_account(self, after_remove=False, direct_from_db=False):
         if direct_from_db:
             self.account = await self.get_account_from_db()
-            self.log.warning('Acquired new account {} direct from DB.', self.account.get('username'))
+            if self.account:
+                self.log.info('Acquired new account {} direct from DB.', self.account.get('username'))
         else:
             if (conf.CAPTCHA_KEY
                     and (conf.FAVOR_CAPTCHA or self.account_queue.empty())
@@ -1757,32 +1758,34 @@ class Worker:
                     self.account = self.account_queue.get_nowait()
                 except Empty as e:
                     if after_remove:
-                        raise InsufficientAccountsException("No more accounts available in DB #2")
+                        self.log.error("No more accounts available in DB #2")
                     else:
                         self.account = await run_threaded(self.account_queue.get)
                 except InsufficientAccountsException:
-                    raise InsufficientAccountsException("No more accounts available in DB #3")
-            self.username = self.account['username']
-            try:
-                self.location = self.account['location'][:2]
-            except KeyError:
-                self.location = self.get_start_coords()
-            self.inventory_timestamp = self.account.get('inventory_timestamp', 0) if self.items else 0
-            self.player_level = self.account.get('level')
-            self.last_request = self.account.get('time', 0)
-            self.last_action = self.last_request
-            self.last_gmo = self.last_request
-            try:
-                self.items = self.account['items']
-                self.bag_items = sum(self.items.values())
-            except KeyError:
-                self.account['items'] = {}
-                self.items = self.account['items']
-            self.num_captchas = 0
-            self.eggs = {}
-            self.unused_incubators = deque()
-            self.initialize_api()
-            self.error_code = None
+                    self.log.error("No more accounts available in DB #3")
+        if not self.account:
+            return
+        self.username = self.account['username']
+        try:
+            self.location = self.account['location'][:2]
+        except KeyError:
+            self.location = self.get_start_coords()
+        self.inventory_timestamp = self.account.get('inventory_timestamp', 0) if self.items else 0
+        self.player_level = self.account.get('level')
+        self.last_request = self.account.get('time', 0)
+        self.last_action = self.last_request
+        self.last_gmo = self.last_request
+        try:
+            self.items = self.account['items']
+            self.bag_items = sum(self.items.values())
+        except KeyError:
+            self.account['items'] = {}
+            self.items = self.account['items']
+        self.num_captchas = 0
+        self.eggs = {}
+        self.unused_incubators = deque()
+        self.initialize_api()
+        self.error_code = None
 
     def within_distance(self, fort, max_distance=445):
         gym_location = fort.latitude, fort.longitude
