@@ -257,8 +257,16 @@ class FortCache:
     def __len__(self):
         return len(self.gyms)
 
-    def add(self, sighting):
-        self.gyms[sighting['external_id']] = sighting['last_modified']
+    def add(self, fort):
+        self.gyms[fort['external_id']] = fort['last_modified']
+
+    def remove_gym(external_id):
+        if external_id in self.gyms:
+            del self.gyms[external_id]
+        if external_id in self.internal_ids:
+            del self.internal_ids[external_id]
+        if external_id in self.gym_names:
+            del self.gym_names[external_id]
 
     def __contains__(self, sighting):
         try:
@@ -739,10 +747,7 @@ def add_mystery(session, pokemon):
     )
     session.add(obj)
 
-
-def add_fort_sighting(session, raw_fort):
-    # Check if fort exists
-    external_id = raw_fort['external_id']
+def get_fort_internal_id(session, external_id):
     if external_id in FORT_CACHE.internal_ids and FORT_CACHE.internal_ids[external_id]:
         internal_id = FORT_CACHE.internal_ids[external_id]
     else:
@@ -750,6 +755,12 @@ def add_fort_sighting(session, raw_fort):
             .filter(Fort.external_id == external_id) \
             .scalar()
         FORT_CACHE.internal_ids[external_id] = internal_id 
+    return internal_id
+
+def add_fort_sighting(session, raw_fort):
+    # Check if fort exists
+    external_id = raw_fort['external_id']
+    internal_id = get_fort_internal_id(session, external_id)
 
     fort_updated = False
 
@@ -810,13 +821,7 @@ def add_fort_sighting(session, raw_fort):
 
 def add_raid(session, raw_raid):
     fort_external_id = raw_raid['fort_external_id']
-    if fort_external_id in FORT_CACHE.internal_ids and FORT_CACHE.internal_ids[fort_external_id]:
-        fort_id = FORT_CACHE.internal_ids[fort_external_id]
-    else:
-        fort_id = session.query(Fort.id) \
-            .filter(Fort.external_id == fort_external_id) \
-            .scalar()
-        FORT_CACHE.internal_ids[fort_external_id] = fort_id
+    fort_id = get_fort_internal_id(session, fort_external_id)
 
     raid = session.query(Raid) \
         .filter(Raid.external_id == raw_raid['external_id']) \

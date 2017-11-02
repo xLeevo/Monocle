@@ -7,7 +7,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import joinedload
 
 
-from .db import Fort, FortSighting, session_scope
+from .db import Fort, FortSighting, GymDefender, Raid, session_scope, get_fort_internal_id, FORT_CACHE
 from .utils import randomize_point
 from .worker import Worker, UNIT
 from .shared import LOOP, call_at, get_logger
@@ -104,6 +104,24 @@ class WorkerRaider(Worker):
         self.add_job(gym)
 
     @classmethod
+    def obliterate_gym(self, gym):
+        external_id = gym['external_id']
+        if external_id not in self.gyms:
+            return
+        with session_scope() as session:
+            fort_id = get_fort_internal_id(session, external_id)
+            if not fort_id:
+                return
+            session.query(GymDefender).filter(GymDefender.fort_id==fort_id).delete()
+            session.query(Raid).filter(Raid.fort_id==fort_id).delete()
+            session.query(FortSighting).filter(FortSighting.fort_id==fort_id).delete()
+            session.query(Fort).filter(Fort.id==fort_id).delete()
+
+            del self.gyms[external_id]
+            FORT_CACHE.remove_gym(external_id)
+            log.warning("Fort {} obliterated.", external_id)
+
+    @classmethod
     async def launch(self, overseer):
         self.overseer = overseer
         self.preload()
@@ -163,6 +181,7 @@ class WorkerRaider(Worker):
                         self.gyms[fort_external_id]['miss'] = miss
                         raise GymNotFoundError("Gym {} disappeared. Total misses: {}".format(fort_external_id, miss))
                     else:
+                        self.gyms[fort_external_id]['miss'] = 0
                         now = int(time())
                         worker.scan_delayed = now - updated
                         job['updated'] = now
@@ -172,13 +191,19 @@ class WorkerRaider(Worker):
         except CancelledError:
             raise
         except (GymNotFoundError,NothingSeenAtGymSpotError) as e:
+            if isinstance(e, GymNotFoundError):
+                miss = self.gyms[fort_external_id]['miss']
+                if miss >= 5:
+                    self.obliterate_gym(job)
+
             self.skipped += 1
             log.error('Gym visit error: {}', e)
         except Exception as e:
             self.skipped += 1
             log.exception('An exception occurred in try_point: {}', e)
         finally:
-            self.add_job(job)
+            if fort_external_id in self.gyms:
+                self.add_job(job)
             self.coroutine_semaphore.release()
 
     @classmethod
