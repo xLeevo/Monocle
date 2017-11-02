@@ -1079,9 +1079,10 @@ class Worker:
                     if is_target_gym:
                         seen_gym = True
 
-                    if fort not in FORT_CACHE:
+                    self.overseer.WorkerRaider.add_gym(normalized_fort)
+
+                    if (scan_gym_external_id or not self.has_raiders) and fort not in FORT_CACHE:
                         FORT_CACHE.add(normalized_fort)
-                        self.overseer.WorkerRaider.add_gym(normalized_fort)
                         should_update_gym = True
 
                     if (is_target_gym or
