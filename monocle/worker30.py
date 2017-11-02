@@ -108,6 +108,7 @@ class Worker30(Worker):
                         if job in ENCOUNTER_CACHE:
                             continue
             
+                        await sleep(conf.LV30_ENCOUNTER_WAIT, loop=LOOP)
                         await self.coroutine_semaphore.acquire()
                         LOOP.create_task(self.try_point(job))
                 except Exception as e:
