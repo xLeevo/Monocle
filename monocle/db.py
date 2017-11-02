@@ -260,7 +260,7 @@ class FortCache:
     def add(self, fort):
         self.gyms[fort['external_id']] = fort['last_modified']
 
-    def remove_gym(external_id):
+    def remove_gym(self, external_id):
         if external_id in self.gyms:
             del self.gyms[external_id]
         if external_id in self.internal_ids:
