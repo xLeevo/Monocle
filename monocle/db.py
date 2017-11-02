@@ -257,8 +257,16 @@ class FortCache:
     def __len__(self):
         return len(self.gyms)
 
-    def add(self, sighting):
-        self.gyms[sighting['external_id']] = sighting['last_modified']
+    def add(self, fort):
+        self.gyms[fort['external_id']] = fort['last_modified']
+
+    def remove_gym(self, external_id):
+        if external_id in self.gyms:
+            del self.gyms[external_id]
+        if external_id in self.internal_ids:
+            del self.internal_ids[external_id]
+        if external_id in self.gym_names:
+            del self.gym_names[external_id]
 
     def __contains__(self, sighting):
         try:
@@ -492,6 +500,7 @@ class GymDefender(Base):
     fort_id = Column(Integer, ForeignKey('forts.id', onupdate="CASCADE", ondelete="CASCADE"), nullable=False, index=True)
     external_id = Column(UNSIGNED_HUGE_TYPE, nullable=False)
     pokemon_id = Column(SmallInteger)
+    team = Column(TINY_TYPE)
     owner_name = Column(String(128))
     nickname = Column(String(128))
     cp = Column(Integer)
@@ -502,6 +511,7 @@ class GymDefender(Base):
     sta_iv = Column(SmallInteger)
     move_1 = Column(SmallInteger)
     move_2 = Column(SmallInteger)
+    last_modified = Column(Integer)
     battles_attacked = Column(Integer)
     battles_defended = Column(Integer)
     num_upgrades = Column(SmallInteger)
@@ -592,7 +602,7 @@ def add_sighting(session, pokemon):
             spawnpoint.failures = 0
 
 
-def add_gym_defenders(session, fort_internal_id, gym_defenders):
+def add_gym_defenders(session, fort_internal_id, gym_defenders, raw_fort):
         
     session.query(GymDefender).filter(GymDefender.fort_id==fort_internal_id).delete()
 
@@ -611,6 +621,8 @@ def add_gym_defenders(session, fort_internal_id, gym_defenders):
             sta_iv=gym_defender['sta_iv'],
             move_1=gym_defender['move_1'],
             move_2=gym_defender['move_2'],
+            team=raw_fort.get('team',0),
+            last_modified=raw_fort['last_modified'],
             battles_attacked=gym_defender['battles_attacked'],
             battles_defended=gym_defender['battles_defended'],
             num_upgrades=gym_defender['num_upgrades'],
@@ -735,10 +747,7 @@ def add_mystery(session, pokemon):
     )
     session.add(obj)
 
-
-def add_fort_sighting(session, raw_fort):
-    # Check if fort exists
-    external_id = raw_fort['external_id']
+def get_fort_internal_id(session, external_id):
     if external_id in FORT_CACHE.internal_ids and FORT_CACHE.internal_ids[external_id]:
         internal_id = FORT_CACHE.internal_ids[external_id]
     else:
@@ -746,6 +755,12 @@ def add_fort_sighting(session, raw_fort):
             .filter(Fort.external_id == external_id) \
             .scalar()
         FORT_CACHE.internal_ids[external_id] = internal_id 
+    return internal_id
+
+def add_fort_sighting(session, raw_fort):
+    # Check if fort exists
+    external_id = raw_fort['external_id']
+    internal_id = get_fort_internal_id(session, external_id)
 
     fort_updated = False
 
@@ -780,7 +795,7 @@ def add_fort_sighting(session, raw_fort):
         FORT_CACHE.gym_names[external_id] = (raw_fort['name'], raw_fort['url']) 
     
     if 'gym_defenders' in raw_fort and len(raw_fort['gym_defenders']) > 0:
-        add_gym_defenders(session, internal_id, raw_fort['gym_defenders'])
+        add_gym_defenders(session, internal_id, raw_fort['gym_defenders'], raw_fort)
 
     if conf.KEEP_GYM_HISTORY:
         fort_sighting = None
@@ -799,19 +814,14 @@ def add_fort_sighting(session, raw_fort):
     fort_sighting.last_modified = raw_fort['last_modified']
     fort_sighting.slots_available = raw_fort['slots_available']
     fort_sighting.is_in_battle = raw_fort['is_in_battle']
+    fort_sighting.updated = int(time())
 
     session.merge(fort_sighting)
 
 
 def add_raid(session, raw_raid):
     fort_external_id = raw_raid['fort_external_id']
-    if fort_external_id in FORT_CACHE.internal_ids and FORT_CACHE.internal_ids[fort_external_id]:
-        fort_id = FORT_CACHE.internal_ids[fort_external_id]
-    else:
-        fort_id = session.query(Fort.id) \
-            .filter(Fort.external_id == fort_external_id) \
-            .scalar()
-        FORT_CACHE.internal_ids[fort_external_id] = fort_id
+    fort_id = get_fort_internal_id(session, fort_external_id)
 
     raid = session.query(Raid) \
         .filter(Raid.external_id == raw_raid['external_id']) \

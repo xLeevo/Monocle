@@ -56,9 +56,11 @@ class Account(db.Base):
     device_id = Column(String(64))
     remove = Column(Boolean, default=False)
     hibernated = Column(Integer, index=True)
+    last_hibernated = Column(Integer, index=True)
     reason = Column(String(12), index=True)
     captchaed = Column(Integer, index=True)
     created = Column(Integer, default=time)
+    binded = Column(Integer, default=time, index=True)
     updated = Column(Integer, default=time, onupdate=time)
     
     __table_args__ = (
@@ -103,6 +105,8 @@ class Account(db.Base):
                 d['unverified'] = True
             elif account.reason == 'security':
                 d['security'] = True
+            elif account.reason == 'temp_disabled':
+                d['temp_disabled'] = True
         return d
 
     @staticmethod
@@ -145,6 +149,10 @@ class Account(db.Base):
             to_dict['security'] = from_dict.get('security')
         elif 'security' in to_dict:
             del to_dict['security']
+        if 'temp_disabled' in from_dict:
+            to_dict['temp_disabled'] = from_dict.get('temp_disabled')
+        elif 'temp_disabled' in to_dict:
+            del to_dict['temp_disabled']
 
     @staticmethod
     def from_account_dict(session, account_dict, account_db=None, assign_instance=True, update_flags=True):
@@ -198,29 +206,28 @@ class Account(db.Base):
                 account_db.captchaed = None
 
             if 'banned' in account and account['banned']:
-                account_db.hibernated = int(time())
                 account_db.reason = 'banned'
             elif 'sbanned' in account and account['sbanned']:
-                account_db.hibernated = int(time())
                 account_db.reason = 'sbanned'
             elif 'warn' in account and account['warn']:
-                account_db.hibernated = int(time())
                 account_db.reason = 'warn'
             elif 'code3' in account and account['code3']:
-                account_db.hibernated = int(time())
                 account_db.reason = 'code3'
             elif 'credentials' in account and account['credentials']:
-                account_db.hibernated = int(time())
                 account_db.reason = 'credentials'
             elif 'unverified' in account and account['unverified']:
-                account_db.hibernated = int(time())
                 account_db.reason = 'unverified'
             elif 'security' in account and account['security']:
-                account_db.hibernated = int(time())
                 account_db.reason = 'security'
+            elif 'temp_disabled' in account and account['temp_disabled']:
+                account_db.reason = 'temp_disabled'
             else:
                 account_db.hibernated = None
                 account_db.reason = None
+
+            if account_db.reason:
+                account_db.hibernated = int(time())
+                account_db.last_hibernated = account_db.hibernated
         return account_db
 
     @staticmethod
@@ -266,6 +273,7 @@ class Account(db.Base):
                 account = q.with_lockmode("update").first()
                 if account:
                     account.instance = instance_id
+                    account.binded = time()
                     account_dict = Account.to_account_dict(account)
                     log.info("New account {}(Lv.{}) acquired and binded to this instance in DB.", account.username, account.level)
                 else:
@@ -302,6 +310,8 @@ class Account(db.Base):
             swapin_count += model.filter(Account.reason == 'sbanned') \
                 .update({'hibernated': None, 'instance': None})
             swapin_count += model.filter(Account.reason == 'code3') \
+                .update({'hibernated': None, 'instance': None})
+            swapin_count += model.filter(Account.reason == 'temp_disabled') \
                 .update({'hibernated': None, 'instance': None})
         log.info("=> Done hibernated swap in. {} accounts swapped in.", swapin_count)
 
@@ -516,6 +526,9 @@ class EmailUnverifiedException(Exception):
     pass
 
 class SecurityLockException(Exception):
+    pass
+
+class TempDisabledException(Exception):
     pass
 
 class CustomQueue(Queue):

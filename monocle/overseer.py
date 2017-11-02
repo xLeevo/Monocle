@@ -10,6 +10,7 @@ from time import time, monotonic
 
 from aiopogo import HashServer
 from sqlalchemy.exc import OperationalError
+from heapq import nlargest, nsmallest
 
 from .db import SIGHTING_CACHE, MYSTERY_CACHE, FORT_CACHE, RAID_CACHE
 from .utils import get_current_hour, dump_pickle, get_start_coords, get_bootstrap_points, randomize_point, best_factors, percentage_split
@@ -18,6 +19,7 @@ from .accounts import get_accounts, Account
 from . import bounds, db_proc, spawns, sanitized as conf
 from .worker import Worker
 from .worker30 import Worker30, ENCOUNTER_CACHE
+from .worker_raider import WorkerRaider
 from .notification import Notifier
 
 ANSI = '\x1b[2J\x1b[H'
@@ -207,6 +209,9 @@ class Overseer:
             'Accounts (DB-wide) fresh/clean: {}, hibernated: {}, (Lv.30) fresh/clean: {}, hibernated: {}\n'
             )
         try:
+            smallest = nsmallest(1, WorkerRaider.job_queue.queue)
+            oldest_gym_raided = int(time() - smallest[0][0]) if len(smallest) > 0 else 0
+
             self.stats = stats_template.format(
                 min(seen_per_worker), max(seen_per_worker), med(seen_per_worker),
                 min(visits), max(visits), med(visits),
@@ -218,7 +223,7 @@ class Overseer:
                 self.extra_queue.qsize(), self.captcha_queue.qsize(),
                 account_reasons, account_refresh,
                 account_clean, account_test,
-                account30_clean, account30_test
+                account30_clean, account30_test,
             )
         except Exception as e:
             self.stats = stats_template.format(
@@ -233,6 +238,12 @@ class Overseer:
                 None, None,
                 0, 0,
                 0, 0
+            )
+            
+        if Worker.has_raiders:
+            self.stats += 'Raider workers: {}, gyms: {}, queue: {}, oldest: {}s\n'.format(
+                len(WorkerRaider.workers), len(WorkerRaider.gyms),
+                WorkerRaider.job_queue.qsize(), oldest_gym_raided
             )
 
         self.update_coroutines_count()
@@ -458,6 +469,9 @@ class Overseer:
         self.Worker30 = Worker30
         self.ENCOUNTER_CACHE = ENCOUNTER_CACHE
         self.worker30 = LOOP.create_task(Worker30.launch(overseer=self))
+
+        self.WorkerRaider = WorkerRaider
+        self.worker_raider = LOOP.create_task(WorkerRaider.launch(overseer=self))
 
         if not spawns or bootstrap:
             try:
