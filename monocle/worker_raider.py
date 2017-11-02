@@ -158,14 +158,14 @@ class WorkerRaider(Worker):
                             gym=job)
                 if visit_result:
                     if visit_result == -1:
-                        raise GymNotFoundError("Gym disappeared")
+                        raise GymNotFoundError("Gym {} disappeared".format(fort_external_id))
                     else:
                         now = int(time())
                         worker.scan_delayed = now - updated
                         job['updated'] = now
                         self.visits += 1
                 else:
-                    raise NothingSeenAtGymSpotError("Nothing seen")
+                    raise NothingSeenAtGymSpotError("Nothing seen while scanning {}".format(fort_external_id))
         except CancelledError:
             raise
         except (GymNotFoundError,NothingSeenAtGymSpotError) as e:
