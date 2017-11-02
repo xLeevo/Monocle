@@ -105,6 +105,8 @@ class Account(db.Base):
                 d['unverified'] = True
             elif account.reason == 'security':
                 d['security'] = True
+            elif account.reason == 'temp_disabled':
+                d['temp_disabled'] = True
         return d
 
     @staticmethod
@@ -147,6 +149,10 @@ class Account(db.Base):
             to_dict['security'] = from_dict.get('security')
         elif 'security' in to_dict:
             del to_dict['security']
+        if 'temp_disabled' in from_dict:
+            to_dict['temp_disabled'] = from_dict.get('temp_disabled')
+        elif 'temp_disabled' in to_dict:
+            del to_dict['temp_disabled']
 
     @staticmethod
     def from_account_dict(session, account_dict, account_db=None, assign_instance=True, update_flags=True):
@@ -213,6 +219,8 @@ class Account(db.Base):
                 account_db.reason = 'unverified'
             elif 'security' in account and account['security']:
                 account_db.reason = 'security'
+            elif 'temp_disabled' in account and account['temp_disabled']:
+                account_db.reason = 'temp_disabled'
             else:
                 account_db.hibernated = None
                 account_db.reason = None
@@ -302,6 +310,8 @@ class Account(db.Base):
             swapin_count += model.filter(Account.reason == 'sbanned') \
                 .update({'hibernated': None, 'instance': None})
             swapin_count += model.filter(Account.reason == 'code3') \
+                .update({'hibernated': None, 'instance': None})
+            swapin_count += model.filter(Account.reason == 'temp_disabled') \
                 .update({'hibernated': None, 'instance': None})
         log.info("=> Done hibernated swap in. {} accounts swapped in.", swapin_count)
 
@@ -516,6 +526,9 @@ class EmailUnverifiedException(Exception):
     pass
 
 class SecurityLockException(Exception):
+    pass
+
+class TempDisabledException(Exception):
     pass
 
 class CustomQueue(Queue):
