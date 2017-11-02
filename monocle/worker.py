@@ -64,6 +64,8 @@ class Worker:
     g = {'seen': 0, 'captchas': 0}
     more_point_cell_cache = TtlCache(ttl=300) 
     has_raiders = (conf.RAIDERS_PER_GYM > 0)
+    scan_gym = conf.GYM_NAMES or conf.GYM_DEFENDERS
+    passive_scan_gym = (scan_gym and not has_raiders)
 
     if conf.CACHE_CELLS:
         cells = load_pickle('cells') or {}
@@ -161,7 +163,6 @@ class Worker:
         self.item_capacity = 350
         self.visits = 0
         self.pokestops = conf.SPIN_POKESTOPS
-        self.gyms = conf.GET_GYM_DETAILS
         self.next_spin = 0
         self.handle = HandleStub()
         self.next_gym = 0
@@ -928,7 +929,6 @@ class Worker:
         seen_encounter = not encounter_id
         seen_gym = not gym
 
-        passive_scan_gym = (not self.has_raiders)
         scan_gym_external_id = gym.get('external_id') if gym else None
 
         if conf.ITEM_LIMITS and self.bag_items >= self.item_capacity:
@@ -1041,7 +1041,7 @@ class Worker:
 
                 db_proc.add(normalized)
 
-            if self.gyms and passive_scan_gym:
+            if self.passive_scan_gym:
                 priority_fort = self.prioritize_forts(map_cell.forts)
             else:
                 priority_fort = None
@@ -1088,9 +1088,9 @@ class Worker:
                     if (is_target_gym or
                             (priority_fort and
                                 priority_fort.id == fort.id and
-                                time() > self.next_gym and self.smart_throttle(1))):
+                                time() > self.next_gym)):
 
-                        needs_name = (fort.id not in FORT_CACHE.gym_names)
+                        needs_name = (conf.GYM_NAMES and (fort.id not in FORT_CACHE.gym_names))
                         needs_defenders = conf.GYM_DEFENDERS
 
                         if needs_name or needs_defenders:

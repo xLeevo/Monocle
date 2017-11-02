@@ -54,7 +54,8 @@ GRID = (4, 4)  # rows, columns
 #RAIDERS_PER_GYM = 0
 #
 ### For example, if you want to have 0.03 raiders per gym, set 0.03.
-### As a basic guideline, 0.03 would result in around 5 mins refresh time for all gyms
+### As a basic guideline, 0.03 would result in around 5 mins refresh time for all gyms.
+### The following describes requirement of 3 workers per 100 gyms with guarantee of maximum 5 mins refresh time.
 #RAIDERS_PER_GYM = 0.03
 
 ### Do GMO requests for lv30 accounts.
@@ -193,8 +194,8 @@ SPIN_COOLDOWN = 300    # spin only one PokéStop every n seconds (default 300)
 # Cools down for x seconds for a worker after scanning a gym details.
 #GYM_COOLDOWN = 10
 
-# Toggles scanning for gym details. Smart throttle is applied in the same way as PokéStops.
-#GET_GYM_DETAILS = True 
+### Toggles scanning for gym names.
+#GYM_NAMES = True 
 
 ### Toggles scanning gyms for gym_defenders.
 ### Set this to False if you want to call GYM_GET_INFO RPC only for gym names.
