@@ -1084,7 +1084,7 @@ class Worker:
                 else:
                     normalized_fort = self.normalize_gym(fort)
                     is_target_gym = (scan_gym_external_id == fort.id)
-                    should_update_gym = False
+                    should_update_gym = is_target_gym
 
                     if is_target_gym:
                         seen_gym = True
