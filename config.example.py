@@ -48,6 +48,10 @@ GRID = (4, 4)  # rows, columns
 #
 ### For example, if you want to have 5% level 30 acccounts for encounter, set
 #LV30_PERCENT_OF_WORKERS = 0.05
+#
+### Delay in seconds before starting next encounter.
+### This allows adjustment of overall encounter rate (to make it slower).
+#LV30_ENCOUNTER_WAIT=0.0
 
 ### Gym Raider accounts to pull from DB in percentage of total gyms inside the borders for gym scanning.
 ### Default 0.0(0%) Monkey Raiders turned off by default
@@ -75,7 +79,7 @@ GRID = (4, 4)  # rows, columns
 #LV30_MAX_QUEUE = 0
 #
 ###It is recommended to set it to this formula if you decided to cap the max queue size.
-#LV30_MAX_QUEUE = int(LV30_PERCENT_OF_WORKERS * GRID[0] * GRID[1] * 10.0)
+LV30_MAX_QUEUE = int(LV30_PERCENT_OF_WORKERS * GRID[0] * GRID[1] * 10.0)
 
 
 
