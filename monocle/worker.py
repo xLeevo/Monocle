@@ -231,7 +231,8 @@ class Worker:
             except ex.AuthException as e:
                 msg = str(e)
                 if ("Your username or password is incorrect" in msg):
-                    raise LoginCredentialsException("Username or password is wrong.")
+                    if attempt >= 1:
+                        raise LoginCredentialsException("Username or password is wrong.")
                 elif "email not verified" in msg:
                     raise EmailUnverifiedException("Account email not verified")
                 elif "has been locked for security reasons" in msg:
