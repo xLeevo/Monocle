@@ -26,7 +26,7 @@ class NothingSeenAtGymSpotError(Exception):
 
 class WorkerRaider(Worker):
     workers = [] 
-    gyms = set()
+    gyms = {}
     gym_scans = 0
     skipped = 0
     visits = 0
@@ -88,7 +88,7 @@ class WorkerRaider(Worker):
     def add_gym(self, gym):
         if gym['external_id'] in self.gyms:
             return
-        self.gyms.add(gym['external_id'])
+        self.gyms[gym['external_id']] = {'miss': 0}
         self.workers_needed = int(ceil(conf.RAIDERS_PER_GYM * len(self.gyms)))
         if len(self.workers) < self.workers_needed:
             try:
@@ -158,7 +158,10 @@ class WorkerRaider(Worker):
                             gym=job)
                 if visit_result:
                     if visit_result == -1:
-                        raise GymNotFoundError("Gym {} disappeared".format(fort_external_id))
+                        miss = self.gyms[fort_external_id]['miss']
+                        miss += 1
+                        self.gyms[fort_external_id]['miss'] = miss
+                        raise GymNotFoundError("Gym {} disappeared. Total misses: {}".format(fort_external_id, miss))
                     else:
                         now = int(time())
                         worker.scan_delayed = now - updated
