@@ -199,7 +199,8 @@ class WorkerRaider(Worker):
             raise
         except (GymNotFoundError,NothingSeenAtGymSpotError) as e:
             self.skipped += 1
-            log.error('Gym visit error: {}', e)
+            if worker:
+                worker.log.error('Gym visit error: {}', e)
             if isinstance(e, GymNotFoundError):
                 miss = self.gyms[fort_external_id]['miss']
                 if miss >= 10:
