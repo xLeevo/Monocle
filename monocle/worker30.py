@@ -170,6 +170,7 @@ class Worker30(Worker):
                         sighting=job)
                 if visit_result == -1:
                     self.hash_burn += 1
+                    await sleep(1.0, loop=LOOP)
                     point = randomize_point(point,amount=0.00001) # jitter around 3 meters
                     ENCOUNTER_CACHE.remove(job['encounter_id'], job['spawn_id'])
                     visit_result = await worker.visit(point,

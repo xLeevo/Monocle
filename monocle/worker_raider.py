@@ -177,6 +177,7 @@ class WorkerRaider(Worker):
                         gym=job)
                 if visit_result == -1:
                     self.hash_burn += 1
+                    await sleep(1.0, loop=LOOP)
                     point = randomize_point(point,amount=0.00001) # jitter around 3 meters
                     visit_result = await worker.visit(point,
                             gym=job)
@@ -197,13 +198,12 @@ class WorkerRaider(Worker):
         except CancelledError:
             raise
         except (GymNotFoundError,NothingSeenAtGymSpotError) as e:
-            if isinstance(e, GymNotFoundError):
-                miss = self.gyms[fort_external_id]['miss']
-                if miss >= 5:
-                    self.obliterate_gym(job)
-
             self.skipped += 1
             log.error('Gym visit error: {}', e)
+            if isinstance(e, GymNotFoundError):
+                miss = self.gyms[fort_external_id]['miss']
+                if miss >= 10:
+                    self.obliterate_gym(job)
         except Exception as e:
             self.skipped += 1
             log.exception('An exception occurred in try_point: {}', e)
