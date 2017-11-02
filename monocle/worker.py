@@ -885,6 +885,7 @@ class Worker:
             encounter_conf=conf.ENCOUNTER, notify_conf=conf.NOTIFY,
             more_points=conf.MORE_POINTS, encounter_id=None, gym=None):
         self.handle.cancel()
+        gmo_success = False
         self.error_code = '∞' if bootstrap else '!'
 
         self.log.info('{0} is visiting {1[0]:.4f}, {1[1]:.4f}', self.username, point)
@@ -927,6 +928,7 @@ class Worker:
         seen_target = not spawn_id
         seen_encounter = not encounter_id
         seen_gym = not gym
+        gmo_success = True
 
         scan_gym_external_id = gym.get('external_id') if gym else None
 
@@ -1167,11 +1169,12 @@ class Worker:
         await self.update_accounts_dict()
         self.handle = LOOP.call_later(60, self.unset_code)
 
-        if not seen_encounter:
-            return -1 
+        if gmo_success:
+            if not seen_encounter:
+                return -1 
 
-        if not seen_gym:
-            return -1
+            if not seen_gym:
+                return -1
 
         return pokemon_seen + forts_seen + points_seen
 
