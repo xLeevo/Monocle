@@ -228,11 +228,9 @@ class WorkerRaider(Worker):
                 if speed < lowest_speed:
                     lowest_speed = speed
                     worker = w
-            tolerable_time_diff = 30
             time_diff = max(int(time() - updated), 0)
-            speed_factor = (1.0 + (time_diff / tolerable_time_diff)) # SPEED_LIMIT~SPEED_LIMIT*30
-            speed_limit = (conf.SPEED_LIMIT * (1.0 + (time_diff / tolerable_time_diff)))
-            #log.info("SPEED_LIMIT {}, time_diff: {}, speed_limit: {:.2f}, my_speed: {:.2f}", job.get('external_id'), time_diff, speed_limit, lowest_speed)
+            speed_factor = (1.0 + (time_diff / 20))
+            speed_limit = (conf.SPEED_LIMIT * speed_factor)
             if worker and lowest_speed < speed_limit:
                 worker.speed = lowest_speed
                 return worker
