@@ -231,7 +231,7 @@ class WorkerRaider(Worker):
                     lowest_speed = speed
                     worker = w
             time_diff = max(int(time() - updated), 0)
-            speed_factor = (1.0 + (time_diff / 20))
+            speed_factor = (1.0 + (time_diff / 10))
             speed_limit = (conf.SPEED_LIMIT * speed_factor)
             if worker and lowest_speed < speed_limit:
                 worker.speed = lowest_speed
