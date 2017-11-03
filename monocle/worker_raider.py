@@ -188,13 +188,23 @@ class WorkerRaider(Worker):
                         self.gyms[fort_external_id]['miss'] = miss
                         raise GymNotFoundError("Gym {} disappeared. Total misses: {}".format(fort_external_id, miss))
                     else:
+                        if worker and worker.account and 'gym_nothing_seen' in worker.account:
+                            del worker.account['gym_nothing_seen']
                         self.gyms[fort_external_id]['miss'] = 0
                         now = int(time())
                         worker.scan_delayed = now - updated
                         job['updated'] = now
                         self.visits += 1
                 else:
-                    raise NothingSeenAtGymSpotError("Nothing seen while scanning {}".format(fort_external_id))
+                    if worker and worker.account:
+                        username = worker.username
+                        account_miss = worker.account.get('gym_nothing_seen', 0)
+                        account_miss += 1
+                        worker.account['gym_nothing_seen'] = account_miss
+                    else:
+                        username = None
+                        account_miss = 1
+                    raise NothingSeenAtGymSpotError("Nothing seen while scanning {} by {} for {} times.".format(fort_external_id, username, account_miss))
         except CancelledError:
             raise
         except (GymNotFoundError,NothingSeenAtGymSpotError) as e:
