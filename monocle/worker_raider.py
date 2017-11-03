@@ -215,6 +215,10 @@ class WorkerRaider(Worker):
                 miss = self.gyms[fort_external_id]['miss']
                 if miss >= 10:
                     self.obliterate_gym(job)
+            if isinstance(e, NothingSeenAtGymSpotError):
+                if worker and worker.account:
+                    account_miss = worker.account.get('gym_nothing_seen', 0)
+                    await sleep(account_miss * 5, loop=LOOP)
         except Exception as e:
             self.skipped += 1
             log.exception('An exception occurred in try_point: {}', e)
