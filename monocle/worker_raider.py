@@ -168,7 +168,7 @@ class WorkerRaider(Worker):
             fort_external_id = job['external_id']
             updated = job.get('updated', job.get('last_modified', 0))
             point = randomize_point(point,amount=0.00003) # jitter around 3 meters
-            skip_time = monotonic() + (conf.SEARCH_SLEEP * 2)
+            skip_time = monotonic() + (conf.SEARCH_SLEEP)
             worker = await self.best_worker(point, job, updated, skip_time)
             if not worker:
                 return
@@ -228,12 +228,12 @@ class WorkerRaider(Worker):
                 if speed < lowest_speed:
                     lowest_speed = speed
                     worker = w
-            #tolerable_time_diff = 300
-            #time_diff = int(time() - updated)
-            #min_time_diff = max(min(time_diff, tolerable_time_diff * 5), 0)
-            #speed_limit = (conf.SPEED_LIMIT * (1.0 + (min_time_diff / tolerable_time_diff)))
+            tolerable_time_diff = 30
+            time_diff = max(int(time() - updated), 0)
+            speed_factor = (1.0 + (time_diff / tolerable_time_diff)) # SPEED_LIMIT~SPEED_LIMIT*30
+            speed_limit = (conf.SPEED_LIMIT * (1.0 + (time_diff / tolerable_time_diff)))
             #log.info("SPEED_LIMIT {}, time_diff: {}, speed_limit: {:.2f}, my_speed: {:.2f}", job.get('external_id'), time_diff, speed_limit, lowest_speed)
-            if worker:# and lowest_speed < speed_limit:
+            if worker and lowest_speed < speed_limit:
                 worker.speed = lowest_speed
                 return worker
             if skip_time and monotonic() > skip_time:
