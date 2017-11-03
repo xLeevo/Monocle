@@ -1182,7 +1182,10 @@ class Worker:
                 return -1 
 
             if not seen_gym:
-                return -1
+                if forts_seen > 0:
+                    return -1
+                else:
+                    return 0
 
         return pokemon_seen + forts_seen + points_seen
 
