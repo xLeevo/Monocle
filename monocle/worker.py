@@ -946,10 +946,9 @@ class Worker:
         for map_cell in map_objects.map_cells:
             request_time_ms = map_cell.current_timestamp_ms
             for pokemon in map_cell.wild_pokemons:
+                pokemon_seen += 1
                 if not self.in_bounds(pokemon.latitude, pokemon.longitude):
                     continue
-
-                pokemon_seen += 1
 
                 normalized = self.normalize_pokemon(pokemon, username=self.username)
                 normalized['time_of_day'] = map_objects.time_of_day
@@ -1058,9 +1057,9 @@ class Worker:
             for fort in map_cell.forts:
                 if not fort.enabled:
                     continue
+                forts_seen += 1
                 if not self.in_bounds(fort.latitude, fort.longitude):
                     continue
-                forts_seen += 1
                 if fort.type == 1:  # pokestops
                     if fort.HasField('lure_info'):
                         norm = self.normalize_lured(fort, request_time_ms)
