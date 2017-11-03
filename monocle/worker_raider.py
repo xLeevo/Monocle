@@ -210,6 +210,8 @@ class WorkerRaider(Worker):
             log.exception('An exception occurred in try_point: {}', e)
         finally:
             if fort_external_id in self.gyms:
+                if 'updated' in job:
+                    job['updated'] += 5
                 self.add_job(job)
             self.coroutine_semaphore.release()
 
