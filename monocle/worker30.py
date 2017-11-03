@@ -124,17 +124,6 @@ class Worker30(Worker):
             log.warning("A wild error appeared in launcher: {}", e)
 
 
-    async def sleep_travel_time(self, point):
-        if conf.LV30_MAX_SPEED and not HARDCORE_HYPERDRIVE:
-            distance = get_distance(self.location, point, UNIT)
-            time_needed = 3600.0 * distance / conf.LV30_MAX_SPEED 
-            if self.username:
-                if time_needed > 0.0:
-                    log.info("{} needs {}s of travel time.", self.username, int(time_needed))
-                    await sleep(time_needed, loop=LOOP)
-                    return True
-        return False
-
     @classmethod
     async def try_point(self, job):
         try:
