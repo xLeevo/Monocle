@@ -621,14 +621,19 @@ def add_gym_defenders(session, fort_internal_id, gym_defenders, raw_fort):
             sta_iv=gym_defender['sta_iv'],
             move_1=gym_defender['move_1'],
             move_2=gym_defender['move_2'],
-            team=raw_fort.get('team',0),
-            last_modified=raw_fort['last_modified'],
             battles_attacked=gym_defender['battles_attacked'],
             battles_defended=gym_defender['battles_defended'],
             num_upgrades=gym_defender['num_upgrades'],
             created=round(time()),
         )
+        team = raw_fort.get('team')
+        if team is not None:
+            obj.team = team
+        last_modified = raw_fort.get('last_modified')
+        if last_modified is not None:
+            obj.last_modified = last_modified
         session.add(obj)
+
 
 
 def add_spawnpoint(session, pokemon):

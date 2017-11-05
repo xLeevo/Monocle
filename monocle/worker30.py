@@ -66,7 +66,7 @@ class Worker30(Worker):
 
     @classmethod
     def add_job(self, pokemon):
-        self.job_queue.put_nowait((pokemon.get('expire_timestamp',0), time(), pokemon))
+        self.job_queue.put_nowait((pokemon.get('expire_timestamp',0), monotonic(), pokemon))
 
     @classmethod
     async def launch(self, overseer):

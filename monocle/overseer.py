@@ -209,9 +209,6 @@ class Overseer:
             'Accounts (DB-wide) fresh/clean: {}, hibernated: {}, (Lv.30) fresh/clean: {}, hibernated: {}\n'
             )
         try:
-            smallest = nsmallest(1, WorkerRaider.job_queue.queue)
-            oldest_gym_raided = int(time() - smallest[0][0]) if len(smallest) > 0 else 0
-
             self.stats = stats_template.format(
                 min(seen_per_worker), max(seen_per_worker), med(seen_per_worker),
                 min(visits), max(visits), med(visits),
@@ -241,6 +238,11 @@ class Overseer:
             )
             
         if Worker.has_raiders:
+            smallest = nsmallest(1, WorkerRaider.job_queue.queue)
+            if len(smallest) > 0:
+                oldest_gym_raided = int(time() - smallest[0][0]) if len(smallest) > 0 else 0
+            else:
+                oldest_gym_raided = None 
             self.stats += 'Raider workers: {}, gyms: {}, queue: {}, oldest: {}s\n'.format(
                 len(WorkerRaider.workers), len(WorkerRaider.gyms),
                 WorkerRaider.job_queue.qsize(), oldest_gym_raided

@@ -82,7 +82,7 @@ class WorkerRaider(Worker):
     
     @classmethod
     def add_job(self, gym):
-        self.job_queue.put_nowait((gym.get('updated', gym.get('last_modified', 0)), time(), gym))
+        self.job_queue.put_nowait((gym.get('updated', gym.get('last_modified', 0)), monotonic(), gym))
 
     @classmethod
     def add_gym(self, gym):
