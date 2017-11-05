@@ -180,7 +180,6 @@ class Overseer:
             visits.append(w.visits)
             speeds.append(w.speed)
 
-
         try: 
             account_stats = Account.stats()
             account_reasons = ', '.join(['%s: %s' % (k,v) for k,v in account_stats[1].items()])
