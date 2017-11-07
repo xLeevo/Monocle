@@ -2,7 +2,7 @@ import os
 import enum
 import csv
 from asyncio import run_coroutine_threadsafe
-from time import time
+from time import time, monotonic
 from queue import Queue
 from threading import Semaphore
 from sqlalchemy.ext.declarative import declarative_base
@@ -283,18 +283,19 @@ class Account(db.Base):
 
     @staticmethod
     def put(account_dict):
-        if 'remove' in account_dict and account_dict['remove']: 
-            return
-        with db.session_scope() as session:
-            account = Account.from_account_dict(session, account_dict, assign_instance=True)
-            if account.remove:
-                if account.id:
-                    session.delete(account)
-                account_dict['remove'] = True
-            else:
-                session.merge(account)
-                session.commit()
-                account_dict['internal_id'] = account.id
+        with account_get_sem:
+            if 'remove' in account_dict and account_dict['remove']: 
+                return
+            with db.session_scope() as session:
+                account = Account.from_account_dict(session, account_dict, assign_instance=True)
+                if account.remove:
+                    if account.id:
+                        session.delete(account)
+                    account_dict['remove'] = True
+                else:
+                    session.merge(account)
+                    session.commit()
+                    account_dict['internal_id'] = account.id
 
 
     @staticmethod
