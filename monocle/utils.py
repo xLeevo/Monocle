@@ -253,12 +253,13 @@ def get_static_map_url(lat, lon, icon=None):
         query_zoom = 'zoom={}'.format('15')
         query_maptype = 'maptype={}'.format('roadmap')
 
-        url = ('https://maps.googleapis.com/maps/api/staticmap?' +
-                query_center + '&' + query_markers + '&' +
-                query_maptype + '&' + query_size + '&' + query_zoom)
         if icon is not None:
-            url += "&markers=icon:{icon_url}%7C{lat},{lon}".format(
+            query_markers = 'markers=icon:{icon_url}%7C{lat},{lon}'.format(
                 icon_url = icon,
                 lat = lat,
                 lon = lon)
+
+        url = ('https://maps.googleapis.com/maps/api/staticmap?' +
+                query_center + '&' + query_markers + '&' +
+                query_maptype + '&' + query_size + '&' + query_zoom)
         return url
