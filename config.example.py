@@ -398,10 +398,15 @@ ALWAYS_NOTIFY = 14
 #######################################################
 
 # copyright safe icons:
-#ICONS_URL = "https://raw.githubusercontent.com/ZeChrales/monocle-icons/larger-outlined/larger-icons/{}.png"
+#ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Copyrightfree-Assets/{}.png"
+#GMAP_ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Copyrightfree-Assets-32x32/{}.png"
+#GMAP_EGG_ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Copyrightfree-Assets-32x32/egg_{}.png"
 
 # non copyright safe icons:
-#ICONS_URL = "https://raw.githubusercontent.com/PokeAlarm/PokeAlarm/master/icons/{}.png"
+#ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Original-Assets/{}.png"
+#GMAP_ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Original-Assets-32x32/{}.png"
+#GMAP_EGG_ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Original-Assets-32x32/egg_{}.png"
+
 
 #DEFAULT_ALARM = {
 #            'username': '{poke_name}',
@@ -521,8 +526,6 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #}
 
 #TELEGRAM_RAIDS_CHAT_ID = '@your_channel'
-
-#ICONS_URL = "https://raw.githubusercontent.com/ZeChrales/monocle-icons/larger-outlined/larger-icons/{}.png"
 
 #WEBHOOKS = {'http://127.0.0.1:4000'}
 

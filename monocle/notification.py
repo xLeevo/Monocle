@@ -582,6 +582,7 @@ class Notification:
         expire_time = datetime.fromtimestamp(raw_expire_time) if raw_expire_time else raw_expire_time
         poke_id = self.pokemon.get('pokemon_id')
         icon_url = conf.ICONS_URL.format(poke_id)
+        gmap_icon_url = conf.GMAP_ICONS_URL.format(poke_id)
         form = pokemon.get('form', '?')
         gender = pokemon.get('gender', '?')
         height = pokemon.get('height', '?')
@@ -687,7 +688,7 @@ class Notification:
                         'description': text,
                         'thumbnail': {'url': icon_url},
                         'color': color,
-                        'image': {'url': get_static_map_url(lat, lon, icon=icon_url)}
+                        'image': {'url': get_static_map_url(lat, lon, icon=gmap_icon_url)}
                     }]
                 }
                 session = SessionManager.get()
@@ -1061,6 +1062,8 @@ class Notifier:
         tth = raid['time_battle'] if raid['pokemon_id'] == 0 else raid['time_end']
         timer_end = datetime.fromtimestamp(tth, None)
         time_left = timedelta(seconds=tth - time())
+        gmap_icon_url = conf.GMAP_ICONS_URL
+        gmap_egg_icon_url = conf.GMAP_EGG_ICONS_URL
 
 
         def insert_data(text):
@@ -1087,7 +1090,7 @@ class Notifier:
             if not conf.NOTIFY_EGGS:
                 return False
             username = insert_data(conf.DEFAULT_EGG_ALARM['username'])
-            avatar_url = insert_data(conf.DEFAULT_EGG_ALARM['avatar_url'])
+            gmap_icon = conf.GMAP_EGG_ICONS_URL.format(raid['level'])
             title = insert_data(conf.DEFAULT_EGG_ALARM['title'])
             description = insert_data(conf.DEFAULT_EGG_ALARM['description'])
             discord_url = conf.DEFAULT_EGG_ALARM['discord_url']
@@ -1095,20 +1098,19 @@ class Notifier:
             if not conf.NOTIFY_RAIDS:
                 return False
             username = insert_data(conf.DEFAULT_RAID_ALARM['username'])
-            avatar_url = insert_data(conf.DEFAULT_RAID_ALARM['avatar_url'])
             title = insert_data(conf.DEFAULT_RAID_ALARM['title'])
             description = insert_data(conf.DEFAULT_RAID_ALARM['description'])
+            gmap_icon = conf.GMAP_ICONS_URL.format(raid['pokemon_id'])
             discord_url = conf.DEFAULT_RAID_ALARM['discord_url']
 
         payload = {
             'username': username,
-            'avatar_url': avatar_url,
             'embeds': [{
                 'title': title,
                 'url': self.get_gmaps_link(fort['lat'], fort['lon']),
                 'description': description,
                 'thumbnail': {'url': fort['url']},
-                'image': {'url': get_static_map_url(fort['lat'], fort['lon'])}
+                'image': {'url': get_static_map_url(fort['lat'], fort['lon'], icon=gmap_icon)}
             }]
         }
         session = SessionManager.get()
