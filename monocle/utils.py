@@ -263,3 +263,6 @@ def get_static_map_url(lat, lon, icon=None):
                 query_center + '&' + query_markers + '&' +
                 query_maptype + '&' + query_size + '&' + query_zoom)
         return url
+
+def get_gmaps_link(lat, lon):
+    return "http://maps.google.com/maps?q={},{}".format(lat, lon)
