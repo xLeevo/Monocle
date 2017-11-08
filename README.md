@@ -1,6 +1,6 @@
 # Monocle/Monkey
 
-Read [wiki](https://github.com/MonkeyTedBaker/Monocle/wiki) first before looking for help on Discord at `PMSF#monkey`.
+Read [wiki](https://github.com/Hydro74000/Monocle/wiki) first before looking for help on Discord at `PMSF#monkey`.
 
 # Monocle
 
@@ -93,7 +93,7 @@ The gyms statistics server is in a separate file, because it's intended to be sh
 
 ## Getting Started Tips & FAQs
 
-Visit our [Wiki](https://github.com/Noctem/Monocle/wiki) for more info.
+Visit our [Wiki](https://github.com/Hydro74000/Monocle/wiki) for more info.
 
 ## License
 
