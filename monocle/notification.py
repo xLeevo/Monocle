@@ -1093,7 +1093,7 @@ class Notifier:
             gmap_icon = conf.GMAP_EGG_ICONS_URL.format(raid['level'])
             title = insert_data(conf.DEFAULT_EGG_ALARM['title'])
             description = insert_data(conf.DEFAULT_EGG_ALARM['description'])
-            discord_url = conf.DEFAULT_EGG_ALARM['discord_url']
+            webhook_url = conf.DEFAULT_EGG_ALARM['webhook_url']
         else:
             if not conf.NOTIFY_RAIDS:
                 return False
@@ -1101,7 +1101,7 @@ class Notifier:
             title = insert_data(conf.DEFAULT_RAID_ALARM['title'])
             description = insert_data(conf.DEFAULT_RAID_ALARM['description'])
             gmap_icon = conf.GMAP_ICONS_URL.format(raid['pokemon_id'])
-            discord_url = conf.DEFAULT_RAID_ALARM['discord_url']
+            webhook_url = conf.DEFAULT_RAID_ALARM['webhook_url']
 
         payload = {
             'username': username,
@@ -1114,7 +1114,7 @@ class Notifier:
             }]
         }
         session = SessionManager.get()
-        return await hook_post(discord_url, session, payload, self.log)
+        return await hook_post(webhook_url, session, payload, self.log)
 
     async def notify_raid_to_telegram(self, raid, fort):
         if raid['pokemon_id'] not in conf.RAIDS_IDS:
