@@ -105,8 +105,8 @@ class Account(db.Base):
                 d['unverified'] = True
             elif account.reason == 'security':
                 d['security'] = True
-            elif account.reason == 'temp_disabled':
-                d['temp_disabled'] = True
+            elif account.reason == 'tempdisabled':
+                d['tempdisabled'] = True
         return d
 
     @staticmethod
@@ -149,10 +149,10 @@ class Account(db.Base):
             to_dict['security'] = from_dict.get('security')
         elif 'security' in to_dict:
             del to_dict['security']
-        if 'temp_disabled' in from_dict:
-            to_dict['temp_disabled'] = from_dict.get('temp_disabled')
-        elif 'temp_disabled' in to_dict:
-            del to_dict['temp_disabled']
+        if 'tempdisabled' in from_dict:
+            to_dict['tempdisabled'] = from_dict.get('tempdisabled')
+        elif 'tempdisabled' in to_dict:
+            del to_dict['tempdisabled']
 
     @staticmethod
     def from_account_dict(session, account_dict, account_db=None, assign_instance=True, update_flags=True):
@@ -219,8 +219,8 @@ class Account(db.Base):
                 account_db.reason = 'unverified'
             elif 'security' in account and account['security']:
                 account_db.reason = 'security'
-            elif 'temp_disabled' in account and account['temp_disabled']:
-                account_db.reason = 'temp_disabled'
+            elif 'tempdisabled' in account and account['tempdisabled']:
+                account_db.reason = 'tempdisabled'
             else:
                 account_db.hibernated = None
                 account_db.reason = None
@@ -312,7 +312,7 @@ class Account(db.Base):
                 .update({'hibernated': None, 'instance': None})
             swapin_count += model.filter(Account.reason == 'code3') \
                 .update({'hibernated': None, 'instance': None})
-            swapin_count += model.filter(Account.reason == 'temp_disabled') \
+            swapin_count += model.filter(Account.reason == 'tempdisabled') \
                 .update({'hibernated': None, 'instance': None})
         log.info("=> Done hibernated swap in. {} accounts swapped in.", swapin_count)
 

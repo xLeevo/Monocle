@@ -801,7 +801,7 @@ class Worker:
             self.log.warning('Temp disabled error on {}: {}', self.username, e)
             self.error_code = 'TEMP DISABLED'
             await sleep(3, loop=LOOP)
-            await self.remove_account(flag='temp_disabled')
+            await self.remove_account(flag='tempdisabled')
         except EmailUnverifiedException as e:
             self.log.warning('Email verification error on {}: {}', self.username, e)
             self.error_code = 'UNVERIFIED'
@@ -1691,8 +1691,8 @@ class Worker:
         elif flag == 'security':
             self.account['security'] = True
             self.log.warning('Removing {} due to security lock.', self.username)
-        elif flag == 'temp_disabled':
-            self.account['temp_disabled'] = True
+        elif flag == 'tempdisabled':
+            self.account['tempdisabled'] = True
             self.log.warning('Removing {} due to temp disabled.', self.username)
         elif flag == 'level30':
             self.account['graduated'] = True
