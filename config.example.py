@@ -509,7 +509,7 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #            'description': """It hatches at {time_battle}
 #Raid ends at: {raid_end}""",
 #            'color': 'GREY', # RED/AQUA/GREEN/BLUE/GOLD/ORANGE/RED/GREY/NAVY
-#            'discord_url': 'https://discordapp.com/api/webhooks/xxxxxxxxxxxxx/xxxxxxxxxxxxxxx'
+#            'webhook_url': 'https://discordapp.com/api/webhooks/xxxxxxxxxxxxx/xxxxxxxxxxxxxxx'
 #}
 
 #DEFAULT_RAID_ALARM = {
@@ -522,7 +522,7 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #Attacks: **{move_1}** / **{move_2}**
 #Gym-pic: {gym_pic}""",
 #            'color': 'BLUE', # RED/AQUA/GREEN/BLUE/GOLD/ORANGE/RED/GREY/NAVY
-#            'discord_url': 'https://discordapp.com/api/webhooks/xxxxxxxxxxxxx/xxxxxxxxxxxxxxx'
+#            'webhook_url': 'https://discordapp.com/api/webhooks/xxxxxxxxxxxxx/xxxxxxxxxxxxxxx'
 #}
 
 #TELEGRAM_RAIDS_CHAT_ID = '@your_channel'
