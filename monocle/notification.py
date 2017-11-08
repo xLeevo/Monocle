@@ -10,7 +10,7 @@ from base64 import b64encode
 from aiohttp import ClientError, ClientResponseError, ServerTimeoutError
 from aiopogo import json_dumps, json_loads
 
-from .utils import load_pickle, dump_pickle, get_static_map_url
+from .utils import load_pickle, dump_pickle, get_gmaps_link ,get_static_map_url
 from .db import session_scope, get_gym, get_pokemon_ranking, estimate_remaining_time, FORT_CACHE
 from .names import MOVES, POKEMON
 from .shared import get_logger, SessionManager, LOOP, run_threaded
@@ -684,7 +684,7 @@ class Notification:
                     'avatar_url': avatar_url,
                     'embeds': [{
                         'title': title,
-                        'url': "http://maps.google.com/maps?q={},{}".format(lat, lon),
+                        'url': get_gmaps_link(lat, lon),
                         'description': text,
                         'thumbnail': {'url': icon_url},
                         'color': color,
@@ -1107,7 +1107,7 @@ class Notifier:
             'username': username,
             'embeds': [{
                 'title': title,
-                'url': self.get_gmaps_link(fort['lat'], fort['lon']),
+                'url': get_gmaps_link(fort['lat'], fort['lon']),
                 'description': description,
                 'thumbnail': {'url': fort['url']},
                 'image': {'url': get_static_map_url(fort['lat'], fort['lon'], icon=gmap_icon)}
@@ -1152,7 +1152,7 @@ Attacks: {}/{}""".format(
             }
         else:
             TELEGRAM_BASE_URL = "https://api.telegram.org/bot{token}/sendMessage".format(token=conf.TELEGRAM_BOT_TOKEN)
-            map_link = '<a href="{}">Open GMaps</a>'.format(self.get_gmaps_link(fort['lat'], fort['lon']))
+            map_link = '<a href="{}">Open GMaps</a>'.format(get_gmaps_link(fort['lat'], fort['lon']))
             payload = {
                 'chat_id': conf.TELEGRAM_RAIDS_CHAT_ID,
                 'parse_mode': 'HTML',
