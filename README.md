@@ -42,7 +42,7 @@ Since it uses [Leaflet](http://leafletjs.com/) for mapping, the appearance and d
 - able to map entire city (or larger area)
 - reports for gathered data
 - asyncio coroutines
-- support for Bossland's hashing server
+- support for Bossland's ah GOMAN's hashing server
   - displays key usage stats in real time
 
 ## Setting up
