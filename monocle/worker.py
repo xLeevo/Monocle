@@ -1119,7 +1119,7 @@ class Worker:
                             RAID_CACHE.add(normalized_raid)
                             if normalized_raid['time_end'] > int(time()):
                                 if conf.NOTIFY_RAIDS:
-                                    LOOP.create_task(self.notifier.notify_raid(fort))
+                                    LOOP.create_task(self.notifier.notify_raid(normalized_raid, normalized_fort))
                                 if conf.NOTIFY_RAIDS_WEBHOOK:
                                     LOOP.create_task(self.notifier.webhook_raid(normalized_raid, normalized_fort))
                             db_proc.add(normalized_raid)

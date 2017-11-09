@@ -246,7 +246,7 @@ MAX_RETRIES = 3
 LOGIN_TIMEOUT = 2.5
 
 # add spawn points reported in cell_ids to the unknown spawns list
-#MORE_POINTS = False 
+#MORE_POINTS = False
 
 # Set to True to kill the scanner when a newer version is forced
 #FORCED_KILL = False
@@ -386,6 +386,66 @@ ALWAYS_NOTIFY = 14
 # Never notify about the following Pokémon, even if they would otherwise be eligible
 #NEVER_NOTIFY_IDS = TRASH_IDS
 
+
+#######################################################
+## NOTIFY POKEMON
+##
+## If some values are left out,
+## Monocle uses the values of DEFAULT_ALARM
+##
+## So either set all values or delete the '#' signs
+## infront of the DEFAULT_ALARM lines
+#######################################################
+
+# copyright safe icons:
+#ICONS_URL = "https://raw.githubusercontent.com/ZeChrales/monocle-icons/larger-outlined/larger-icons/{}.png"
+
+# non copyright safe icons:
+#ICONS_URL = "https://raw.githubusercontent.com/PokeAlarm/PokeAlarm/master/icons/{}.png"
+
+#DEFAULT_ALARM = {
+#            'username': '{poke_name}',
+#            'title': 'A wild {poke_name} {poke_iv}% (lvl {poke_lvl} | {poke_cp}WP) ({poke_atk}/{poke_def}/{poke_sta}) appeared',
+#            'description': """Until {disappear_time} ({time_left} left)
+#IV: {poke_iv}% ({poke_atk}/{poke_def}/{poke_sta})
+#CP: {poke_cp}  |  Level: {poke_lvl}
+#Attacks: {poke_move_1} / {poke_move_2}
+#Gender: {poke_gender} | Weight: {poke_weight} kg | Height: {poke_height} m""",
+#            'color': 'BLUE', # RED/AQUA/GREEN/BLUE/GOLD/ORANGE/RED/GREY/NAVY
+#            'avatar_url': ICONS_URL,
+#            'icon_url': ICONS_URL
+#}
+
+#NOTIFY_POKEMON_ALARMS = {
+#    'discord': [
+#        {
+#            'name': 'filter pokemon ids',
+#            'title': 'A wild {poke_name} {poke_iv}% (lvl {poke_lvl} | {poke_cp}WP) ({poke_atk}/{poke_def}/{poke_sta}) appeared',
+#            'description': """Until {disappear_time} ({time_left} left)""",
+#            'filter_ids': [1,2,3,4,5,6,8,9,246,247,248],
+#            'webhook_url': 'YOUR DISCORDCHANNEL WEBHOOK',
+#            'avatar_url': ICONS_URL,
+#            'icon_url': ICONS_URL
+#        },
+#        {
+#            'name': 'filter pokemon ivs',
+#            'username': 'iv-95-bot',
+#            'filter_ivs': {'value': 95, 'op': '>=', 'ignore_unknown': True},
+#            'webhook_url': 'YOUR DISCORDCHANNEL WEBHOOK',
+#        },
+#        {
+#            'name': 'combined filter ivs and ids',
+#            'username': 'iv-95-bot',
+#            'filter_ids': [1,2,3,4,5,6,8,9,246,247,248],
+#            'filter_ivs': {'value': 95, 'op': '>=', 'ignore_unknown': True},
+#            'webhook_url': 'YOUR DISCORDCHANNEL WEBHOOK',
+#            'color': 'RED',
+#        }
+#    ]
+#}
+
+
+
 # Override the rarity score for particular Pokémon
 # format is: {pokemon_id: rarity_score}
 #RARITY_OVERRIDE = {148: 0.6, 149: 0.9}
@@ -431,13 +491,35 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #TELEGRAM_MESSAGE_TYPE = 0
 
 ### The following raid notification related configs
-### only apply to Chrale's version of raids notification (no webhook support, only Telegram and Discord)
+### only apply to Monkey's version of raids notification (no webhook support, only Telegram and Discord)
 ### For webhook raids notification, see below for NOTIFY_RAIDS_WEBHOOK
 ###
 #NOTIFY_RAIDS = False # Enable raid notifications. Default False
 #RAIDS_LVL_MIN = 1
 #RAIDS_IDS = {143, 248}
-#RAIDS_DISCORD_URL = "https://discordapp.com/api/webhooks/xxxxxxxxxxxx/xxxxxxxxxxxx"
+
+#DEFAULT_EGG_ALARM = {
+#            'username': 'Egg Bot',
+#            'title': 'A Level {level} Egg appeared',
+#            'description': """It hatches at {time_battle}
+#Raid ends at: {raid_end}""",
+#            'color': 'GREY', # RED/AQUA/GREEN/BLUE/GOLD/ORANGE/RED/GREY/NAVY
+#            'discord_url': 'https://discordapp.com/api/webhooks/xxxxxxxxxxxxx/xxxxxxxxxxxxxxx'
+#}
+
+#DEFAULT_RAID_ALARM = {
+#            'username': 'Raid Bot',
+#            'title': 'A {poke_name} Raid (Level {level}) hetched',
+#            'description': """Gym: {gym_name}
+#Until: {raid_end}
+#controlled by: **Team {team}**
+#Pokemon: **{poke_name}**
+#Attacks: **{move_1}** / **{move_2}**
+#Gym-pic: {gym_pic}""",
+#            'color': 'BLUE', # RED/AQUA/GREEN/BLUE/GOLD/ORANGE/RED/GREY/NAVY
+#            'discord_url': 'https://discordapp.com/api/webhooks/xxxxxxxxxxxxx/xxxxxxxxxxxxxxx'
+#}
+
 #TELEGRAM_RAIDS_CHAT_ID = '@your_channel'
 
 #ICONS_URL = "https://raw.githubusercontent.com/ZeChrales/monocle-icons/larger-outlined/larger-icons/{}.png"
@@ -565,7 +647,6 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 ## Table specific cleanup times. Set -1.0 to disable
 # CLEANUP_RAIDS_OLDER_THAN_X_HR = 6.0
 # CLEANUP_SIGHTINGS_OLDER_THAN_X_HR = 6.0
-# CLEANUP_SPAWNPOINTS_OLDER_THAN_X_HR = 24.0
 # CLEANUP_FORT_SIGHTINGS_OLDER_THAN_X_HR = 6.0
 # CLEANUP_MYSTERY_SIGHTINGS_OLDER_THAN_X_HR = 24.0
 
