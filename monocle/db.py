@@ -985,6 +985,7 @@ def _get_forts_sqlite(session):
             f.lat,
             f.lon,
             f.name,
+            f.url,
             fs.slots_available
         FROM fort_sightings fs
         JOIN forts f ON f.id=fs.fort_id
@@ -1007,6 +1008,7 @@ def _get_forts(session):
             f.lat,
             f.lon,
             f.name,
+            f.url,
             fs.slots_available
         FROM fort_sightings fs
         JOIN forts f ON f.id=fs.fort_id
