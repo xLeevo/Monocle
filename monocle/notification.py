@@ -10,19 +10,21 @@ from base64 import b64encode
 from aiohttp import ClientError, ClientResponseError, ServerTimeoutError
 from aiopogo import json_dumps, json_loads
 
-from .utils import load_pickle, dump_pickle
-from .db import session_scope, get_pokemon_ranking, estimate_remaining_time, FORT_CACHE
+from .utils import load_pickle, dump_pickle, get_static_map_url
+from .db import session_scope, get_gym, get_pokemon_ranking, estimate_remaining_time, FORT_CACHE
 from .names import MOVES, POKEMON
 from .shared import get_logger, SessionManager, LOOP, run_threaded
 from . import sanitized as conf
 
 import os
+import operator
 
 WEBHOOK = False
 if conf.NOTIFY:
     TWITTER = False
     PUSHBULLET = False
     TELEGRAM = False
+    DISCORD = False
 
     if all((conf.TWITTER_CONSUMER_KEY, conf.TWITTER_CONSUMER_SECRET,
             conf.TWITTER_ACCESS_KEY, conf.TWITTER_ACCESS_SECRET)):
@@ -48,6 +50,10 @@ if conf.NOTIFY:
             raise ImportError("You specified a PB_API_KEY but you don't have asyncpushbullet installed.") from e
         PUSHBULLET=True
 
+    if conf.NOTIFY_POKEMON_ALARMS:
+        if 'discord' in conf.NOTIFY_POKEMON_ALARMS:
+            DISCORD = True
+
     if conf.WEBHOOKS:
         from aiopogo import json_dumps, json_loads
 
@@ -61,7 +67,7 @@ if conf.NOTIFY:
     if conf.TELEGRAM_BOT_TOKEN and conf.TELEGRAM_CHAT_ID:
         TELEGRAM=True
 
-    NATIVE = TWITTER or PUSHBULLET or TELEGRAM
+    NATIVE = TWITTER or PUSHBULLET or TELEGRAM or DISCORD
 
     if not (NATIVE or WEBHOOK):
         raise ValueError('NOTIFY is enabled but no keys or webhook address were provided.')
@@ -76,6 +82,23 @@ if conf.NOTIFY:
         raise ValueError('Only set NOTIFY_RANKING or NOTIFY_IDS, not both.')
     elif not any((conf.NOTIFY_RANKING, conf.NOTIFY_IDS, conf.ALWAYS_NOTIFY_IDS)):
         raise ValueError('Must set either NOTIFY_RANKING, NOTIFY_IDS, or ALWAYS_NOTIFY_IDS.')
+
+
+async def hook_post(url, session, payload, logger, headers={'content-type': 'application/json'}, timeout=4):
+    try:
+        async with session.post(url, json=payload, timeout=timeout, headers=headers) as resp:
+            return True
+    except ClientResponseError as e:
+        logger.error('Error {} from wehbook {}: {}', e.code, url, e.message)
+    except (TimeoutError, ServerTimeoutError):
+        logger.error('Response timeout from webhook: {}', url)
+    except ClientError as e:
+        logger.error('{} on webhook: {}', e.__class__.__name__, url)
+    except CancelledError:
+        raise
+    except Exception:
+        logger.exception('Error from webhook: {}', url)
+    return False
 
 
 class NotificationCache:
@@ -293,7 +316,7 @@ class Notification:
         self.place = None
 
     async def notify(self):
-        if conf.LANDMARKS and (TWITTER or PUSHBULLET):
+        if conf.LANDMARKS and (TWITTER or PUSHBULLET or DISCORD):
             self.landmark = conf.LANDMARKS.find_landmark(self.coordinates)
 
         try:
@@ -303,7 +326,7 @@ class Notification:
         except AttributeError:
             self.place = self.generic_place_string()
 
-        if PUSHBULLET or TELEGRAM:
+        if PUSHBULLET or TELEGRAM or DISCORD:
             try:
                 self.attack = self.pokemon['individual_attack']
                 self.defense = self.pokemon['individual_defense']
@@ -314,6 +337,7 @@ class Notification:
         tweeted = False
         pushed = False
         telegram = False
+        discord = False
 
         notifications = []
         if PUSHBULLET:
@@ -324,6 +348,9 @@ class Notification:
 
         if TELEGRAM:
             notifications.append(self.sendToTelegram())
+
+        if DISCORD:
+            notifications.append(self.notify_discord_pokemon())
 
         results = await gather(*notifications, loop=LOOP)
         return True in results
@@ -548,6 +575,138 @@ class Notification:
                 image.close()
             except AttributeError:
                 pass
+
+    async def notify_discord_pokemon(self):
+        pokemon = self.pokemon
+        raw_expire_time = pokemon.get('expire_timestamp')
+        expire_time = datetime.fromtimestamp(raw_expire_time) if raw_expire_time else raw_expire_time
+        poke_id = self.pokemon.get('pokemon_id')
+        icon_url = conf.ICONS_URL.format(poke_id)
+        form = pokemon.get('form', '?')
+        gender = pokemon.get('gender', '?')
+        height = pokemon.get('height', '?')
+        weight = pokemon.get('weight', '?')
+        move_1 = pokemon.get('move_1')
+        move_2 = pokemon.get('move_2')
+        iv_atk = pokemon.get('individual_attack', '?')
+        iv_def = pokemon.get('individual_defense', '?')
+        iv_sta = pokemon.get('individual_stamina', '?')
+        lat = pokemon.get('lat', '?')
+        lon = pokemon.get('lon', '?')
+        cp = pokemon.get('cp', '?')
+        lvl = pokemon.get('level', '?')
+        if gender == 1:
+            gender = u'\u2642'  # male symbol
+        elif gender == 2:
+            gender= u'\u2640'  # female symbol
+        elif gender == 3:
+            gender = u'\u26b2'  #neutral
+        if height != "?":
+            height = round(height, 2)
+        if weight != "?":
+            weight = round(weight, 2)
+
+        # translate to name
+        move_1_name = MOVES[move_1] if move_1 else '?'
+        move_2_name = MOVES[move_2] if move_2 else '?'
+        iv_unknown = '?' in [iv_atk, iv_def, iv_sta]
+        if iv_unknown:
+            iv = '?'
+        else:
+            iv = "{0:.2f}".format(
+                round(
+                    (((iv_atk + iv_def + iv_sta) / 45) * 100), 2))
+        for disc_alarm in conf.NOTIFY_POKEMON_ALARMS['discord']:
+            filter_ids = disc_alarm.get('filter_ids', list())
+            filter_ivs = disc_alarm.get('filter_ivs', dict())
+            username = disc_alarm.get('username', conf.DEFAULT_ALARM['username'])
+            title = disc_alarm.get('title', conf.DEFAULT_ALARM['title'])
+            description = disc_alarm.get('description', conf.DEFAULT_ALARM['description'])
+            avatar_url = disc_alarm.get('avatar_url', conf.DEFAULT_ALARM['avatar_url'])
+            icon_url = disc_alarm.get('icon_url', conf.DEFAULT_ALARM['icon_url'])
+            color_name = disc_alarm.get('color', conf.DEFAULT_ALARM['color'])
+            color_dict = {
+                'DEFAULT': 0,
+                'AQUA': 1752220,
+                'GREEN': 3066993,
+                'BLUE': 3447003,
+                'PURPLE': 10181046,
+                'GOLD': 15844367,
+                'ORANGE': 15105570,
+                'RED': 15158332,
+                'GREY': 9807270,
+                'NAVY': 3426654
+            }
+            color = color_dict.get(color_name, 0)
+            avatar_url = avatar_url.format(poke_id)
+            icon_url = icon_url.format(poke_id)
+
+            if filter_ids and (poke_id not in filter_ids):
+                continue
+            else:
+                def insert_data(text):
+#                    address = "https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lon}&output=json&sensor=true_or_false".format(lat, lon)
+#                    try:
+#                        address_formated = address['results']['address_components']['formatted_address']
+#                    except KeyError:
+#                        address_formated = "unknown"
+                    disappear_time = expire_time.strftime("%H:%M") if expire_time else "??:??"
+                    tl_seconds = (expire_time - datetime.now()).seconds
+                    time_left = "{}min {}sec".format(
+                        tl_seconds // 60, tl_seconds % 60)
+                    return text.format(
+#                        address = address_formated,
+                        poke_id = poke_id,
+                        poke_name = self.name,
+#                        map_link = self.map_link,
+                        disappear_time = disappear_time,
+                        time_left = time_left,
+                        poke_iv = iv,
+                        poke_form = form,
+                        poke_gender = gender,
+                        poke_height = height,
+                        poke_weight = weight,
+                        poke_move_1 = move_1_name,
+                        poke_move_2 = move_2_name,
+                        poke_lvl = lvl,
+                        poke_cp = cp,
+                        poke_atk = iv_atk,
+                        poke_def = iv_def,
+                        poke_sta = iv_sta)
+
+                title = insert_data(title)
+                text = insert_data(description)
+                username = insert_data(username)
+
+                payload = {
+                    'username': username,
+                    'avatar_url': avatar_url,
+                    'embeds': [{
+                        'title': title,
+                        'url': "http://maps.google.com/maps?q={},{}".format(lat, lon),
+                        'description': text,
+                        'thumbnail': {'url': icon_url},
+                        'color': color,
+                        'image': {'url': get_static_map_url(lat, lon, icon=icon_url)}
+                    }]
+                }
+                session = SessionManager.get()
+                if filter_ivs:
+                    ignore_unknown = disc_alarm['filter_ivs']['ignore_unknown']
+                    if iv_unknown and ignore_unknown:
+                        continue
+                    elif iv_unknown and not ignore_unknown:
+                        await hook_post(disc_alarm['webhook_url'], session, payload, self.log)
+                        continue
+                    op_dic = {'>': 'gt', '>=': 'ge', '<': 'lt', '<=': 'le', '==': 'eq'}
+                    op = getattr(operator, op_dic[filter_ivs['op']])
+                    if op and op(float(iv), filter_ivs['value']):
+                        await hook_post(disc_alarm['webhook_url'], session, payload, self.log)
+                        continue
+                else:
+                    await hook_post(disc_alarm['webhook_url'], session, payload, self.log)
+                    continue
+
 
     @staticmethod
     def generic_place_string():
@@ -851,97 +1010,155 @@ class Notifier:
             }
 
             session = SessionManager.get()
-            return await self.hook_post(conf.SCAN_LOG_WEBHOOK, session, payload)
+            return await hook_post(conf.SCAN_LOG_WEBHOOK, session, payload, self.log)
         else:
             return
 
 
-    async def notify_raid(self, fort):
+    async def notify_raid(self, raid, fort):
         discord = False
         telegram = False
-        if conf.RAIDS_DISCORD_URL:
-            discord = await self.notify_raid_to_discord(fort)
+
+        move_1 = raid['move_1']
+        move_2 = raid['move_2']
+        # translate to name
+        raid['move_1_name'] = MOVES[move_1] if move_1 else '?'
+        raid['move_2_name'] = MOVES[move_2] if move_2 else '?'
+        if raid['fort_external_id'] in FORT_CACHE.gym_names:
+            test = FORT_CACHE.gym_names[raid['fort_external_id']]
+            gym_name, gym_url = test
+            fort['name'] = gym_name
+            fort['url'] = gym_url
+        else:
+            async with self.db_access_lock:
+                with session_scope() as gym_session:
+                    gym = get_gym(gym_session, fort)
+                    if gym:
+                        fort['name'] = gym.name
+                        fort['url'] = gym.url
+        # Team
+        if fort['team'] == 1:
+            fort['team_name'] = "Mystic (blue)"
+        elif fort['team'] == 2:
+            fort['team_name'] = "Valor (red)"
+        elif fort['team'] == 3:
+            fort['team_name'] = "Instinct (yellow)"
+        else:
+            fort['team_name'] = "No Team"
+        if conf.DEFAULT_EGG_ALARM or conf.DEFAULT_RAID_ALARM:
+            discord = await self.notify_raid_to_discord(raid, fort)
         if conf.TELEGRAM_BOT_TOKEN and conf.TELEGRAM_RAIDS_CHAT_ID:
-            telegram = await self.notify_raid_to_telegram(fort)
+            telegram = await self.notify_raid_to_telegram(raid, fort)
         if discord or telegram:
             self.last_notification = monotonic()
             self.sent += 1
 
-    async def notify_raid_to_discord(self, fort):
-        raid = fort.raid_info
+    async def notify_raid_to_discord(self, raid, fort):
+        if raid['pokemon_id'] not in conf.RAIDS_IDS:
+            if raid['level'] < conf.RAIDS_LVL_MIN:
+                return False
 
-        if raid.raid_pokemon.pokemon_id not in conf.RAIDS_IDS:
-            if raid.raid_level < conf.RAIDS_LVL_MIN:
-                return
-
-        tth = raid.raid_battle_ms // 1000 if raid.raid_pokemon.pokemon_id == 0 else raid.raid_end_ms // 1000
+        tth = raid['time_battle'] if raid['pokemon_id'] == 0 else raid['time_end']
         timer_end = datetime.fromtimestamp(tth, None)
         time_left = timedelta(seconds=tth - time())
+
+
+        def insert_data(text):
+#            address = "https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lon}&output=json&sensor=true_or_false".format(fort['lat'], fort['lon'])
+#            try:
+#                address_formated = address['results']['address_components']['formatted_address']
+#            except KeyError:
+#                address_formated = "unknown"
+            return text.format(
+#                timer_end.strftime("%H:%M:%S"), time_left.seconds // 3600, (time_left.seconds // 60) % 60, time_left.seconds % 60,
+#                address = address_formated,
+                level = raid['level'],
+                gym_name = fort['name'],
+                gym_pic = fort['url'],
+                poke_id = raid['pokemon_id'],
+                poke_name = POKEMON[raid['pokemon_id']],
+                raid_end = datetime.fromtimestamp(raid['time_end']).strftime("%H:%M"),
+                time_battle = datetime.fromtimestamp(raid['time_battle']).strftime("%H:%M"),
+                team = fort['team_name'],
+                move_1 = raid['move_1_name'],
+                move_2 = raid['move_2_name']
+            )
+        if raid['pokemon_id'] == 0:
+            if not conf.NOTIFY_EGGS:
+                return False
+            username = insert_data(conf.DEFAULT_EGG_ALARM['username'])
+            avatar_url = insert_data(conf.DEFAULT_EGG_ALARM['avatar_url'])
+            title = insert_data(conf.DEFAULT_EGG_ALARM['title'])
+            description = insert_data(conf.DEFAULT_EGG_ALARM['description'])
+            discord_url = conf.DEFAULT_EGG_ALARM['discord_url']
+        else:
+            if not conf.NOTIFY_RAIDS:
+                return False
+            username = insert_data(conf.DEFAULT_RAID_ALARM['username'])
+            avatar_url = insert_data(conf.DEFAULT_RAID_ALARM['avatar_url'])
+            title = insert_data(conf.DEFAULT_RAID_ALARM['title'])
+            description = insert_data(conf.DEFAULT_RAID_ALARM['description'])
+            discord_url = conf.DEFAULT_RAID_ALARM['discord_url']
 
         payload = {
-            'username': 'Egg' if raid.raid_pokemon.pokemon_id == 0 else POKEMON[raid.raid_pokemon.pokemon_id],
+            'username': username,
+            'avatar_url': avatar_url,
             'embeds': [{
-                'title': 'Raid{}'.format(raid.raid_level),
-                'url': self.get_gmaps_link(fort.latitude, fort.longitude),
-                'description': '{} ({}h {}mn {}s)'.format(timer_end.strftime("%H:%M:%S"), time_left.seconds // 3600, (time_left.seconds // 60) % 60, time_left.seconds % 60),
-                'thumbnail': {'url': conf.ICONS_URL.format(raid.raid_pokemon.pokemon_id)},
-                'image': {'url': self.get_static_map_url(fort.latitude, fort.longitude)}
+                'title': title,
+                'url': self.get_gmaps_link(fort['lat'], fort['lon']),
+                'description': description,
+                'thumbnail': {'url': fort['url']},
+                'image': {'url': get_static_map_url(fort['lat'], fort['lon'])}
             }]
         }
-
         session = SessionManager.get()
-        return await self.hook_post(conf.RAIDS_DISCORD_URL, session, payload)
+        return await hook_post(discord_url, session, payload, self.log)
 
-    async def notify_raid_to_telegram(self, fort):
-        raid = fort.raid_info
-
-        if raid.raid_pokemon.pokemon_id not in conf.RAIDS_IDS:
-            if raid.raid_level < conf.RAIDS_LVL_MIN:
+    async def notify_raid_to_telegram(self, raid, fort):
+        if raid['pokemon_id'] not in conf.RAIDS_IDS:
+            if raid['level'] < conf.RAIDS_LVL_MIN:
                 return
 
-        
-        title = '[Raid lvl.{}] {}'.format(raid.raid_level, 'Egg' if raid.raid_pokemon.pokemon_id == 0 else POKEMON[raid.raid_pokemon.pokemon_id])
-        tth = raid.raid_battle_ms // 1000 if raid.raid_pokemon.pokemon_id == 0 else raid.raid_end_ms // 1000
+
+        title = '[Raid lvl.{}] {}'.format(raid['level'], 'Egg' if raid['pokemon_id'] == 0 else POKEMON[raid['pokemon_id']])
+        tth = raid['time_battle'] if raid['pokemon_id'] == 0 else raid['time_end']
         timer_end = datetime.fromtimestamp(tth, None)
         time_left = timedelta(seconds=tth - time())
-        description = '{} ({}h {}mn {}s)'.format(timer_end.strftime("%H:%M:%S"), time_left.seconds // 3600, (time_left.seconds // 60) % 60, time_left.seconds % 60)
+        description = """Arena: {}
+{} ({}h {}mn {}s)
+Controlley by: {}
+Pokemon: {}
+Attacks: {}/{}""".format(
+            fort['name'],
+            timer_end.strftime("%H:%M:%S"),
+            time_left.seconds // 3600,
+            (time_left.seconds // 60) % 60,
+            time_left.seconds % 60,
+            fort['team_name'],
+            POKEMON[raid['pokemon_id']],
+            raid['move_1_name'],
+            raid['move_2_name'])
 
         if conf.TELEGRAM_MESSAGE_TYPE == 0:
             TELEGRAM_BASE_URL = "https://api.telegram.org/bot{token}/sendVenue".format(token=conf.TELEGRAM_BOT_TOKEN)
             payload = {
                 'chat_id': conf.TELEGRAM_RAIDS_CHAT_ID,
-                'latitude': fort.latitude,
-                'longitude': fort.longitude,
+                'latitude': fort['lat'],
+                'longitude': fort['lon'],
                 'title' : title,
                 'address' : description,
             }
         else:
             TELEGRAM_BASE_URL = "https://api.telegram.org/bot{token}/sendMessage".format(token=conf.TELEGRAM_BOT_TOKEN)
-            map_link = '<a href="{}">Open GMaps</a>'.format(self.get_gmaps_link(fort.latitude, fort.longitude))
+            map_link = '<a href="{}">Open GMaps</a>'.format(self.get_gmaps_link(fort['lat'], fort['lon']))
             payload = {
                 'chat_id': conf.TELEGRAM_RAIDS_CHAT_ID,
                 'parse_mode': 'HTML',
                 'text' : title + '\n' + description + '\n\n' + map_link
             }
-        
+
         session = SessionManager.get()
-        return await self.hook_post(TELEGRAM_BASE_URL, session, payload, timeout=8)
-
-    def get_gmaps_link(self, lat, lng):
-        return 'http://maps.google.com/maps?q={},{}'.format(repr(lat), repr(lng))
-
-    def get_static_map_url(self, lat, lng):
-        center = '{},{}'.format(lat, lng)
-        query_center = 'center={}'.format(center)
-        query_markers = 'markers=color:red%7C{}'.format(center)
-        query_size = 'size={}x{}'.format('250', '125')
-        query_zoom = 'zoom={}'.format('15')
-        query_maptype = 'maptype={}'.format('roadmap')
-
-        url = ('https://maps.googleapis.com/maps/api/staticmap?' +
-                query_center + '&' + query_markers + '&' +
-                query_maptype + '&' + query_size + '&' + query_zoom)
-        return url
+        return await hook_post(TELEGRAM_BASE_URL, session, payload, self.log, timeout=8)
 
     async def webhook(self, pokemon):
         """ Send a notification via webhook
@@ -984,25 +1201,8 @@ class Notifier:
 
     if WEBHOOK > 1:
         async def wh_send(self, session, payload):
-            results = await gather(*tuple(self.hook_post(w, session, payload) for w in HOOK_POINTS), loop=LOOP)
+            results = await gather(*tuple(hook_post(w, session, payload, self.log) for w in HOOK_POINTS), loop=LOOP)
             return True in results
     else:
         async def wh_send(self, session, payload):
-            return await self.hook_post(HOOK_POINT, session, payload)
-
-
-    async def hook_post(self, w, session, payload, headers={'content-type': 'application/json'}, timeout=4):
-        try:
-            async with session.post(w, json=payload, timeout=timeout, headers=headers) as resp:
-                return True
-        except ClientResponseError as e:
-            self.log.error('Error {} from webook {}: {}', e.code, w, e.message)
-        except (TimeoutError, ServerTimeoutError):
-            self.log.error('Response timeout from webhook: {}', w)
-        except ClientError as e:
-            self.log.error('{} on webhook: {}', e.__class__.__name__, w)
-        except CancelledError:
-            raise
-        except Exception:
-            self.log.exception('Error from webhook: {}', w)
-        return False
+            return await hook_post(HOOK_POINT, session, payload, self.log)
