@@ -302,18 +302,13 @@ class Account(db.Base):
     def swapin():
         with db.session_scope() as session:
             swapin_count = 0
-            model = session.query(Account) \
-                .filter(Account.hibernated <= int(time() - conf.ACCOUNTS_HIBERNATE_DAYS * 24 * 3600))
-            swapin_count += model.filter(Account.reason == 'warn') \
-                .update({'hibernated': None, 'instance': None})
-            swapin_count += model.filter(Account.reason == 'banned') \
-                .update({'hibernated': None, 'instance': None})
-            swapin_count += model.filter(Account.reason == 'sbanned') \
-                .update({'hibernated': None, 'instance': None})
-            swapin_count += model.filter(Account.reason == 'code3') \
-                .update({'hibernated': None, 'instance': None})
-            swapin_count += model.filter(Account.reason == 'tempdisabled') \
-                .update({'hibernated': None, 'instance': None})
+            for reason,days in conf.ACCOUNTS_HIBERNATE_CONFIG.items():
+                model = session.query(Account) \
+                    .filter(Account.hibernated <= int(time() - days * 24 * 3600))
+                total = model.filter(Account.reason == reason) \
+                    .update({'hibernated': None, 'instance': None})
+                swapin_count += total
+                log.info("==> Swapped in for {} of {}(s)", total, reason)
         log.info("=> Done hibernated swap in. {} accounts swapped in.", swapin_count)
 
     @staticmethod
