@@ -2,7 +2,6 @@ import traceback
 from math import ceil
 from queue import PriorityQueue
 from time import time, monotonic
-from random import random
 from asyncio import CancelledError, Semaphore, sleep
 from sqlalchemy import desc
 from sqlalchemy.orm import joinedload
@@ -83,7 +82,7 @@ class WorkerRaider(Worker):
     
     @classmethod
     def add_job(self, gym):
-        self.job_queue.put_nowait((gym.get('updated', gym.get('last_modified', 0)), random(), gym))
+        self.job_queue.put_nowait((gym.get('updated', gym.get('last_modified', 0)), time(), gym))
 
     @classmethod
     def add_gym(self, gym):

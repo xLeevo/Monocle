@@ -3,7 +3,6 @@ from math import ceil
 from queue import PriorityQueue
 from time import time, monotonic
 from asyncio import CancelledError, Semaphore, sleep
-from random import random
 
 from pogeo import get_distance
 
@@ -67,7 +66,7 @@ class Worker30(Worker):
 
     @classmethod
     def add_job(self, pokemon):
-        self.job_queue.put_nowait((pokemon.get('expire_timestamp',0), random(), pokemon))
+        self.job_queue.put_nowait((pokemon.get('expire_timestamp',0), time(), pokemon))
 
     @classmethod
     async def launch(self, overseer):
