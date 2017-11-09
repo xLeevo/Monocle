@@ -606,6 +606,7 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #SB_MIN_SIGHTING_COUNT = 30    # Minimum sightings required to flag SB
 #SB_QUARANTINE_VISITS = 12     # Number of mininum visits needed to check if an account has seen any uncommon
 #SB_WEBHOOK = None             # Define webhook end point for SB. Payload is Discord type.
+#SB_WEBHOOK_MIN_LEVEL = 1      # Minimum level to notify to SB webhook
 
 ####
 ### PgScout (Credit to Avatar690)
