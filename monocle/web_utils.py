@@ -168,7 +168,8 @@ def get_gym_markers(names=POKEMON):
             'lon': fort['lon'],
             'slots_available': fort['slots_available'],
             'last_modified': fort['last_modified'],
-            'gym_name': fort['name']
+            'gym_name': fort['name'],
+            'img_url': fort['url']
     } for fort in forts]
 
 
