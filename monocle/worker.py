@@ -109,6 +109,7 @@ class Worker:
         self.captcha_queue = captcha_queue
         self.worker_dict = worker_dict
         self.account_dict = account_dict
+        
         # account information
         try:
             self.account = self.account_queue.get_nowait()
@@ -1672,40 +1673,48 @@ class Worker:
             ACCOUNTS[self.username] = self.account
 
     async def remove_account(self, flag='banned'):
+        log_message = ''
+        send_webhook = True
         self.error_code = 'REMOVING'
         if flag == 'warn':
             self.account['warn'] = True
-            self.log.warning('Hibernating {} due to warn.', self.username)
+            log_message = "Hibernating {} due to warn. Level - {}".format(self.username, self.player_level)
         elif flag == 'sbanned':
             self.account['sbanned'] = True
-            self.log.warning('Hibernating {} due to shadow ban.', self.username)
+            log_message = "Hibernating {} due to shadow ban. Level - {}".format(self.username, self.player_level)
         elif flag == 'code3':
             self.account['code3'] = True
-            self.log.warning('Hibernating {} due to code3.', self.username)
+            log_message = "Hibernating {} due to code3. Level - {}".format(self.username, self.player_level)
         elif flag == 'credentials':
             self.account['credentials'] = True
-            self.log.warning('Removing {} due to wrong credentials.', self.username)
+            log_message = "Removing {} due to wrong credentials. Level - {}".format(self.username, self.player_level)
         elif flag == 'unverified':
             self.account['unverified'] = True
-            self.log.warning('Removing {} due to unverified email.', self.username)
+            log_message = "Removing {} due to unverified email.. Level - {}".format(self.username, self.player_level)
         elif flag == 'security':
             self.account['security'] = True
-            self.log.warning('Removing {} due to security lock.', self.username)
+            log_message = "Removing {} due to security lock. Level - {}".format(self.username, self.player_level)
         elif flag == 'tempdisabled':
             self.account['tempdisabled'] = True
-            self.log.warning('Removing {} due to temp disabled.', self.username)
+            log_message = "Removing {} due to temp disabled. Level - {}".format(self.username, self.player_level)
         elif flag == 'level30':
             self.account['graduated'] = True
-            self.log.warning('Removing {} from slave pool due to graduation to Lv.30.', self.username)
+            log_message = "Removing {} from slave pool due to graduation to Lv.30. Level - {}".format(self.username, self.player_level)
+            send_webhook = False
         elif flag == 'level1':
             self.account['demoted'] = True
-            self.log.warning('Removing {} from captain pool due to insufficient level.', self.username)
+            log_message = "Removing {} from captain pool due to insufficient level. Level - {}".format(self.username, self.player_level)
+            send_webhook = False
         else:
             self.account['banned'] = True
-            self.log.warning('Hibernating {} due to ban.', self.username)
+            log_message = "Hibernating {} due to ban.".format(self.username, self.player_level)
+            
+        self.log.warning(log_message)            
+        LOOP.create_task(self.notifier.hibernate_webhook(self.username, self.player_level, log_message))
+        
         await self.update_accounts_dict()
         self.username = None
-        self.account = None
+        self.account = None      
         await self.new_account(after_remove=True)
 
     async def bench_account(self):
