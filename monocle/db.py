@@ -805,7 +805,6 @@ def add_fort_sighting(session, raw_fort):
                 FORT_CACHE.gym_names[external_id] == True)):
         FORT_CACHE.gym_names[external_id] = (raw_fort['name'], raw_fort['url']) 
     
-    sponsor = raw_fort.get('sponsor')
     if sponsor != FORT_CACHE.sponsors.get(external_id):
         session.query(Fort) \
                 .filter(Fort.id == internal_id) \
