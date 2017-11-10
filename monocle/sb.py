@@ -2,7 +2,6 @@ from time import time
 from contextlib import contextmanager
 
 from .shared import get_logger, SessionManager, LOOP
-from .notification import Notifier
 from . import sanitized as conf
 
 log = get_logger("sb-detector")
@@ -23,10 +22,6 @@ class SbDetector:
     sb_cooldown = min(max(30, conf.GRID[0] * conf.GRID[1]), 300)
 
     def __init__(self):
-        if conf.SB_WEBHOOK:
-            self.notifier = Notifier()
-        else:
-            self.notifier = None
         log.info("SbDetector initialized with cooldown: {}s.", self.sb_cooldown)
 
     def new_quarantine(self):
@@ -125,23 +120,4 @@ class SbDetector:
                         elapsed,
                         True,
                         e)
-                if self.notifier:
-                    if account.get('level',0) >= conf.SB_WEBHOOK_MIN_LEVEL:
-                        LOOP.create_task(self.webhook(self.notifier, conf.SB_WEBHOOK, username,
-                            message="{}\nlevel: {}, visits: ({}/{}), empty: {}, sightings: {}, uncommon: {}, enc_miss: {}, quarantined: {}s".format(e,
-                                account.get('level',0), visits, conf.SB_QUARANTINE_VISITS,
-                                empty_visits, sightings, uncommon, enc_miss, elapsed)))
                 raise e
-
-    async def webhook(self, notifier, endpoint, username, message):
-        """ Send a notification via webhook
-        """
-        payload = {
-            'embeds': [{
-                'title': '{} sbanned in {}'.format(username, conf.INSTANCE_ID),
-                'description': message,
-                'color': '16060940', 
-            }]
-        }
-        session = SessionManager.get()
-        return await notifier.hook_post(endpoint, session, payload)

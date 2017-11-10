@@ -354,7 +354,7 @@ class Notification:
 
         results = await gather(*notifications, loop=LOOP)
         return True in results
-
+    
     async def sendToTelegram(self):
         session = SessionManager.get()
         title = self.name
@@ -575,7 +575,7 @@ class Notification:
                 image.close()
             except AttributeError:
                 pass
-
+          
     async def notify_discord_pokemon(self):
         pokemon = self.pokemon
         raw_expire_time = pokemon.get('expire_timestamp')
@@ -850,7 +850,7 @@ class Notifier:
         elif 'external_id' in obj:
             unique_id = "e{}".format(obj['external_id'])
         return unique_id 
-
+        
     async def notify(self, pokemon, time_of_day):
         """Send a PushBullet notification and/or a Tweet, depending on if their
         respective API keys have been set in config.
@@ -1014,6 +1014,21 @@ class Notifier:
             return await hook_post(conf.SCAN_LOG_WEBHOOK, session, payload, self.log)
         else:
             return
+            
+    async def hibernate_webhook(self, username, level, message):
+        
+        if conf.HIBERNATE_WEBHOOK:
+            if level >= conf.HIBERNATE_WEBHOOK_MIN_LEVEL:
+                self.log.warning('Beginning hibernate webhook consruction')
+                payload = {
+                    'embeds': [{
+                        'title': '{} hibernated in {}'.format(username, conf.INSTANCE_ID),
+                        'description': message,
+                        'color': '16060940', 
+                    }]
+                }
+                session = SessionManager.get()
+                return await hook_post(conf.HIBERNATE_WEBHOOK, session, payload, self.log) 
 
 
     async def notify_raid(self, raid, fort):
