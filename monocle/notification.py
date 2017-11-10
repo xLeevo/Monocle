@@ -780,6 +780,28 @@ class Notifier:
         else:
             return self.cleanup(unique_id, cache_handle)
 
+    async def webhook_gym(self, fort):
+        if not WEBHOOK:
+            return
+
+        if fort["name"] != None:
+            data = {
+                'type': "gym",
+                'message' : {
+                    'id': fort["external_id"],
+                    'new_team_id': fort["team"],
+                    'guard_pkmn_id': fort["guard_pokemon_id"],
+                    'lat': fort["lat"],
+                    'lng': fort["lon"],
+                    'name': fort["name"],
+                    'url': fort['url']
+                }
+            }
+            self.log.info("Notifying gym Name = {}, team = {}", fort["name"], fort["team"])
+        result = await self.wh_send(SessionManager.get(), data)
+        self.last_notification = monotonic()
+        self.sent += 1
+        return result
 
     async def webhook_raid(self, raid, fort):
         if not WEBHOOK:
