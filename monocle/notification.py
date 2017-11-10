@@ -1000,8 +1000,9 @@ class Notifier:
         return result
 
     async def scan_log_webhook(self, title, message, embed_color):
-        self.log.info('Beginning scan log webhook consruction: {}', title)
-        if conf.SCAN_LOG_WEBHOOK:            
+        
+        if conf.SCAN_LOG_WEBHOOK:  
+            self.log.info('Beginning scan log webhook consruction: {}', title)
             payload = {
                 'embeds': [{
                     'title': title,
@@ -1019,7 +1020,7 @@ class Notifier:
         
         if conf.HIBERNATE_WEBHOOK:
             if level >= conf.HIBERNATE_WEBHOOK_MIN_LEVEL:
-                self.log.warning('Beginning hibernate webhook consruction')
+                self.log.info('Beginning hibernate webhook consruction')
                 payload = {
                     'embeds': [{
                         'title': '{} hibernated in {}'.format(username, conf.INSTANCE_ID),
