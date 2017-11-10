@@ -74,8 +74,8 @@ class WorkerRaider(Worker):
                     }
                     if len(fort.sightings) > 0:
                         sighting = fort.sightings[0]
-                        obj['last_modified'] = sighting.last_modified
-                        obj['updated'] = sighting.updated
+                        obj['last_modified'] = sighting.last_modified or 0
+                        obj['updated'] = sighting.updated or 0
                     self.add_gym(obj)
             except Exception as e:
                 log.error("ERROR: {}", e)
@@ -83,7 +83,8 @@ class WorkerRaider(Worker):
     
     @classmethod
     def add_job(self, gym):
-        self.job_queue.put_nowait((gym.get('updated', gym.get('last_modified', 0)), random(), gym))
+        updated = gym.get('updated', gym.get('last_modified', 0)) or 0
+        self.job_queue.put_nowait((updated, random(), gym))
 
     @classmethod
     def add_gym(self, gym):
@@ -167,7 +168,7 @@ class WorkerRaider(Worker):
         try:
             point = (job['lat'], job['lon'])
             fort_external_id = job['external_id']
-            updated = job.get('updated', job.get('last_modified', 0))
+            updated = job.get('updated', job.get('last_modified', 0)) or 0
             point = randomize_point(point,amount=0.00003) # jitter around 3 meters
             skip_time = monotonic() + (conf.SEARCH_SLEEP)
             worker = await self.best_worker(point, job, updated, skip_time)
