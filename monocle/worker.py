@@ -1109,7 +1109,9 @@ class Worker:
 
                     if should_update_gym:
                         db_proc.add(normalized_fort)
-                        LOOP.create_task(self.notifier.webhook_gym(gym))
+
+                        if conf.NOTIFY_GYMS_WEBHOOK:
+                            LOOP.create_task(self.notifier.webhook_gym(gym))
 
                     if fort.HasField('raid_info'):
                         if fort not in RAID_CACHE:

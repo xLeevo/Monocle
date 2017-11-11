@@ -789,10 +789,10 @@ class Notifier:
                 'type': "gym",
                 'message' : {
                     'id': fort["external_id"],
-                    'new_team_id': fort["team"],
-                    'guard_pkmn_id': fort["guard_pokemon_id"],
-                    'lat': fort["lat"],
-                    'lng': fort["lon"],
+                    'team': fort["team"],
+                    'guard_pokemon_id': fort["guard_pokemon_id"],
+                    'latitude': fort["lat"],
+                    'longitude': fort["lon"],
                     'name': fort["name"],
                     'url': fort['url']
                 }
