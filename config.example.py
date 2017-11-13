@@ -342,6 +342,9 @@ SHOW_TIMER_RAIDS = True  # Show remaining time on a label under each raid marker
 ### OPTIONS BELOW THIS POINT ARE ONLY NECESSARY FOR NOTIFICATIONS ###
 NOTIFY = False  # enable notifications
 
+# notify gyms data updates to webhooks
+#NOTIFY_GYMS_WEBHOOK = False
+
 # create images with Pokémon image and optionally include IVs and moves
 # requires cairo and ENCOUNTER = 'notifying' or 'all'
 TWEET_IMAGES = True

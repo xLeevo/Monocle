@@ -1,6 +1,8 @@
 # Monocle/Monkey
 
-Read [wiki](https://github.com/MonkeyTedBaker/Monocle/wiki) first before looking for help on Discord at `PMSF#monkey`.
+Read [wiki](https://github.com/Hydro74000/Monocle/wiki) first before looking for help on Discord at `PMSF#monkey`.
+
+PokeAlarm with gym name support is [here](https://github.com/Hydro74000/PokeAlarm).
 
 # Monocle
 
@@ -42,7 +44,7 @@ Since it uses [Leaflet](http://leafletjs.com/) for mapping, the appearance and d
 - able to map entire city (or larger area)
 - reports for gathered data
 - asyncio coroutines
-- support for Bossland's hashing server
+- support for Bossland's ah GOMAN's hashing server
   - displays key usage stats in real time
 
 ## Setting up
@@ -93,7 +95,7 @@ The gyms statistics server is in a separate file, because it's intended to be sh
 
 ## Getting Started Tips & FAQs
 
-Visit our [Wiki](https://github.com/Noctem/Monocle/wiki) for more info.
+Visit our [Wiki](https://github.com/Hydro74000/Monocle/wiki) for more info.
 
 ## License
 
