@@ -975,7 +975,7 @@ class Worker:
                         continue
                 
                 # Check against insert list
-                sp_discovered = ('despawn' in normalized)
+                sp_discovered = (normalized.get('despawn') is not None)
                 is_in_insert_blacklist = (conf.NO_DB_INSERT_IDS is not None and 
                         normalized['pokemon_id'] in conf.NO_DB_INSERT_IDS)
                 skip_insert = (sp_discovered and is_in_insert_blacklist)
@@ -991,7 +991,7 @@ class Worker:
                 should_delegate_encounter = (conf.LV30_PERCENT_OF_WORKERS > 0.0 and
                         (not self.player_level or self.player_level < 30))
                 should_notify = self.should_notify(normalized)
-                should_encounter = self.should_encounter(normalized, should_notify=should_notify)
+                should_encounter = (sp_discovered and self.should_encounter(normalized, should_notify=should_notify))
                     
                 if encounter_id:
                     cache = self.overseer.ENCOUNTER_CACHE if should_encounter else SIGHTING_CACHE
@@ -1275,8 +1275,7 @@ class Worker:
                 or (encounter_conf == 'some'
                     and sighting['pokemon_id'] in conf.ENCOUNTER_IDS))
         should_notify_with_iv = (should_notify and not conf.IGNORE_IVS)
-        sp_discovered = ('despawn' in sighting)
-        return (sp_discovered and (encounter_whitelisted or should_notify_with_iv))
+        return (encounter_whitelisted or should_notify_with_iv)
 
     async def pgscout(self, session, pokemon, spawn_id):
         PGScout_address=next(self.PGScout_cycle)
