@@ -163,11 +163,9 @@ def generate_device_info(account):
     account['id'] = uuid4().hex
 
     if account['model'] in ('iPhone10,1', 'iPhone10,2',
-                            'iPhone10,4', 'iPhone10,5'):
+                            'iPhone10,3', 'iPhone10,4', 
+                            'iPhone10,5', 'iPhone10,6'):
         account['iOS'] = choice(ios11)
-    # iPhone X started at 11.1
-    elif account['model'] in ('iPhone10,3', 'iPhone10,6'):
-        account['iOS'] = choice(('11.1', '11.1.1'))
     elif account['model'] in ('iPhone9,1', 'iPhone9,2',
                             'iPhone9,3', 'iPhone9,4'):
         account['iOS'] = choice(ios10 + ios11)
