@@ -155,7 +155,7 @@ def generate_device_info(account):
     ios9 = ('9.0', '9.0.1', '9.0.2', '9.1', '9.2', '9.2.1', '9.3', '9.3.1', '9.3.2', '9.3.3', '9.3.4', '9.3.5')
     # 10.0 was only for iPhone 7 and 7 Plus, and is rare
     ios10 = ('10.0.1', '10.0.2', '10.0.3', '10.1', '10.1.1', '10.2', '10.2.1', '10.3', '10.3.1', '10.3.2', '10.3.3')
-    ios11 = ('11.1', '11.1.1')
+    ios11 = ('11.0', '11.0.1', '11.0.2', '11.0.3', '11.1', '11.1.1')
 
     devices = tuple(IPHONES.keys())
     account['model'] = choice(devices)
@@ -163,10 +163,11 @@ def generate_device_info(account):
     account['id'] = uuid4().hex
 
     if account['model'] in ('iPhone10,1', 'iPhone10,2',
-                            'iPhone10,3', 'iPhone10,4', 
-                            'iPhone10,3', 'iPhone10,4',
-                            'iPhone10,5', 'iPhone10,6'):
+                            'iPhone10,4', 'iPhone10,5'):
         account['iOS'] = choice(ios11)
+    # iPhone X started at 11.1
+    elif account['model'] in ('iPhone10,3', 'iPhone10,6'):
+        account['iOS'] = choice(('11.1', '11.1.1'))
     elif account['model'] in ('iPhone9,1', 'iPhone9,2',
                             'iPhone9,3', 'iPhone9,4'):
         account['iOS'] = choice(ios10 + ios11)
