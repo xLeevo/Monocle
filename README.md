@@ -2,8 +2,6 @@
 
 Read [wiki](https://github.com/Hydro74000/Monocle/wiki) first before looking for help on Discord at `PMSF#monkey`.
 
-PokeAlarm with gym name support is [here](https://github.com/Hydro74000/PokeAlarm).
-
 # Monocle
 
 [![Build Status](https://travis-ci.org/Noctem/Monocle.svg?branch=develop)](https://travis-ci.org/Noctem/Monocle)
