@@ -51,7 +51,7 @@ def cleanup_with_temp_table(table, time, limit=conf.CLEANUP_LIMIT, time_col="upd
 
 
 def is_service_alive():
-    now = time()
+    now = int(time())
     thirty_min_ago = now - (30 * 60)
 
     with session_scope(autoflush=True) as session:
@@ -63,7 +63,7 @@ def is_service_alive():
 
 
 def light():
-    now = time()
+    now = int(time())
     x_hr_ago = now - (6 * 3600)
 
     if is_service_alive():
