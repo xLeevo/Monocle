@@ -252,6 +252,7 @@ class FortCache:
         self.gym_names = {}
         self.pokestops = {}
         self.pokestop_names = {}
+        self.sponsors = {}
         self.class_version = 2.1
 
     def __len__(self):
@@ -293,6 +294,7 @@ class FortCache:
                 fort = fort_sighting.fort
                 external_id = fort.external_id
                 self.internal_ids[external_id] = fort_sighting.fort_id
+                self.sponsors[external_id] = fort.sponsor
                 if fort.name:
                     self.gym_names[external_id] = (fort.name, fort.url)
                 obj = {
@@ -449,6 +451,7 @@ class Fort(Base):
     lon = Column(FLOAT_TYPE)
     name = Column(String(128))
     url = Column(String(200))
+    sponsor = Column(SmallInteger)
 
     sightings = relationship(
         'FortSighting',
@@ -766,6 +769,7 @@ def add_fort_sighting(session, raw_fort):
     # Check if fort exists
     external_id = raw_fort['external_id']
     internal_id = get_fort_internal_id(session, external_id)
+    sponsor = raw_fort.get('sponsor')
 
     fort_updated = False
 
@@ -776,11 +780,13 @@ def add_fort_sighting(session, raw_fort):
             lon=raw_fort['lon'],
             name=raw_fort.get('name'),
             url=raw_fort.get('url'),
+            sponsor=raw_fort.get('sponsor'),
         )
         session.add(fort)
         session.flush()
         internal_id = fort.id
         FORT_CACHE.internal_ids[external_id] = internal_id 
+        FORT_CACHE.sponsors[external_id] = sponsor
         fort_updated = True
 
     has_fort_name = ('name' in raw_fort and raw_fort['name'])
@@ -798,6 +804,12 @@ def add_fort_sighting(session, raw_fort):
                 external_id not in FORT_CACHE.gym_names or
                 FORT_CACHE.gym_names[external_id] == True)):
         FORT_CACHE.gym_names[external_id] = (raw_fort['name'], raw_fort['url']) 
+    
+    if sponsor != FORT_CACHE.sponsors.get(external_id):
+        session.query(Fort) \
+                .filter(Fort.id == internal_id) \
+                .update({'sponsor': sponsor})
+        FORT_CACHE.sponsors[external_id] = sponsor
     
     if 'gym_defenders' in raw_fort and len(raw_fort['gym_defenders']) > 0:
         add_gym_defenders(session, internal_id, raw_fort['gym_defenders'], raw_fort)

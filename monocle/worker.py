@@ -728,7 +728,7 @@ class Worker:
         for _ in range(3):
             if await self.visit(point, bootstrap=True):
                 return True
-            self.error_code = '∞'
+            self.error_code = '8'
             self.simulate_jitter(0.00005)
         return False
 
@@ -742,7 +742,7 @@ class Worker:
         while self.overseer.running and not self.account:
             self.error_code = 'D'
             self.log.warning("No account being set for visit. Probably due to insufficient accounts. Retrying in 30s.")
-            await sleep(10, loop=LOOP)
+            await self.random_sleep(10.0, 60.0)
             if Account.estimated_extra_accounts() > 0:
                 await self.new_account()
 
@@ -894,7 +894,7 @@ class Worker:
             more_points=conf.MORE_POINTS, encounter_id=None, gym=None):
         self.handle.cancel()
         gmo_success = False
-        self.error_code = '∞' if bootstrap else '!'
+        self.error_code = '8' if bootstrap else '!'
 
         self.log.info('{0} is visiting {1[0]:.4f}, {1[1]:.4f}', self.username, point)
         start = time()
@@ -1886,6 +1886,7 @@ class Worker:
             'lon': raw.longitude,
             'team': raw.owned_by_team,
             'guard_pokemon_id': raw.guard_pokemon_id,
+            'sponsor': raw.sponsor,
             'last_modified': raw.last_modified_timestamp_ms // 1000,
             'is_in_battle': raw.is_in_battle,
             'slots_available': raw.gym_display.slots_available,
