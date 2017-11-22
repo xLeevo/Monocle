@@ -120,13 +120,13 @@ class SightingCache:
         with session_scope() as session:
             sightings = session.query(Sighting) \
                 .join(Sighting.spawnpoint) \
-                .filter(Sighting.expire_timestamp >= time()) \
+                .filter(Sighting.expire_timestamp >= int(time())) \
                 .filter(Spawnpoint.lat.between(bounds.south, bounds.north),
                         Spawnpoint.lon.between(bounds.west, bounds.east))
 
             sightings_lured = session.query(Sighting) \
                 .filter(Sighting.spawn_id == 0) \
-                .filter(Sighting.expire_timestamp >= time()) \
+                .filter(Sighting.expire_timestamp >= int(time())) \
                 .filter(Sighting.lat.between(bounds.south, bounds.north),
                         Sighting.lon.between(bounds.west, bounds.east))
 
@@ -228,7 +228,7 @@ class RaidCache:
             raids = session.query(Raid) \
                 .options(eagerload(Raid.fort)) \
                 .join(Fort, Fort.id == Raid.fort_id) \
-                .filter(Raid.time_end > time()) \
+                .filter(Raid.time_end > int(time())) \
                 .filter(Fort.lat.between(bounds.south, bounds.north),
                         Fort.lon.between(bounds.west, bounds.east))
             for raid in raids:
@@ -627,7 +627,7 @@ def add_gym_defenders(session, fort_internal_id, gym_defenders, raw_fort):
             battles_attacked=gym_defender['battles_attacked'],
             battles_defended=gym_defender['battles_defended'],
             num_upgrades=gym_defender['num_upgrades'],
-            created=round(time()),
+            created=int(time()),
         )
         team = raw_fort.get('team')
         if team is not None:
@@ -651,7 +651,7 @@ def add_spawnpoint(session, pokemon):
     existing = session.query(Spawnpoint) \
         .filter(Spawnpoint.spawn_id == spawn_id) \
         .first()
-    now = round(time())
+    now = int(time())
     point = pokemon['lat'], pokemon['lon']
     spawns.add_known(spawn_id, new_time, point)
     if existing:
