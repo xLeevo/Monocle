@@ -1354,6 +1354,7 @@ class Worker:
                 self.log.error('Unknown error: in gym_get_info: {}',e)
 
         elif result == 2:
+            distance = get_distance(self.location, (gym['lat'], gym['lon']))
             self.log.info('The server said {} was out of gym details range. {:.1f}m {:.1f}{}',
                 name, distance, self.speed, UNIT_STRING)
 
