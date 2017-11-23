@@ -824,10 +824,6 @@ class Worker:
             self.error_code = 'HASHING BAN'
             self.log.error('Temporarily banned from hashing server for using invalid keys.')
             await sleep(185, loop=LOOP)
-        except ex.WarnAccountException:
-            self.error_code = 'WARN'
-            await sleep(1, loop=LOOP)
-            await self.remove_account(flag='warn')
         except ex.BannedAccountException:
             self.error_code = 'BANNED'
             await sleep(1, loop=LOOP)
@@ -859,10 +855,23 @@ class Worker:
             self.log.warning('{}. Giving up.', e)
         except ex.ServerBusyOrOfflineException as e:
             self.log.warning('{} Giving up.', e)
-        except ex.BadRPCException:
-            self.error_code = 'BAD REQUEST CODE3'
+        except (ex.BadRPCException, ex.WarnAccountException) as e:
+            if isinstance(e, ex.BadRPCException):
+                self.error_code = 'BAD REQUEST CODE3'
+                flag = 'code3'
+            else:
+                self.error_code = 'WARN'
+                flag = 'warn'
             await sleep(1, loop=LOOP)
-            await self.remove_account(flag='code3')
+            key = "{}_count".format(flag)
+            flag_count = (self.account.get(key) or 0)
+            flag_count += 1
+            self.account[key] = flag_count
+            self.log.warning("{} received {} {}(s).", self.username, flag_count, flag)
+            if flag_count >= 3:
+                await self.remove_account(flag=flag)
+            else:
+                await self.swap_account(reason="of {} {}(s)".format(flag_count, flag))
         except ex.InvalidRPCException as e:
             self.log.warning('{} Giving up.', e)
         except ex.ExpiredHashKeyException as e:
