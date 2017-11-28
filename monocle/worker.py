@@ -209,8 +209,7 @@ class Worker:
 
     def swap_proxy(self):
         proxy = self.api.proxy
-        while proxy == self.api.proxy:
-            self.api.proxy = next(self.proxies)
+        self.api.proxy = next(self.proxies)
 
     async def login(self, reauth=False):
         """Logs worker in and prepares for scanning"""
