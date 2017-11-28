@@ -504,7 +504,7 @@ class Account(db.Base):
                     imported[username] = True
 
                     if idx % 10 == 0:
-                        print("=> ({}/100)% imported.".format(int(100 * idx / total)))
+                        print("=> ({}/100)% imported. Last username: {}".format(int(100 * idx / total), username))
                     if idx % 1000 == 0:
                         session.commit()
 
