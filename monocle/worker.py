@@ -680,9 +680,9 @@ class Worker:
             else:
                 if (not dl_hash
                         and conf.FORCED_KILL
-                        and dl_settings.settings.minimum_client_version != '0.79.4'):
+                        and dl_settings.settings.minimum_client_version != '0.83.0'):
                     forced_version = StrictVersion(dl_settings.settings.minimum_client_version)
-                    if forced_version > StrictVersion('0.79.4'):
+                    if forced_version > StrictVersion('0.83.0'):
                         err = '{} is being forced, exiting.'.format(forced_version)
                         self.log.error(err)
                         print(err)
