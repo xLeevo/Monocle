@@ -216,6 +216,8 @@ class Worker:
         self.log.info('Trying to log in {}', self.username)
 
         for attempt in range(-1, conf.MAX_RETRIES):
+            if not self.overseer.running:
+                raise OverseerNotRunningException("During login attempt.")
             try:
                 self.error_code = '»'
                 async with self.login_semaphore:
@@ -588,6 +590,8 @@ class Worker:
         err = None
         for attempt in range(-1, conf.MAX_RETRIES):
             try:
+                if not self.overseer.running:
+                    raise OverseerNotRunningException("During RPC call attempt.")
                 responses = await request.call()
                 self.last_request = time()
                 err = None
@@ -856,7 +860,7 @@ class Worker:
             self.log.warning('{} Giving up.', e)
         except (ex.BadRPCException, ex.WarnAccountException) as e:
             if isinstance(e, ex.BadRPCException):
-                self.error_code = 'BAD REQUEST CODE3'
+                self.error_code = '3'
                 flag = 'code3'
             else:
                 self.error_code = 'WARN'
@@ -893,6 +897,8 @@ class Worker:
             self.error_code = 'AIOPOGO ERROR'
         except CancelledError:
             self.log.warning('Visit cancelled.')
+        except OverseerNotRunningException as e:
+            self.log.warning('Overseer stopped: {}', e)
         except Exception as e:
             self.log.exception('A wild {} appeared!', e.__class__.__name__)
             self.error_code = 'EXCEPTION'
@@ -2022,3 +2028,8 @@ class CaptchaException(Exception):
 
 class CaptchaSolveException(Exception):
     """Raised when solving a CAPTCHA has failed."""
+
+class OverseerNotRunningException(Exception):
+    """Raised when overseer is no longer running."""
+    pass
+
