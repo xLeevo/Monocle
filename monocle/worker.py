@@ -270,7 +270,7 @@ class Worker:
         request = self.api.create_request()
         request.get_player(player_locale=conf.PLAYER_LOCALE)
 
-        responses = await self.call(request, chain=False)
+        responses = await self.call(request, settings=False, chain=False)
 
         tutorial_state = None
         try:
@@ -354,7 +354,7 @@ class Worker:
 
         # empty request
         request = self.api.create_request()
-        await self.call(request, chain=False)
+        await self.call(request, settings=False, chain=False)
         await self.random_sleep(.43, .97)
 
         # request 1: get_player
@@ -446,7 +446,7 @@ class Worker:
 
             request = self.api.create_request()
             request.get_store_items()
-            await self.call(request, chain=False)
+            await self.call(request, settings=False, chain=False)
             await self.random_sleep(.43, .97)
 
             self.log.info('{} finished RPC login sequence (iOS app simulation)', self.username)
