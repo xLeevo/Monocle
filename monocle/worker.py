@@ -216,6 +216,8 @@ class Worker:
         self.log.info('Trying to log in {}', self.username)
 
         for attempt in range(-1, conf.MAX_RETRIES):
+            if not self.overseer.running:
+                raise OverseerNotRunningException("During login attempt.")
             try:
                 self.error_code = '»'
                 async with self.login_semaphore:
@@ -270,7 +272,7 @@ class Worker:
         request = self.api.create_request()
         request.get_player(player_locale=conf.PLAYER_LOCALE)
 
-        responses = await self.call(request, chain=False)
+        responses = await self.call(request, settings=False, chain=False)
 
         tutorial_state = None
         try:
@@ -354,7 +356,7 @@ class Worker:
 
         # empty request
         request = self.api.create_request()
-        await self.call(request, chain=False)
+        await self.call(request, settings=False, chain=False)
         await self.random_sleep(.43, .97)
 
         # request 1: get_player
@@ -446,7 +448,7 @@ class Worker:
 
             request = self.api.create_request()
             request.get_store_items()
-            await self.call(request, chain=False)
+            await self.call(request, settings=False, chain=False)
             await self.random_sleep(.43, .97)
 
             self.log.info('{} finished RPC login sequence (iOS app simulation)', self.username)
@@ -588,6 +590,8 @@ class Worker:
         err = None
         for attempt in range(-1, conf.MAX_RETRIES):
             try:
+                if not self.overseer.running:
+                    raise OverseerNotRunningException("During RPC call attempt.")
                 responses = await request.call()
                 self.last_request = time()
                 err = None
@@ -856,7 +860,7 @@ class Worker:
             self.log.warning('{} Giving up.', e)
         except (ex.BadRPCException, ex.WarnAccountException) as e:
             if isinstance(e, ex.BadRPCException):
-                self.error_code = 'BAD REQUEST CODE3'
+                self.error_code = '3'
                 flag = 'code3'
             else:
                 self.error_code = 'WARN'
@@ -893,6 +897,8 @@ class Worker:
             self.error_code = 'AIOPOGO ERROR'
         except CancelledError:
             self.log.warning('Visit cancelled.')
+        except OverseerNotRunningException as e:
+            self.log.warning('Overseer stopped: {}', e)
         except Exception as e:
             self.log.exception('A wild {} appeared!', e.__class__.__name__)
             self.error_code = 'EXCEPTION'
@@ -2022,3 +2028,8 @@ class CaptchaException(Exception):
 
 class CaptchaSolveException(Exception):
     """Raised when solving a CAPTCHA has failed."""
+
+class OverseerNotRunningException(Exception):
+    """Raised when overseer is no longer running."""
+    pass
+

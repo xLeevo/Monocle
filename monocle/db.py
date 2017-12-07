@@ -941,12 +941,14 @@ def update_failures(session, spawn_id, success, allowed=conf.FAILURES_ALLOWED):
             elif conf.SB_DETECTOR:
                 session.delete(spawnpoint)
                 spawns.remove_known(spawn_id)
+                session.commit()
                 log.warning('{} consecutive failures on {}, deleted.', allowed + 1, spawn_id)
                 return
             else:
                 spawnpoint.updated = 0
                 spawnpoint.failures = 0
                 spawns.remove_known(spawn_id)
+                session.commit()
                 log.warning('{} consecutive failures on {}, will treat as an unknown from now on.', allowed + 1, spawn_id)
                 return
         else:
@@ -955,6 +957,7 @@ def update_failures(session, spawn_id, success, allowed=conf.FAILURES_ALLOWED):
     except TypeError:
         spawnpoint.failures = 1
         spawns.failures[spawn_id] = spawnpoint.failures
+    session.commit()
 
 
 def update_mystery(session, mystery):
