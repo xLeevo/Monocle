@@ -257,7 +257,7 @@ class Worker:
             raise err
 
         self.error_code = '°'
-        version = 8300
+        version = 8500
         async with self.sim_semaphore:
             self.error_code = 'APP SIMULATION'
             if conf.APP_SIMULATION:
@@ -564,7 +564,7 @@ class Worker:
 
     async def call(self, request, chain=True, buddy=True, settings=True, inbox=True, dl_hash=True, action=None):
         if chain:
-            # request.check_challenge() # not used anymore
+            request.check_challenge()
             request.get_hatched_eggs()
             request.get_inventory(last_timestamp_ms=self.inventory_timestamp)
             request.check_awarded_badges()
@@ -684,9 +684,9 @@ class Worker:
             else:
                 if (not dl_hash
                         and conf.FORCED_KILL
-                        and dl_settings.settings.minimum_client_version != '0.83.2'):
+                        and dl_settings.settings.minimum_client_version != '0.85.1'):
                     forced_version = StrictVersion(dl_settings.settings.minimum_client_version)
-                    if forced_version > StrictVersion('0.83.2'):
+                    if forced_version > StrictVersion('0.85.1'):
                         err = '{} is being forced, exiting.'.format(forced_version)
                         self.log.error(err)
                         print(err)

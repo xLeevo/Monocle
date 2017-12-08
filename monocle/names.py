@@ -613,7 +613,17 @@ MOVES = defaultdict(lambda: '?', {
     278: 'Snarl',
     279: 'Crunch',
     280: 'Foul Play',
-    281: 'Hidden Power'
+    281: 'Hidden Power',
+    282: "Take Down",
+    283: "Waterfall",
+    284: "Surf",
+    285: "Draco Meteor",
+    286: "Doom Desire",
+    287: "Yawn",
+    288: "Psycho Boost",
+    289: "Origin Pulse",
+    290: "Precipice Blades",
+    291: "Present"
 })
 
 if language == 'EN':
@@ -1227,7 +1237,17 @@ elif language == 'DE':
         278: 'Standpauke',
         279: 'Knirscher',
         280: 'Schmarotzer',
-        281: 'Kraftreserve'
+        281: 'Kraftreserve',
+        282: 'Bodycheck',
+        283: 'Kaskade',
+        284: 'Surfer',
+        285: 'Draco Meteor',
+        286: 'Kismetwunsch',
+        287: 'Gähner',
+        288: 'Psyschub',
+        289: 'Ursprungswoge',
+        290: 'Abgrundsklinge',
+        291: 'Geschenk'
     })
 elif language == 'FR':
     POKEMON = defaultdict(lambda: '?', {
