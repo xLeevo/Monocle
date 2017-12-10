@@ -7,7 +7,7 @@
 ### All lines that are commented out (and some that aren't) are optional ###
 
 DB_ENGINE = 'sqlite:///db.sqlite'
-#DB_ENGINE = 'mysql://user:pass@localhost/monocle'
+#DB_ENGINE = 'mysql://user:pass@localhost/monocle?charset=utf8mb4'  ## don't forget ?charset=utf8mb4 after your DB name !
 #DB_ENGINE = 'postgresql://user:pass@localhost/monocle
 
 ### DB queue/pool size settings
