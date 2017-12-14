@@ -190,7 +190,7 @@ _defaults = {
     'ACCOUNTS': None,
     'ACCOUNTS_CSV': None,
     'ACCOUNTS_SWAP_OUT_ON_WARN': True,
-    'ACCOUNTS_HIBERNATE_CONFIG': {'banned': 7.0, 'warn': 7.0, 'sbanned': 7.0, 'code3': 7.0, 'tempdisabled': 0.02083333333},
+    'ACCOUNTS_HIBERNATE_CONFIG': {'banned': 45.0, 'warn': 45.0, 'sbanned': 45.0, 'code3': 45.0, 'tempdisabled': 0.02083333333},
     'ALT_PRECISION': 2,
     'ALT_RANGE': (300, 400),
     'ALWAYS_NOTIFY': 0,
