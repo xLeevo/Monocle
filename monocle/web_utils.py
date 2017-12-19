@@ -4,9 +4,11 @@ from multiprocessing.managers import BaseManager, RemoteError
 from time import time
 
 from monocle import sanitized as conf
-from monocle.db import get_forts, Pokestop, session_scope, Sighting, Spawnpoint, Raid, Fort, FortSighting
+from monocle.db import get_forts, Pokestop, session_scope, Sighting, Spawnpoint, Raid, Fort, FortSighting, Weather
 from monocle.utils import Units, get_address
 from monocle.names import DAMAGE, MOVES, POKEMON
+
+import s2sphere
 
 if conf.MAP_WORKERS:
     try:
@@ -155,12 +157,37 @@ def get_raid_markers(names=POKEMON, moves=MOVES):
         return markers
 
 
+def get_vertex(cell, v):
+    vertex = s2sphere.LatLng.from_point(cell.get_vertex(v))
+
+    return (vertex.lat().degrees, vertex.lng().degrees)
+
+def get_weather():
+    with session_scope() as session:
+        weathers = session.query(Weather)
+        markers = []
+        for weather in weathers:
+            cell = s2sphere.Cell(s2sphere.CellId(weather.s2_cell_id))
+            center = s2sphere.LatLng.from_point(cell.get_center())
+            markers.append({
+                'id': 'weather-' + str(weather.id),
+                'coords': [(get_vertex(cell, v)) for v in range(0, 4)],
+                'center': (center.lat().degrees, center.lng().degrees),
+                'condition': weather.condition,
+                'alert_severity': weather.alert_severity,
+                'warn': weather.warn,
+                'day': weather.day
+            })
+        return markers
+
+
 def get_gym_markers(names=POKEMON):
     with session_scope() as session:
         forts = get_forts(session)
-    return [{
+        return [{
             'id': 'fort-' + str(fort['fort_id']),
             'sighting_id': fort['id'],
+            'prestige': fort['prestige'],
             'pokemon_id': fort['guard_pokemon_id'],
             'pokemon_name': names[fort['guard_pokemon_id']],
             'team': fort['team'],
@@ -170,7 +197,7 @@ def get_gym_markers(names=POKEMON):
             'last_modified': fort['last_modified'],
             'gym_name': fort['name'],
             'img_url': fort['url']
-    } for fort in forts]
+        } for fort in forts]
 
 
 def get_spawnpoint_markers():
