@@ -15,7 +15,7 @@ from aiopogo.auth_ptc import AuthPtc
 from cyrandom import choice, randint, uniform
 from pogeo import get_distance
 
-from .db import FORT_CACHE, MYSTERY_CACHE, SIGHTING_CACHE, RAID_CACHE, WEATHER_CACHE
+from .db import FORT_CACHE, MYSTERY_CACHE, SIGHTING_CACHE, RAID_CACHE
 from .utils import round_coords, load_pickle, get_device_info, get_start_coords, Units, randomize_point, calc_pokemon_level
 from .shared import get_logger, LOOP, SessionManager, run_threaded, TtlCache
 from .sb import SbDetector, SbAccountException
@@ -23,6 +23,7 @@ from .accounts import Account, get_accounts, InsufficientAccountsException, Logi
         EmailUnverifiedException, SecurityLockException, TempDisabledException
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
 from .notification import Notifier
+from .weather import WEATHER_CACHE, Weather
 
 from python_anticaptcha import AnticaptchaClient, NoCaptchaTaskProxylessTask
 from python_anticaptcha.exceptions import AnticatpchaException
@@ -1152,7 +1153,7 @@ class Worker:
 
         if map_objects.client_weather:
             for w in map_objects.client_weather:
-                weather = self.normalize_weather(w, map_objects.time_of_day)
+                weather = Weather.normalize_weather(w, map_objects.time_of_day)
                 if weather not in WEATHER_CACHE:
                     db_proc.add(weather)
 
@@ -1986,24 +1987,6 @@ class Worker:
             'lon': raw.longitude,
             'name': None,
             'url': None
-        }
-
-    @staticmethod
-    def normalize_weather(raw, time_of_day):
-        alert_severity = 0
-        warn = False
-        if raw.alerts:
-            for a in raw.alerts:
-                warn = warn or a.warn_weather
-                if a.severity > alert_severity:
-                    alert_severity = a.severity
-        return {
-            'type': 'weather',
-            's2_cell_id': raw.s2_cell_id,
-            'condition': raw.gameplay_weather.gameplay_condition,
-            'alert_severity': alert_severity,
-            'warn': warn,
-            'day': time_of_day
         }
 
     @staticmethod

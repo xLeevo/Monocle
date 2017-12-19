@@ -21,6 +21,7 @@ from .worker import Worker
 from .worker30 import Worker30, ENCOUNTER_CACHE
 from .worker_raider import WorkerRaider
 from .notification import Notifier
+from .weather import Weather 
 
 ANSI = '\x1b[2J\x1b[H'
 if platform == 'win32':
@@ -103,6 +104,7 @@ class Overseer:
                 traceback.print_exc()
         self.log.info("Worker count: ({}/{})", len(self.workers), conf.GRID[0] * conf.GRID[1])
 
+        db_proc.Weather = Weather
         db_proc.start()
         LOOP.call_later(10, self.update_count)
         LOOP.call_later(max(conf.SWAP_OLDEST, conf.MINIMUM_RUNTIME * 60), self.swap_oldest)
