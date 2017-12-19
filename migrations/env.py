@@ -9,6 +9,7 @@ monocle_dir = Path(__file__).resolve().parents[1]
 sys.path.append(str(monocle_dir))
 
 from monocle import sanitized as conf, db as db, accounts
+from monocle import weather
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

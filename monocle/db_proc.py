@@ -64,7 +64,7 @@ class DatabaseProcessor(Thread):
                 elif item_type == 'pokestop':
                     db.add_pokestop(session, item)
                 elif item_type == 'weather':
-                    db.add_weather(session, item)
+                    self.Weather.add_weather(session, item)
                 elif item_type == 'target':
                     db.update_failures(session, item['spawn_id'], item['seen'])
                 elif item_type == 'mystery-update':
