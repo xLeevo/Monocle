@@ -961,6 +961,12 @@ class Worker:
         if conf.ITEM_LIMITS and self.bag_items >= self.item_capacity:
             await self.clean_bag()
 
+        if map_objects.client_weather:
+            for w in map_objects.client_weather:
+                weather = Weather.normalize_weather(w, map_objects.time_of_day)
+                if weather not in WEATHER_CACHE:
+                    db_proc.add(weather)
+
         for map_cell in map_objects.map_cells:
             request_time_ms = map_cell.current_timestamp_ms
             cell_weather_id = S2CellId(map_cell.s2_cell_id).parent(10).id()
@@ -1154,12 +1160,6 @@ class Worker:
                     if spawns.have_point(p):
                         continue
                     spawns.add_cell_point(p)
-
-        if map_objects.client_weather:
-            for w in map_objects.client_weather:
-                weather = Weather.normalize_weather(w, map_objects.time_of_day)
-                if weather not in WEATHER_CACHE:
-                    db_proc.add(weather)
 
         if spawn_id and not encounter_id:
             db_proc.add({
