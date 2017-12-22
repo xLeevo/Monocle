@@ -1,5 +1,6 @@
 from sqlalchemy import Column
 from sqlalchemy.types import Integer, BigInteger, Boolean, SmallInteger
+from time import time
 from . import db, utils, sanitized as conf
 
 class WeatherCache:
@@ -42,6 +43,7 @@ class Weather(db.Base):
     alert_severity = Column(SmallInteger)
     warn = Column(Boolean)
     day = Column(SmallInteger)
+    updated = Column(Integer, default=time, onupdate=time)
 
     @classmethod
     def normalize_weather(self, raw, time_of_day):
@@ -74,7 +76,8 @@ class Weather(db.Base):
                 condition=raw_weather['condition'],
                 alert_severity=raw_weather['alert_severity'],
                 warn=raw_weather['warn'],
-                day=raw_weather['day']
+                day=raw_weather['day'],
+                updated=int(time())
             )
             session.add(weather)
         else:
@@ -82,6 +85,7 @@ class Weather(db.Base):
             weather.alert_severity = raw_weather['alert_severity']
             weather.warn = raw_weather['warn']
             weather.day = raw_weather['day']
+            weather.updated = int(time())
         WEATHER_CACHE.add(raw_weather)
 
 WEATHER_CACHE = WeatherCache()
