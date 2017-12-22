@@ -365,7 +365,7 @@ class Sighting(Base):
     level = Column(SmallInteger)
     updated = Column(Integer,default=time,onupdate=time)
     weather_boosted_condition = Column(SmallInteger)
-    weather_cell_id = Column(HUGE_TYPE)
+    weather_cell_id = Column(BigInteger)
 
 
     spawnpoint = relationship("Spawnpoint",
@@ -420,7 +420,7 @@ class Mystery(Base):
     cp = Column(SmallInteger)
     level = Column(SmallInteger)
     weather_boosted_condition = Column(SmallInteger)
-    weather_cell_id = Column(HUGE_TYPE)
+    weather_cell_id = Column(BigInteger)
 
 
     __table_args__ = (
