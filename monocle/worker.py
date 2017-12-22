@@ -68,6 +68,7 @@ class Worker:
     has_raiders = (conf.RAIDERS_PER_GYM and conf.RAIDERS_PER_GYM > 0)
     scan_gym = conf.GYM_NAMES or conf.GYM_DEFENDERS
     passive_scan_gym = (scan_gym and not has_raiders)
+    log = get_logger("worker")
 
     if conf.CACHE_CELLS:
         cells = load_pickle('cells') or {}
@@ -1897,8 +1898,8 @@ class Worker:
 
         return norm
 
-    @staticmethod
-    def normalize_lured(raw, now):
+    @classmethod
+    def normalize_lured(self, raw, now):
         lure = raw.lure_info
         return {
             'type': 'pokemon',
