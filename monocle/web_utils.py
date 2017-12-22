@@ -4,7 +4,8 @@ from multiprocessing.managers import BaseManager, RemoteError
 from time import time
 
 from monocle import sanitized as conf
-from monocle.db import get_forts, Pokestop, session_scope, Sighting, Spawnpoint, Raid, Fort, FortSighting, Weather
+from monocle.db import get_forts, Pokestop, session_scope, Sighting, Spawnpoint, Raid, Fort, FortSighting
+from monocle.weather import Weather
 from monocle.utils import Units, get_address
 from monocle.names import DAMAGE, MOVES, POKEMON
 
