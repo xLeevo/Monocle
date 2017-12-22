@@ -40,9 +40,13 @@ elif conf.DB_ENGINE.startswith('postgres'):
         impl = Numeric
 
         def process_bind_param(self, value, dialect):
+            if value is None:
+                return None
             return int(value)
 
         def process_result_value(self, value, dialect):
+            if value is None:
+                return None
             return int(value)
 
         @property
