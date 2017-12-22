@@ -15,6 +15,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from . import bounds, spawns, db_proc, sanitized as conf
 from .utils import time_until_time, dump_pickle, load_pickle
 from .shared import call_at, get_logger
+import overpy
 
 try:
     assert conf.LAST_MIGRATION < time()
@@ -257,6 +258,7 @@ class FortCache:
         self.pokestops = {}
         self.pokestop_names = {}
         self.sponsors = {}
+        self.park = {}
         self.class_version = 2.1
 
     def __len__(self):
@@ -302,6 +304,7 @@ class FortCache:
                 external_id = fort.external_id
                 self.internal_ids[external_id] = fort_sighting.fort_id
                 self.sponsors[external_id] = fort.sponsor
+                self.park[external_id] = fort.park
                 if fort.name:
                     self.gym_info[external_id] = (fort.name, fort.url, fort.sponsor)
                 obj = {
@@ -468,6 +471,7 @@ class Fort(Base):
     url = Column(String(200))
     sponsor = Column(SmallInteger)
     weather_cell_id = Column(UNSIGNED_HUGE_TYPE)
+    park = Column(String(128))
 
     sightings = relationship(
         'FortSighting',
@@ -785,15 +789,27 @@ def get_fort_internal_id(session, external_id):
         FORT_CACHE.internal_ids[external_id] = internal_id 
     return internal_id
 
+def get_park(session, external_id):
+    if external_id in FORT_CACHE.internal_ids and FORT_CACHE.park.get(external_id):
+        park = FORT_CACHE.park.get(external_id)
+    else:
+        park = session.query(Fort.park) \
+            .filter(Fort.external_id == external_id) \
+            .scalar()
+        FORT_CACHE.park[external_id] = park
+    return park
+
 def add_fort_sighting(session, raw_fort):
     # Check if fort exists
     external_id = raw_fort['external_id']
     internal_id = get_fort_internal_id(session, external_id)
     sponsor = raw_fort.get('sponsor')
+    park = get_park(session, external_id)
 
     fort_updated = False
 
     if not internal_id:
+        park=check_in_park(raw_fort)
         fort = Fort(
             external_id=raw_fort['external_id'],
             lat=raw_fort['lat'],
@@ -801,13 +817,15 @@ def add_fort_sighting(session, raw_fort):
             name=raw_fort.get('name'),
             url=raw_fort.get('url'),
             sponsor=raw_fort.get('sponsor'),
-            weather_cell_id=raw_fort.get('weather_cell_id')
+            weather_cell_id=raw_fort.get('weather_cell_id'),
+            park=park,
         )
         session.add(fort)
         session.flush()
         internal_id = fort.id
         FORT_CACHE.internal_ids[external_id] = internal_id 
         FORT_CACHE.sponsors[external_id] = sponsor
+        FORT_CACHE.park[external_id] = park
         fort_updated = True
 
     if external_id not in FORT_CACHE.gyms:
@@ -844,6 +862,15 @@ def add_fort_sighting(session, raw_fort):
                 .update({'sponsor': sponsor})
         FORT_CACHE.sponsors[external_id] = sponsor
     
+    if not park:
+        park=check_in_park(raw_fort)
+        log.info("Found park {} for Gym: {}", park, raw_fort['name'])
+        session.query(Fort) \
+                .filter(Fort.id == internal_id) \
+                .update({'park': park})
+        FORT_CACHE.park[external_id] = park
+        fort_updated = True
+
     if 'gym_defenders' in raw_fort and len(raw_fort['gym_defenders']) > 0:
         add_gym_defenders(session, internal_id, raw_fort['gym_defenders'], raw_fort)
 
@@ -1261,3 +1288,20 @@ def get_all_spawn_coords(session, pokemon_id=None):
     if conf.REPORT_SINCE:
         points = points.filter(Sighting.expire_timestamp > SINCE_TIME)
     return points.all()
+
+def check_in_park(fort):
+    api = overpy.Overpass()
+    api.max_retry_count = 3
+    try:
+        result = api.query("""
+            [out:json];
+            is_in({},{});
+            area._[leisure="park"];
+            out;
+            """.format(fort['lat'],fort['lon']))
+        if len(result.areas)>0:
+            return result.areas[0].tags["name"]
+        else:
+            return "None"
+    except:
+        return
