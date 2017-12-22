@@ -56,7 +56,7 @@ class Weather(db.Base):
                     alert_severity = a.severity
         return {
             'type': 'weather',
-            's2_cell_id': raw.s2_cell_id,
+            's2_cell_id': raw.s2_cell_id & 0xffffffffffffffff,
             'condition': raw.gameplay_weather.gameplay_condition,
             'alert_severity': alert_severity,
             'warn': warn,
