@@ -185,20 +185,19 @@ def get_weather():
 def get_gym_markers(names=POKEMON):
     with session_scope() as session:
         forts = get_forts(session)
-        return [{
-            'id': 'fort-' + str(fort['fort_id']),
-            'sighting_id': fort['id'],
-            'prestige': fort['prestige'],
-            'pokemon_id': fort['guard_pokemon_id'],
-            'pokemon_name': names[fort['guard_pokemon_id']],
-            'team': fort['team'],
-            'lat': fort['lat'],
-            'lon': fort['lon'],
-            'slots_available': fort['slots_available'],
-            'last_modified': fort['last_modified'],
-            'gym_name': fort['name'],
-            'img_url': fort['url']
-        } for fort in forts]
+    return [{
+        'id': 'fort-' + str(fort['fort_id']),
+        'sighting_id': fort['id'],
+        'pokemon_id': fort['guard_pokemon_id'],
+        'pokemon_name': names[fort['guard_pokemon_id']],
+        'team': fort['team'],
+        'lat': fort['lat'],
+        'lon': fort['lon'],
+        'slots_available': fort['slots_available'],
+        'last_modified': fort['last_modified'],
+        'gym_name': fort['name'],
+        'img_url': fort['url']
+    } for fort in forts]
 
 
 def get_spawnpoint_markers():
