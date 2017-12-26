@@ -354,11 +354,13 @@ class Overseer:
                 self.stats,
                 self.pokemon_found,
                 ('Visits: {}, per second: {:.2f}\n'
-                 'Skipped: {}, unnecessary: {}').format(
+                 'Skipped: {} ({}%), unnecessary: {}').format(
                     self.visits, self.visits / seconds_since_start,
-                    self.skipped, self.redundant)
+                    self.skipped,
+                    (self.skipped * 100) // (self.visits + self.skipped),
+                    self.redundant)
             ]
-        except AttributeError:
+        except (AttributeError, ZeroDivisionError):
             output = []
 
         try:
