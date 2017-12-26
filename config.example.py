@@ -51,7 +51,7 @@ GRID = (4, 4)  # rows, columns
 #
 ### Delay in seconds before starting next encounter.
 ### This allows adjustment of overall encounter rate (to make it slower).
-#LV30_ENCOUNTER_WAIT=0.0
+#LV30_ENCOUNTER_WAIT=0.8
 
 ### Gym Raider accounts to pull from DB in percentage of total gyms inside the borders for gym scanning.
 ### Default 0.0(0%) Monkey Raiders turned off by default

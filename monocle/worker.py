@@ -169,6 +169,7 @@ class Worker:
         self.pokestops = conf.SPIN_POKESTOPS
         self.next_spin = 0
         self.handle = HandleStub()
+        self.next_encounter = time()
 
     def needs_sleep(self):
         return True 
@@ -1499,6 +1500,10 @@ class Worker:
         if self.needs_sleep():
             await self.random_sleep(delay_required, delay_required + 1.5)
 
+        to_sleep = self.next_encounter - time()
+        if to_sleep > 0:
+            await sleep(to_sleep, loop=LOOP)
+
         request = self.api.create_request()
         request = request.encounter(encounter_id=pokemon['encounter_id'],
                                     spawn_point_id=spawn_id,
@@ -1506,6 +1511,8 @@ class Worker:
                                     player_longitude=self.location[1])
 
         responses = await self.call(request, action=2.25)
+        self.next_encounter = time() + conf.LV30_ENCOUNTER_WAIT
+
 
         try:
             encounter = responses.get('ENCOUNTER')
