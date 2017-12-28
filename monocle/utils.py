@@ -1,3 +1,4 @@
+import random
 import socket
 
 from os import mkdir
@@ -247,6 +248,10 @@ def calc_pokemon_level(cp_multiplier):
     pokemon_level = int((round(pokemon_level) * 2) / 2)
     return pokemon_level
 
+def get_google_maps_key():
+    if isinstance(conf.GOOGLE_MAPS_KEY, str):
+        return conf.GOOGLE_MAPS_KEY
+    return random.choice(conf.GOOGLE_MAPS_KEY)
 
 def get_static_map_url(lat, lon, icon=None):
         center = '{},{}'.format(lat, lon)
@@ -265,7 +270,28 @@ def get_static_map_url(lat, lon, icon=None):
         url = ('https://maps.googleapis.com/maps/api/staticmap?' +
                 query_center + '&' + query_markers + '&' +
                 query_maptype + '&' + query_size + '&' + query_zoom)
+
+        if conf.GOOGLE_MAPS_KEY:
+            url += "&key={}".format(get_google_maps_key())
         return url
 
 def get_gmaps_link(lat, lon):
     return "http://maps.google.com/maps?q={},{}".format(lat, lon)
+
+# Returns a String link to Apple Maps Pin at the location
+# Code from PokeAlarm
+def get_applemaps_link(lat, lon):
+    latLon = '{},{}'.format(repr(lat), repr(lon))
+    return 'http://maps.apple.com/maps?daddr={}&z=10&t=s&dirflg=w'.format(latLon)
+
+class FlexibleSemaphore(Semaphore):
+    def increment(self, by=1):
+        self._value += by 
+        for idx in range(by):
+            self._wake_up_next()
+
+    def decrement(self, by=1):
+        self._value -= by 
+
+    def value(self):
+        return self._value
