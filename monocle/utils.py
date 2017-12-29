@@ -4,7 +4,7 @@ import socket
 from os import mkdir
 from os.path import join, exists
 from sys import platform
-from asyncio import sleep
+from asyncio import sleep, Semaphore
 from math import sqrt
 from uuid import uuid4
 from enum import Enum

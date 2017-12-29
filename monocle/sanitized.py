@@ -117,10 +117,7 @@ _valid_types = {
     'NEVER_NOTIFY_IDS': set_sequence_range,
     'NO_DB_INSERT_IDS': set_sequence_range,
     'NOTIFY': bool,
-<<<<<<< HEAD
     'NOTIFY_GYMS_WEBHOOK': bool,
-=======
->>>>>>> ac2aca0... Merge branch 'add-pokemon-notification' into 'develop'
     'NOTIFY_EGGS': bool,
     'NOTIFY_RAIDS': bool,
     'NOTIFY_RAIDS_WEBHOOK': bool,
