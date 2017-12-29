@@ -397,40 +397,78 @@ ALWAYS_NOTIFY = 14
 ## infront of the DEFAULT_ALARM lines
 #######################################################
 
+#######################
+# ICON SPRITES
+#
 # copyright safe icons:
 #ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Copyrightfree-Assets/{}.png"
+#EGG_ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Copyrightfree-Assets/egg_{}.png"
 #GMAP_ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Copyrightfree-Assets-32x32/{}.png"
 #GMAP_EGG_ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Copyrightfree-Assets-32x32/egg_{}.png"
-
+#
 # non copyright safe icons:
-#ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Original-Assets/{}.png"
-#GMAP_ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Original-Assets-32x32/{}.png"
-#GMAP_EGG_ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Original-Assets-32x32/egg_{}.png"
+ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Original-Assets/{}.png"
+EGG_ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Original-Assets/egg_{}.png"
+GMAP_ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Original-Assets-32x32/{}.png"
+GMAP_EGG_ICONS_URL = "https://raw.githubusercontent.com/M4d40/my-po-icons/master/Original-Assets-32x32/egg_{}.png"
+
+# Available keywords for poke alarms:
+###############################
+# address, latitude, longitude, poke_id, poke_name,
+# weather_boosted, gmap_link, applemap_link,
+# disappear_time_12, disappear_time_24, time_left,
+# poke_iv, poke_form, poke_gender, poke_height, poke_weight,
+# poke_move_1, poke_move_2, poke_lvl, poke_cp,
+# poke_atk, poke_def, poke_sta
+# address takes a lot of google maps api calls!
+#
+# Available Filter:
+#
+# 'filter_ids': [1,2,3,4,5,6,8,9,246,247,248],
+# 'filter_ivs': {'value': 95, 'op': '>=', 'ignore_unknown': True},
+# Both can be added within one alarm
+#
+# Available iv filter operators: '>','>=','<','<=','=='
+
+WEATHER_STATUS = {
+    0: "Not boosted",
+    1: "Clear",
+    2: "Rainy",
+    3: "Partly Cloudy",
+    4: "Overcast",
+    5: "Windy",
+    6: "Snow",
+    7: "Fog"
+}
 
 
 #DEFAULT_ALARM = {
 #            'username': '{poke_name}',
-#            'title': 'A wild {poke_name} {poke_iv}% (lvl {poke_lvl} | {poke_cp}WP) ({poke_atk}/{poke_def}/{poke_sta}) appeared',
-#            'description': """Until {disappear_time} ({time_left} left)
+#            'title': 'A wild {poke_name} {poke_iv}% (lvl {poke_lvl} | {poke_cp}CP) ({poke_atk}/{poke_def}/{poke_sta}) appeared',
+#            'description': """Until {disappear_time_24} ({time_left} left)
 #IV: {poke_iv}% ({poke_atk}/{poke_def}/{poke_sta})
 #CP: {poke_cp}  |  Level: {poke_lvl}
 #Attacks: {poke_move_1} / {poke_move_2}
-#Gender: {poke_gender} | Weight: {poke_weight} kg | Height: {poke_height} m""",
+#Gender: {poke_gender} | Weight: {poke_weight} kg | Height: {poke_height} m
+#Google Maps Link: {gmap_link},
+#Apple Maps Link: {applemap_link}""",
 #            'color': 'BLUE', # RED/AQUA/GREEN/BLUE/GOLD/ORANGE/RED/GREY/NAVY
 #            'avatar_url': ICONS_URL,
+#            'thumbnail_url': ICONS_URL,
 #            'icon_url': ICONS_URL
 #}
 
-#NOTIFY_POKEMON_ALARMS = {
+#POKEMON_ALARMS = {
 #    'discord': [
 #        {
 #            'name': 'filter pokemon ids',
-#            'title': 'A wild {poke_name} {poke_iv}% (lvl {poke_lvl} | {poke_cp}WP) ({poke_atk}/{poke_def}/{poke_sta}) appeared',
-#            'description': """Until {disappear_time} ({time_left} left)""",
+#            'title': 'A wild {poke_name} {poke_iv}% (lvl {poke_lvl} | {poke_cp}CP) ({poke_atk}/{poke_def}/{poke_sta}) appeared',
+#            'description': """Until {disappear_time_24} ({time_left} left)""",
 #            'filter_ids': [1,2,3,4,5,6,8,9,246,247,248],
 #            'webhook_url': 'YOUR DISCORDCHANNEL WEBHOOK',
 #            'avatar_url': ICONS_URL,
-#            'icon_url': ICONS_URL
+#            'thumbnail_url': ICONS_URL,
+#            'mention': '12345678901234' # User ID
 #        },
 #        {
 #            'name': 'filter pokemon ivs',
@@ -440,7 +478,7 @@ ALWAYS_NOTIFY = 14
 #        },
 #        {
 #            'name': 'combined filter ivs and ids',
-#            'username': 'iv-95-bot',
+#            'username': 'id-iv-95-combo-bot',
 #            'filter_ids': [1,2,3,4,5,6,8,9,246,247,248],
 #            'filter_ivs': {'value': 95, 'op': '>=', 'ignore_unknown': True},
 #            'webhook_url': 'YOUR DISCORDCHANNEL WEBHOOK',
@@ -495,35 +533,91 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #TELEGRAM_CHAT_ID = '@your_channel'
 #TELEGRAM_MESSAGE_TYPE = 0
 
-### The following raid notification related configs
-### only apply to Monkey's version of raids notification (no webhook support, only Telegram and Discord)
-### For webhook raids notification, see below for NOTIFY_RAIDS_WEBHOOK
-###
+## The following raid notification related configs
+## only apply to Monkey's version of raids notification (no webhook support, only Telegram and Discord)
+## For webhook raids notification, see below for NOTIFY_RAIDS_WEBHOOK
+##
+## Available keywords for egg/raid alarms:
+###########################################
+## gym_name, gym_pic, team, level,
+## address, gmap_link, applemap_link,
+## poke_id, poke_name, move_1, move_2,
+## time_battle_12, time_battle_24,
+## raid_end_12, raid_end_24
+##
+#####################################
+## Available alarm level operators:
+## '>','>=','<','<=','=='
+##
+#NOTIFY_EGGS = False # Enable egg notifications. Default False
 #NOTIFY_RAIDS = False # Enable raid notifications. Default False
-#RAIDS_LVL_MIN = 1
-#RAIDS_IDS = {143, 248}
+#TELEGRAM_RAIDS_LVL_MIN = 1
+#TELEGRAM_RAIDS_IDS = {143, 248}
+
+#TEAM = {
+#    0: "No Team",
+#    1: "Mystic (blue)",
+#    2: "Valor (red)",
+#    3: "Instinct (yellow)"
+#}
 
 #DEFAULT_EGG_ALARM = {
+#            'type': 'egg',
 #            'username': 'Egg Bot',
-#            'title': 'A Level {level} Egg appeared',
-#            'description': """It hatches at {time_battle}
-#Raid ends at: {raid_end}""",
+#            'title': "A Level {level} Egg appeared",
+#            'description': """Gym: {gym_name}
+#It hatches at: {time_battle_24}
+#Controlled by: {team}
+#Raid ends at: {raid_end_24}""",
+#            'level': {'value': 1, 'op': '>='},
 #            'color': 'GREY', # RED/AQUA/GREEN/BLUE/GOLD/ORANGE/RED/GREY/NAVY
-#            'webhook_url': 'https://discordapp.com/api/webhooks/xxxxxxxxxxxxx/xxxxxxxxxxxxxxx'
+#            'thumbnail_url': "{gym_pic}",
+#            'avatar_url': EGG_ICONS_URL,
+#            'gmap_icon_url': GMAP_EGG_ICONS_URL,
+#            'webhook_url': "https://discordapp.com/api/webhooks/xxxxxxxxxxxxx/xxxxxxxxxxxxxxx"
 #}
 
 #DEFAULT_RAID_ALARM = {
+#            'type': 'raid',
 #            'username': 'Raid Bot',
-#            'title': 'A {poke_name} Raid (Level {level}) hetched',
+#            'title': 'A {poke_name} Raid (Level {level}) hatched',
 #            'description': """Gym: {gym_name}
-#Until: {raid_end}
-#controlled by: **Team {team}**
+#Until: {raid_end_24}
+#Controlled by: **Team {team}**
 #Pokemon: **{poke_name}**
-#Attacks: **{move_1}** / **{move_2}**
-#Gym-pic: {gym_pic}""",
+#Attacks: **{move_1}** / **{move_2}**""",
+#            'level': {'value': 1, 'op': '>='},
 #            'color': 'BLUE', # RED/AQUA/GREEN/BLUE/GOLD/ORANGE/RED/GREY/NAVY
+#            'thumbnail_url': "{gym_pic}",
+#            'avatar_url': ICONS_URL,
+#            'gmap_icon_url': GMAP_ICONS_URL,
 #            'webhook_url': 'https://discordapp.com/api/webhooks/xxxxxxxxxxxxx/xxxxxxxxxxxxxxx'
 #}
+
+#RAID_ALARMS = {
+#    'discord': [
+#        {
+#            'type': 'egg',
+#            'level': {'value': 4, 'op': '>='},
+#            'username': 'Eggs lvl4 and higher Bot',
+#            'color': 'GREY', # RED/AQUA/GREEN/BLUE/GOLD/ORANGE/RED/GREY/NAVY
+#            'webhook_url': 'https://discordapp.com/api/webhooks/xxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+#        },
+#        {
+#            'type': 'egg',
+#            'level': {'value': 1, 'op': '=='},
+#            'username': 'LVL 1 Egg Bot',
+#            'webhook_url': 'https://discordapp.com/api/webhooks/xxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+#        },
+#        {
+#            'type': 'raid',
+#            'level': {'value': 1, 'op': '=='},
+#            'username': 'LVL 1 Raid Bot',
+#            'webhook_url': 'https://discordapp.com/api/webhooks/xxxxxxxxx/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+#        }
+#    ]
+#}
+
 
 #TELEGRAM_RAIDS_CHAT_ID = '@your_channel'
 
