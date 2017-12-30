@@ -45,7 +45,7 @@ class Altitudes:
         try:
             async with session.get(
                     'https://maps.googleapis.com/maps/api/elevation/json',
-                    params={'locations': 'enc:' + polyencode(new_coords),
+                    params={'locations': 'enc:' + polyencode(coords),
                             'key': get_google_maps_key()},
                     timeout=10) as resp:
                 response = await resp.json(loads=json_loads)
