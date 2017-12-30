@@ -90,18 +90,20 @@ MAP_END = (40.7143, -111.8046)
 
 # ensure that you visit within this many meters of every part of your map during bootstrap
 # lower values are more thorough but will take longer
-BOOTSTRAP_RADIUS = 120
+BOOTSTRAP_RADIUS = 70
 
-GIVE_UP_KNOWN = 75   # try to find a worker for a known spawn for this many seconds before giving up
-GIVE_UP_UNKNOWN = 60 # try to find a worker for an unknown point for this many seconds before giving up
-SKIP_SPAWN = 90      # don't even try to find a worker for a spawn if the spawn time was more than this many seconds ago
+GIVE_UP_KNOWN = 300   # try to find a worker for a known spawn for this many seconds before giving up
+GIVE_UP_UNKNOWN = 1500 # try to find a worker for an unknown point for this many seconds before giving up
+SKIP_SPAWN = 1500      # don't even try to find a worker for a spawn if the spawn time was more than this many seconds ago
 
 # How often should the mystery queue be reloaded (default 90s)
 # this will reduce the grouping of workers around the last few mysteries
 #RESCAN_UNKNOWN = 90
 
 # filename of accounts CSV
-ACCOUNTS_CSV = 'accounts.csv'
+# If a CSV file is specified, this file will be processed on each start.
+# If not set, you will have to import manually your accounts with scripts/import_accounts.py script.
+# ACCOUNTS_CSV = None
 
 ### Swap out accounts on warning popup
 #ACCOUNTS_SWAP_OUT_ON_WARN = True
@@ -695,7 +697,7 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 
 ### Shadown ban module
 #SB_DETECTOR = False
-#SB_COMMON_POKEMON_IDS = (16,19,23,27,29,32,41,43,46,52,54,60,69,72,74,77,81,98,118,120,129,161,165,167,177,183,187,191,194,198,209,218)
+#SB_COMMON_POKEMON_IDS = (16,23,27,29,32,41,43,46,52,54,60,69,77,81,98,118,120,129,161,165,177,183,187,191,194,198,209,218,320,325,339)
 #SB_MAX_ENC_MISS = 3           # Number of encounter misses before account is marked as sbanned
 #SB_MIN_SIGHTING_COUNT = 30    # Minimum sightings required to flag SB
 #SB_QUARANTINE_VISITS = 12     # Number of mininum visits needed to check if an account has seen any uncommon
