@@ -806,139 +806,6 @@ class Notification:
         return alarmed
 
 
-    async def notify_discord_pokemon(self):
-        pokemon = self.pokemon
-        raw_expire_time = pokemon.get('expire_timestamp')
-        expire_time = datetime.fromtimestamp(raw_expire_time) if raw_expire_time else raw_expire_time
-        poke_id = self.pokemon.get('pokemon_id')
-        icon_url = conf.ICONS_URL.format(poke_id)
-        gmap_icon_url = conf.GMAP_ICONS_URL.format(poke_id)
-        form = pokemon.get('form', '?')
-        gender = pokemon.get('gender', '?')
-        height = pokemon.get('height', '?')
-        weight = pokemon.get('weight', '?')
-        move_1 = pokemon.get('move_1')
-        move_2 = pokemon.get('move_2')
-        iv_atk = pokemon.get('individual_attack', '?')
-        iv_def = pokemon.get('individual_defense', '?')
-        iv_sta = pokemon.get('individual_stamina', '?')
-        lat = pokemon.get('lat', '?')
-        lon = pokemon.get('lon', '?')
-        cp = pokemon.get('cp', '?')
-        lvl = pokemon.get('level', '?')
-        if gender == 1:
-            gender = u'\u2642'  # male symbol
-        elif gender == 2:
-            gender= u'\u2640'  # female symbol
-        elif gender == 3:
-            gender = u'\u26b2'  #neutral
-        if height != "?":
-            height = round(height, 2)
-        if weight != "?":
-            weight = round(weight, 2)
-
-        # translate to name
-        move_1_name = MOVES[move_1] if move_1 else '?'
-        move_2_name = MOVES[move_2] if move_2 else '?'
-        iv_unknown = '?' in [iv_atk, iv_def, iv_sta]
-        if iv_unknown:
-            iv = '?'
-        else:
-            iv = "{0:.2f}".format(
-                round(
-                    (((iv_atk + iv_def + iv_sta) / 45) * 100), 2))
-        for disc_alarm in conf.NOTIFY_POKEMON_ALARMS['discord']:
-            filter_ids = disc_alarm.get('filter_ids', list())
-            filter_ivs = disc_alarm.get('filter_ivs', dict())
-            username = disc_alarm.get('username', conf.DEFAULT_ALARM['username'])
-            title = disc_alarm.get('title', conf.DEFAULT_ALARM['title'])
-            description = disc_alarm.get('description', conf.DEFAULT_ALARM['description'])
-            avatar_url = disc_alarm.get('avatar_url', conf.DEFAULT_ALARM['avatar_url'])
-            icon_url = disc_alarm.get('icon_url', conf.DEFAULT_ALARM['icon_url'])
-            color_name = disc_alarm.get('color', conf.DEFAULT_ALARM['color'])
-            color_dict = {
-                'DEFAULT': 0,
-                'AQUA': 1752220,
-                'GREEN': 3066993,
-                'BLUE': 3447003,
-                'PURPLE': 10181046,
-                'GOLD': 15844367,
-                'ORANGE': 15105570,
-                'RED': 15158332,
-                'GREY': 9807270,
-                'NAVY': 3426654
-            }
-            color = color_dict.get(color_name, 0)
-            avatar_url = avatar_url.format(poke_id)
-            icon_url = icon_url.format(poke_id)
-
-            if filter_ids and (poke_id not in filter_ids):
-                continue
-            else:
-                def insert_data(text):
-#                    address = "https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lon}&output=json&sensor=true_or_false".format(lat, lon)
-#                    try:
-#                        address_formated = address['results']['address_components']['formatted_address']
-#                    except KeyError:
-#                        address_formated = "unknown"
-                    disappear_time = expire_time.strftime("%H:%M") if expire_time else "??:??"
-                    tl_seconds = (expire_time - datetime.now()).seconds
-                    time_left = "{}min {}sec".format(
-                        tl_seconds // 60, tl_seconds % 60)
-                    return text.format(
-#                        address = address_formated,
-                        poke_id = poke_id,
-                        poke_name = self.name,
-#                        map_link = self.map_link,
-                        disappear_time = disappear_time,
-                        time_left = time_left,
-                        poke_iv = iv,
-                        poke_form = form,
-                        poke_gender = gender,
-                        poke_height = height,
-                        poke_weight = weight,
-                        poke_move_1 = move_1_name,
-                        poke_move_2 = move_2_name,
-                        poke_lvl = lvl,
-                        poke_cp = cp,
-                        poke_atk = iv_atk,
-                        poke_def = iv_def,
-                        poke_sta = iv_sta)
-
-                title = insert_data(title)
-                text = insert_data(description)
-                username = insert_data(username)
-
-                payload = {
-                    'username': username,
-                    'avatar_url': avatar_url,
-                    'embeds': [{
-                        'title': title,
-                        'url': get_gmaps_link(lat, lon),
-                        'description': text,
-                        'thumbnail': {'url': icon_url},
-                        'color': color,
-                        'image': {'url': get_static_map_url(lat, lon, icon=gmap_icon_url)}
-                    }]
-                }
-                session = SessionManager.get()
-                if filter_ivs:
-                    ignore_unknown = disc_alarm['filter_ivs']['ignore_unknown']
-                    if iv_unknown and ignore_unknown:
-                        continue
-                    elif iv_unknown and not ignore_unknown:
-                        await hook_post(disc_alarm['webhook_url'], session, payload, self.log)
-                        continue
-                    op_dic = {'>': 'gt', '>=': 'ge', '<': 'lt', '<=': 'le', '==': 'eq'}
-                    op = getattr(operator, op_dic[filter_ivs['op']])
-                    if op and op(float(iv), filter_ivs['value']):
-                        await hook_post(disc_alarm['webhook_url'], session, payload, self.log)
-                        continue
-                else:
-                    await hook_post(disc_alarm['webhook_url'], session, payload, self.log)
-                    continue
-
-
     @staticmethod
     def generic_place_string():
         """ Create a place string with area name (if available)"""
@@ -1071,7 +938,8 @@ class Notifier:
 
     def cleanup(self, unique_id, handle):
         self.cache.remove(unique_id)
-        handle.cancel()
+        if handle:
+            handle.cancel()
         return False
 
     def unique_id(self, obj):
@@ -1134,7 +1002,7 @@ class Notifier:
 
         if 'time_till_hidden' not in pokemon:
             seen = pokemon['seen'] % 3600
-            cache_handle = self.cache.store.add(unique_id)
+            self.cache.store.add(unique_id)
             try:
                 async with self.db_access_lock:
                     with session_scope() as session:
@@ -1143,7 +1011,7 @@ class Notifier:
                 self.log.exception('An exception occurred while trying to estimate remaining time.')
                 now_epoch = time()
                 tth = (pokemon['seen'] + 90 - now_epoch, pokemon['seen'] + 3600 - now_epoch)
-            LOOP.call_later(tth[1], self.cache.remove, unique_id)
+            cache_handle = LOOP.call_later(tth[1], self.cache.remove, unique_id)
             if pokemon_id not in self.always_notify:
                 mean = sum(tth) / 2
                 if mean < conf.TIME_REQUIRED:
