@@ -1,4 +1,5 @@
 import traceback
+from s2sphere import CellId, LatLng
 from asyncio import gather, Lock, Semaphore, sleep, CancelledError
 from collections import deque
 from time import time, monotonic
@@ -8,7 +9,6 @@ from sys import exit
 from math import ceil
 from distutils.version import StrictVersion
 from functools import lru_cache
-from s2sphere import CellId as S2CellId
 
 from aiohttp import ClientSession
 from aiopogo import PGoApi, HashServer, json_loads, exceptions as ex
@@ -955,21 +955,24 @@ class Worker:
         seen_encounter = not encounter_id
         seen_gym = not gym
         gmo_success = True
+        weather_condition = 0
 
         scan_gym_external_id = gym.get('external_id') if gym else None
 
         if conf.ITEM_LIMITS and self.bag_items >= self.item_capacity:
             await self.clean_bag()
 
+            
         if map_objects.client_weather:
             for w in map_objects.client_weather:
                 weather = Weather.normalize_weather(w, map_objects.time_of_day)
+                weather_condition = weather['condition']
                 if weather not in WEATHER_CACHE:
                     db_proc.add(weather)
 
         for map_cell in map_objects.map_cells:
             request_time_ms = map_cell.current_timestamp_ms
-            cell_weather_id = S2CellId(map_cell.s2_cell_id).parent(10).id()
+            cell_weather_id = CellId(map_cell.s2_cell_id).parent(10).id()
             for pokemon in map_cell.wild_pokemons:
                 pokemon_seen += 1
                 if not self.in_bounds(pokemon.latitude, pokemon.longitude):
@@ -1142,6 +1145,12 @@ class Worker:
                     if fort.HasField('raid_info'):
                         if fort not in RAID_CACHE:
                             normalized_raid = self.normalize_raid(fort)
+                            raid_cellid = CellId.from_lat_lng(LatLng.from_degrees(normalized_raid['lat'],normalized_raid['lon'])).parent(10).id()
+                            raid_weatherid = weather_condition                            
+                            if cell_weather_id != raid_cellid:
+                                if raid_cellid in WEATHER_CACHE:
+                                    raid_weatherid = WEATHER_CACHE[raid_cellid]['condition']
+                            normalized_raid['weather'] = raid_weatherid
                             RAID_CACHE.add(normalized_raid)
                             if normalized_raid['time_end'] > int(time()):
                                 if conf.NOTIFY_RAIDS:
