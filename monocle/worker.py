@@ -1397,6 +1397,10 @@ class Worker:
     async def spin_pokestop(self, pokestop):
         self.error_code = '$'
         pokestop_location = pokestop.latitude, pokestop.longitude
+        
+        # randomize location up to ~1.5 meters
+        self.simulate_jitter(amount=0.00001)
+        
         distance = get_distance(self.location, pokestop_location)
         # permitted interaction distance - 4 (for some jitter leeway)
         # estimation of spinning speed limit
@@ -1404,8 +1408,6 @@ class Worker:
             self.error_code = '!'
             return False
 
-        # randomize location up to ~1.5 meters
-        self.simulate_jitter(amount=0.00001)
         #adding a short sleep period increases spinning success 
         await self.random_sleep(0.8, 1.8)
 
@@ -1678,7 +1680,7 @@ class Worker:
 
     def simulate_jitter(self, amount=0.00002):
         '''Slightly randomize location, by up to ~3 meters by default.'''
-        self.location = randomize_point(self.location)
+        self.location = randomize_point(self.location, amount=amount)
         self.altitude = uniform(self.altitude - 1, self.altitude + 1)
         self.api.set_position(*self.location, self.altitude)
 
