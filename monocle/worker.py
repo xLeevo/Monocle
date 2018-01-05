@@ -645,7 +645,7 @@ class Worker:
                     err = e
                     self.log.warning('{}', e)
                 self.error_code = 'INVALID REQUEST'
-                await self.random_sleep()
+                await self.random_sleep(0.9, 2.0)
             except ex.ProxyException as e:
                 if not isinstance(e, type(err)):
                     err = e
