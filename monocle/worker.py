@@ -1110,7 +1110,12 @@ class Worker:
                         pokestop = self.normalize_pokestop(fort)
                         db_proc.add(pokestop)
                 else:
-                    normalized_fort = self.normalize_gym(fort)
+                    if fort.id not in FORT_CACHE.gyms or FORT_CACHE.gyms[fort.id]['weather_cell_id'] is None:
+                        fort_weather_cell = CellId.from_lat_lng(LatLng.from_degrees(fort.latitude,fort.longitude)).parent(10).id()
+                    else:
+                        fort_weather_cell = FORT_CACHE.gyms[fort.id]['weather_cell_id']
+
+                    normalized_fort = self.normalize_gym(fort, fort_weather_cell)
                     is_target_gym = (scan_gym_external_id == fort.id)
                     should_update_gym = is_target_gym
 
@@ -1120,7 +1125,6 @@ class Worker:
                     self.overseer.WorkerRaider.add_gym(normalized_fort)
 
                     if (scan_gym_external_id or not self.has_raiders) and fort not in FORT_CACHE:
-                        FORT_CACHE.add(normalized_fort)
                         should_update_gym = True
 
                     if (is_target_gym or
@@ -1144,13 +1148,7 @@ class Worker:
 
                     if fort.HasField('raid_info'):
                         if fort not in RAID_CACHE:
-                            normalized_raid = self.normalize_raid(fort)
-                            raid_cellid = CellId.from_lat_lng(LatLng.from_degrees(normalized_raid['lat'],normalized_raid['lon'])).parent(10).id()
-                            raid_weatherid = weather_condition                            
-                            if cell_weather_id != raid_cellid:
-                                if raid_cellid in WEATHER_CACHE:
-                                    raid_weatherid = WEATHER_CACHE[raid_cellid]['condition']
-                            normalized_raid['weather'] = raid_weatherid
+                            normalized_raid = self.normalize_raid(fort, WEATHER_CACHE[fort_weather_cell]['condition'])
                             RAID_CACHE.add(normalized_raid)
                             if normalized_raid['time_end'] > int(time()):
                                 if conf.NOTIFY_RAIDS:
@@ -1924,7 +1922,7 @@ class Worker:
         }
 
     @staticmethod
-    def normalize_gym(raw):
+    def normalize_gym(raw, s2cellID):
         return {
             'type': 'fort',
             'external_id': raw.id,
@@ -1939,10 +1937,11 @@ class Worker:
             'name': None,
             'url': None,
             'gym_defenders': [],
+            'weather_cell_id': s2cellID & 0xffffffffffffffff
         }
 
     @staticmethod
-    def normalize_raid(raw):
+    def normalize_raid(raw, weather):
         obj = {
             'type': 'raid',
             'external_id': raw.raid_info.raid_seed,
@@ -1957,6 +1956,7 @@ class Worker:
             'cp': 0,
             'move_1': 0,
             'move_2': 0,
+            'weather' : weather
         }
         if raw.raid_info.HasField('raid_pokemon'):
             obj['pokemon_id'] = raw.raid_info.raid_pokemon.pokemon_id
