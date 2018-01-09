@@ -12,4 +12,5 @@ cyrandom>=0.1.2
 python-crontab>=2.2.4
 python-anticaptcha>=0.1.0
 s2sphere>=0.2.5
+shapely>=1.3.0
 overpy>=0.4
