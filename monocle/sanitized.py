@@ -289,7 +289,7 @@ _defaults = {
     'NOTIFY_RAIDS_WEBHOOK': True,
     'NOTIFY_IDS': None,
     'NOTIFY_RANKING': None,
-    'PARK_CHECK': False,
+    'PARK_CHECK': True,
     'PASS': None,
     'PB_API_KEY': None,
     'PB_CHANNEL': None,

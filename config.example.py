@@ -27,6 +27,9 @@ SCAN_DELAY = 10       # wait at least this many seconds before scanning with the
 SPEED_UNIT = 'miles'  # valid options are 'miles', 'kilometers', 'meters'
 SPEED_LIMIT = 19.5    # limit worker speed to this many SPEED_UNITs per hour
 
+##If true, will query OSM to determine if gym is in a park
+#PARK_CHECK = True
+
 # The number of simultaneous workers will be these two numbers multiplied.
 # On the initial run, workers will arrange themselves in a grid across the
 # rectangle you defined with MAP_START and MAP_END.

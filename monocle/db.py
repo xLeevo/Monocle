@@ -1296,7 +1296,7 @@ def check_in_park(fort):
         result = api.query("""
             [out:json];
             is_in({},{});
-            area._[leisure="park"];
+            area._[~"^leisure$|^landuse$|^natural$"~"^park$|^recreation_ground$|^pitch$|^garden$|^golf_course$|^playground$|^meadow$|^grass$|^greenfield$|^scrub$|^grassland$|^farmyard$|^vineyard$|^heath$"];
             out;
             """.format(fort['lat'],fort['lon']))
         if len(result.areas)>0:
