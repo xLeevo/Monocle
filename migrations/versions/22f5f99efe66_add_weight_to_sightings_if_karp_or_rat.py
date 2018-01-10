@@ -7,7 +7,7 @@ Create Date: 2018-01-10 15:10:10.760334
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import mysql
+import sys
 from pathlib import Path
 monocle_dir = str(Path(__file__).resolve().parents[2])
 if monocle_dir not in sys.path:
