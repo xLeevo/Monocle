@@ -377,6 +377,7 @@ class Sighting(Base):
     updated = Column(Integer,default=time,onupdate=time)
     weather_boosted_condition = Column(SmallInteger)
     weather_cell_id = Column(UNSIGNED_HUGE_TYPE)
+    weight = Column(FLOAT_TYPE)
 
 
     spawnpoint = relationship("Spawnpoint",
@@ -612,6 +613,9 @@ def add_sighting(session, pokemon):
     sighting.level = pokemon.get('level')
     sighting.weather_boosted_condition = pokemon.get('weather_boosted_condition', 0)
     sighting.weather_cell_id = pokemon.get('weather_cell_id')
+
+    if sighting.pokemon_id == 129 or sighting.pokemon_id == 19:
+        sighting.weight = pokemon.get('weight')
 
     session.merge(sighting)
 
