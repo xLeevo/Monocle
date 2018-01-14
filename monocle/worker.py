@@ -1510,7 +1510,7 @@ class Worker:
                                     player_longitude=self.location[1])
 
         responses = await self.call(request, action=2.25)
-        if self.next_encounter < 0.85:
+        if self.next_encounter < 0.6:
             self.next_encounter += 0.15
         else:
             self.next_encounter = 0
