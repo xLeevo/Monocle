@@ -169,7 +169,7 @@ class Worker:
         self.pokestops = conf.SPIN_POKESTOPS
         self.next_spin = 0
         self.handle = HandleStub()
-        self.next_encounter = time()
+        self.next_encounter = 0
 
     def needs_sleep(self):
         return True 
@@ -1500,7 +1500,7 @@ class Worker:
         if self.needs_sleep():
             await self.random_sleep(delay_required, delay_required + 1.5)
 
-        to_sleep = self.next_encounter - time()
+        to_sleep = 0.25 + self.next_encounter
         if to_sleep > 0:
             await sleep(to_sleep, loop=LOOP)
 
@@ -1511,7 +1511,10 @@ class Worker:
                                     player_longitude=self.location[1])
 
         responses = await self.call(request, action=2.25)
-        self.next_encounter = time() + conf.LV30_ENCOUNTER_WAIT
+        if self.next_encounter < 1:
+            self.next_encounter += 0.15
+        else:
+            self.next_encounter = 0
 
 
         try:
