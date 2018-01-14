@@ -1501,8 +1501,7 @@ class Worker:
             await self.random_sleep(delay_required, delay_required + 1.5)
 
         to_sleep = 0.25 + self.next_encounter
-        if to_sleep > 0:
-            await sleep(to_sleep, loop=LOOP)
+        await sleep(to_sleep, loop=LOOP)
 
         request = self.api.create_request()
         request = request.encounter(encounter_id=pokemon['encounter_id'],
