@@ -68,12 +68,11 @@ GRID = (4, 4)  # rows, columns
 ### Do GMO requests for lv30 accounts.
 ### Setting False will increase encounter rate and reduce hashing usage as it will apply insta-teleport encounter.
 ### Setting True will reduce account ban risks as it will apply normal Monocle behavior.
-### Default True.
-#LV30_GMO = True
+### Default False.
+#LV30_GMO = False
 
 ### Maximum speed for lv30 accounts in SPEED_UNIT/hr.
-### Defaults to 745.6454 miles/hr (1200 km/hr) hypothetical hyperloop speed.
-### Set it to 0.0 to disable.
+### Defaults to 0.0 (disabled).
 ### When disabled, worker will not take any traveling time to encounter. (insta-teleport activated!)
 #LV30_MAX_SPEED = 745.6454
 
