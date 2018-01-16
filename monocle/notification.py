@@ -1071,6 +1071,9 @@ class Notifier:
         else:
             gym_name, gym_url, sponsor, park = None, None, None, None
 
+        if park == 'None': park = None
+        if sponsor == 0: sponsor = None
+
         m = conf.WEBHOOK_RAID_MAPPING
         data = {
             'type': "raid",
