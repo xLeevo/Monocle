@@ -970,6 +970,8 @@ class Worker:
                 weather = Weather.normalize_weather(w, map_objects.time_of_day)
                 weather_condition = weather['condition']
                 if weather not in WEATHER_CACHE:
+                    if conf.NOTIFY_WEATHER and Weather.has_weather_changed(weather):
+                        LOOP.create_task(self.notifier.webhook_weather(weather))
                     db_proc.add(weather)
 
         for map_cell in map_objects.map_cells:

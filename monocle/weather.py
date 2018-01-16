@@ -91,4 +91,12 @@ class Weather(db.Base):
             weather.updated = int(time())
         WEATHER_CACHE.add(raw_weather)
 
+    @classmethod
+    def has_weather_changed(self, current_weather):
+        try:
+            previous_weather = WEATHER_CACHE[current_weather['s2_cell_id']]
+            return (previous_weather['condition'] != current_weather['condition'])
+        except KeyError:
+            return False
+
 WEATHER_CACHE = WeatherCache()

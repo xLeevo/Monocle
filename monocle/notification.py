@@ -6,6 +6,7 @@ from pkg_resources import resource_stream
 from tempfile import TemporaryFile
 from asyncio import gather, CancelledError, TimeoutError, Lock
 from base64 import b64encode
+from s2sphere import Cell, CellId, LatLng
 
 from aiohttp import ClientError, ClientResponseError, ServerTimeoutError
 from aiopogo import json_dumps, json_loads
@@ -18,6 +19,10 @@ from .utils import (
     get_applemaps_link,
     get_google_maps_key
 )
+from .web_utils import (
+    get_vertex
+)
+
 from .db import session_scope, get_gym, get_pokemon_ranking, estimate_remaining_time, FORT_CACHE
 from .names import MOVES, POKEMON
 from .shared import get_logger, SessionManager, LOOP, run_threaded
@@ -1056,6 +1061,43 @@ class Notifier:
                 }
             }
             self.log.info("Notifying gym Name = {}, team = {}", fort["name"], fort["team"])
+            result = await self.wh_send(SessionManager.get(), data)
+            self.last_notification = monotonic()
+            self.sent += 1
+            return result
+
+
+    async def webhook_weather(self, weather):
+        if not WEBHOOK:
+            return
+
+        cell = Cell(CellId(weather['s2_cell_id']))
+        cornerlat = []
+        cornerlng = []
+        for v in range(0,4):
+            vertex = LatLng.from_point(cell.get_vertex(v))
+            cornerlat.append(vertex.lat().degrees)
+            cornerlng.append(vertex.lng().degrees)
+        data = {
+            'type': "weather",
+            'message': {
+                "cell_id": weather['s2_cell_id'],
+                "lat1": cornerlat[0],
+                "lng1": cornerlng[0],
+                "lat2": cornerlat[1],
+                "lng2": cornerlng[1],
+                "lat3": cornerlat[2],
+                "lng3": cornerlng[2],
+                "lat4": cornerlat[3],
+                "lng4": cornerlng[3],
+                "condition": weather['condition'],
+                "alert_severity": weather['alert_severity'],
+                "warn": weather['warn'],
+                "day": weather['day'],
+                "time_changed": int(time()),
+            }
+        }
+
         result = await self.wh_send(SessionManager.get(), data)
         self.last_notification = monotonic()
         self.sent += 1

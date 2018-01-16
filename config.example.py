@@ -658,7 +658,26 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #    'gym_name': 'name',
 #    'gym_url': 'url',
 #}
+#
+# Gym webhook require worker raiders to be fully functionnal
+#
+#WEBHOOK_GYM_MAPPING = {
+#    'gym_id': 'gym_id',
+#    'last_modified': 'last_modified',
+#    'guard_pokemon_id': 'guard_pokemon_id',
+#    'is_in_battle': 'in_battle',
+#    'slots_available': 'slots_available',
+#    'latitude': 'latitude',
+#    'longitude': 'longitude',
+#    'team': 'team',
+#    'name': 'name',
+#    'url': 'url',
+#    'gym_defenders': 'gym_defenders',
+#}
+#
 
+#Send weather change notifications to webhook
+#NOTIFY_WEATHER = True
 
 ##### Referencing landmarks in your tweets/notifications
 
