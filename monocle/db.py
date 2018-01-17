@@ -13,7 +13,7 @@ from sqlalchemy.types import TypeDecorator, Numeric, Text, TIMESTAMP
 from sqlalchemy.ext.declarative import declarative_base
 
 from . import bounds, spawns, db_proc, sanitized as conf
-from .utils import time_until_time, dump_pickle, load_pickle
+from .utils import time_until_time, dump_pickle, load_pickle, get_s2_cell_as_polygon
 from .shared import call_at, get_logger
 import overpy
 
@@ -1298,14 +1298,28 @@ def check_in_park(fort):
     api.max_retry_count = 3
     try:
         result = api.query("""
-            [out:json];
+            [out:json][timeout:620][date:"2016-07-10T00:00:00Z"];
             is_in({},{});
-            area._[~"^leisure$|^landuse$|^natural$"~"^park$|^recreation_ground$|^pitch$|^garden$|^golf_course$|^playground$|^meadow$|^grass$|^greenfield$|^scrub$|^grassland$|^farmyard$|^vineyard$|^heath$"];
+            area._[~"^leisure$|^landuse$|^natural$"~"^park$|^recreation_ground$|^pitch$|^garden$|^golf_course$|^playground$|^meadow$|^grass$|^greenfield$|^scrub$|^grassland$|^farmyard$|^vineyard$|^heath$|^village_green$|^plateau$|^nature_reserve$|^moor$|^farmland$|^orchard$"];
             out;
             """.format(fort['lat'],fort['lon']))
         if len(result.areas)>0:
             return result.areas[0].tags["name"]
         else:
-            return "None"
+            s2cell = get_s2_cell_as_polygon(fort['lat'],fort['lon'], 20)
+            result = api.query(
+                '[out:json][timeout:620][date:"2016-07-10T00:00:00Z"];'
+                '('
+                'way(poly:"' + str(s2cell[0][0]) + ' ' + str(s2cell[0][1]) + ' ' + str(s2cell[1][0]) + ' ' + str(
+                    s2cell[1][1]) + ' ' + str(s2cell[2][0]) + ' ' + str(s2cell[2][1]) + ' ' + str(
+                    s2cell[3][0]) + ' ' + str(s2cell[3][1]) + '");'
+                ');'
+                'way._[~"^leisure$|^landuse$|^natural$"~"^park$|^recreation_ground$|^pitch$|^garden$|^golf_course$|^playground$|^meadow$|^grass$|^greenfield$|^scrub$|^grassland$|^farmyard$|^vineyard$|^heath$|^village_green$|^plateau$|^nature_reserve$|^moor$|^farmland$|^orchard$"];'
+                'out;'
+            )
+            if len(result.ways)>0:
+                return "Tag : " + list(result.ways[0].tags.values())[0]
+            else:
+                return "None"
     except:
         return
