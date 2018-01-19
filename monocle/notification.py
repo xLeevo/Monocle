@@ -1072,24 +1072,17 @@ class Notifier:
             return
 
         cell = Cell(CellId(weather['s2_cell_id']))
-        cornerlat = []
-        cornerlng = []
+        coords = []
         for v in range(0,4):
             vertex = LatLng.from_point(cell.get_vertex(v))
             cornerlat.append(vertex.lat().degrees)
             cornerlng.append(vertex.lng().degrees)
+            coords.append([vertex.lat().degrees,vertex.lng().degrees])
         data = {
             'type': "weather",
             'message': {
-                "cell_id": weather['s2_cell_id'],
-                "lat1": cornerlat[0],
-                "lng1": cornerlng[0],
-                "lat2": cornerlat[1],
-                "lng2": cornerlng[1],
-                "lat3": cornerlat[2],
-                "lng3": cornerlng[2],
-                "lat4": cornerlat[3],
-                "lng4": cornerlng[3],
+                "s2_cell_id": weather['s2_cell_id'],
+                "coords": coords,
                 "condition": weather['condition'],
                 "alert_severity": weather['alert_severity'],
                 "warn": weather['warn'],
