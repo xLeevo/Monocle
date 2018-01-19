@@ -166,6 +166,13 @@ SEARCH_SLEEP = 2.5
 ### Buddyauth endpoint
 #HASH_ENDPOINT="http://pokehash.buddyauth.com"
 #
+### Gohash config
+#
+#Set it to True to use GOHASH
+#GO_HASH = False
+#
+#GO_HASH_KEY = 'YOURGOHASHKEY' # edit with your Gohash key
+#
 ### Gohash endpoint 
 #GOHASH_ENDPOINT="http://hash.gomanager.biz"
 
