@@ -1075,8 +1075,6 @@ class Notifier:
         coords = []
         for v in range(0,4):
             vertex = LatLng.from_point(cell.get_vertex(v))
-            cornerlat.append(vertex.lat().degrees)
-            cornerlng.append(vertex.lng().degrees)
             coords.append([vertex.lat().degrees,vertex.lng().degrees])
         data = {
             'type': "weather",
