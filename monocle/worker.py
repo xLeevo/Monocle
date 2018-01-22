@@ -1960,6 +1960,7 @@ class Worker:
             'slots_available': raw.gym_display.slots_available,
             'name': None,
             'url': None,
+            'total_cp': raw.gym_display.total_gym_cp,
             'gym_defenders': [],
             'weather_cell_id': s2cellID & 0xffffffffffffffff
         }
@@ -1992,12 +1993,14 @@ class Worker:
     @staticmethod
     def normalize_gym_defender(raw):
         pokemon = raw.motivated_pokemon.pokemon
+        trainer = raw.trainer_public_profile
 
         obj = {
             'type': 'gym_defender',
             'external_id': pokemon.id,
             'pokemon_id': pokemon.pokemon_id,
             'owner_name': pokemon.owner_name,
+            'owner_level': trainer.level,
             'nickname': pokemon.nickname,
             'cp': pokemon.cp,
             'stamina': pokemon.stamina,

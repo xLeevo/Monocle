@@ -673,6 +673,7 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #    'name': 'name',
 #    'url': 'url',
 #    'gym_defenders': 'gym_defenders',
+#    'total_cp': 'total_cp,
 #}
 #
 

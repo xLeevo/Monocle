@@ -1043,29 +1043,6 @@ class Notifier:
         else:
             return self.cleanup(unique_id, cache_handle)
 
-    async def webhook_gym(self, fort):
-        if not WEBHOOK:
-            return
-
-        if fort["name"] != None:
-            data = {
-                'type': "gym",
-                'message' : {
-                    'id': fort["external_id"],
-                    'team': fort["team"],
-                    'guard_pokemon_id': fort["guard_pokemon_id"],
-                    'latitude': fort["lat"],
-                    'longitude': fort["lon"],
-                    'name': fort["name"],
-                    'url': fort['url']
-                }
-            }
-            self.log.info("Notifying gym Name = {}, team = {}", fort["name"], fort["team"])
-            result = await self.wh_send(SessionManager.get(), data)
-            self.last_notification = monotonic()
-            self.sent += 1
-            return result
-
 
     async def webhook_weather(self, weather):
         if not WEBHOOK:
@@ -1132,6 +1109,38 @@ class Notifier:
             }
         }
 
+        result = await self.wh_send(SessionManager.get(), data)
+        self.last_notification = monotonic()
+        self.sent += 1
+        return result
+		
+    async def webhook_gym(self, fort, gym=None):
+        if not WEBHOOK:
+            return
+        if fort['external_id'] in FORT_CACHE.gym_info:
+            gym_name, gym_url, sponsor = FORT_CACHE.gym_info[fort['external_id']]
+        else:
+            gym_name, gym_url, sponsor = None, None, None
+
+        m = conf.WEBHOOK_GYM_MAPPING
+        data = {
+            'type': "gym",
+            'message': {
+                m.get("gym_id", "gym_id"): fort['external_id'],
+                m.get("latitude", "latitude"): fort['lat'],
+                m.get("longitude", "longitude"): fort['lon'],
+                m.get("team", "team"): fort['team'],
+                m.get("guard_pokemon_id", "guard_pokemon_id"): fort['guard_pokemon_id'],
+                m.get("last_modified", "last_modified"): fort['last_modified'],
+                m.get("is_in_battle", "is_in_battle"): fort['is_in_battle'],
+                m.get("slots_available", "slots_available"): fort['slots_available'],
+                m.get("name", "name"): gym_name,
+                m.get("url", "url"): gym_url,
+                m.get("gym_defenders", "gym_defenders"): fort['gym_defenders'],
+                m.get("total_cp", "total_cp"): fort['total_cp'],
+
+            }
+        }
         result = await self.wh_send(SessionManager.get(), data)
         self.last_notification = monotonic()
         self.sent += 1
