@@ -985,6 +985,7 @@ class Worker:
                 normalized = self.normalize_pokemon(pokemon, username=self.username)
                 normalized['time_of_day'] = map_objects.time_of_day
                 normalized['weather_cell_id'] = cell_weather_id
+                normalized['weather'] = weather_condition
                 seen_target = seen_target or normalized['spawn_id'] == spawn_id
                 seen_encounter = seen_encounter or normalized['encounter_id'] == encounter_id
 

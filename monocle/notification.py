@@ -1408,7 +1408,8 @@ Attacks: {}/{}""".format(
                 "individual_attack": pokemon.get('individual_attack'),
                 "individual_defense": pokemon.get('individual_defense'),
                 "individual_stamina": pokemon.get('individual_stamina'),
-                "weather": pokemon.get('weather_boosted_condition'),
+                "boosted_weather": pokemon.get('weather_boosted_condition'),
+                "weather": pokemon.get('weather'),
             }
         }
 
