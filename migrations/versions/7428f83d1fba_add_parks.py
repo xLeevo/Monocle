@@ -28,11 +28,12 @@ def upgrade():
     op.add_column('forts', sa.Column('parkid', db.HUGE_TYPE, nullable=True))
     op.add_column('forts', sa.Column('park', sa.String(length=200), nullable=True))
     op.create_table('parks',
-        sa.Column('id', db.HUGE_TYPE, nullable=True),
+        sa.Column('id', db.HUGE_TYPE, nullable=True, unique=True),
         sa.Column('name', sa.String(length=200), nullable=True),
         sa.Column('coords', db.LONG_TEXT, nullable=True),
         sa.Column('updated', sa.Integer(), nullable=True)
     )
+    op.create_unique_constraint(None,"parks",["provider_game_id"])
     op.create_index('ix_forts_parkid', 'forts', ['parkid'])
     op.create_index('ix_park', 'parks', ['id'])
     op.create_foreign_key('forts_fk_parkid', 'forts', 'parks', ['parkid'], ['id'])
@@ -46,4 +47,5 @@ def downgrade():
     op.drop_index('ix_forts_parkid', table_name='forts')
     op.drop_index('ix_park', table_name='parks')
     op.drop_table('parks')
+    op.drop_column('forts', 'parkid')
     # ### end Alembic commands ###
