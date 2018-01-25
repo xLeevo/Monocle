@@ -75,6 +75,7 @@ class Weather(db.Base):
     
         weather = session.query(Weather) \
             .filter(Weather.s2_cell_id == s2_cell_id) \
+            .with_for_update() \
             .first()
         if not weather:
             weather = Weather(
