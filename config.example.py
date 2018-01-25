@@ -726,7 +726,7 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 
 ### Shadown ban module
 #SB_DETECTOR = False
-#SB_COMMON_POKEMON_IDS = (16,19,23,27,29,32,43,46,52,54,60,69,77,81,98,118,120,129,177,183,187,191,194,209,218,320,325,339)
+#SB_COMMON_POKEMON_IDS = (16,19,23,27,29,32,43,46,52,54,60,69,77,81,98,118,120,129,177,183,187,191,194,209,218,293,304,320,325,339)
 #SB_MAX_ENC_MISS = 3           # Number of encounter misses before account is marked as sbanned
 #SB_MIN_SIGHTING_COUNT = 30    # Minimum sightings required to flag SB
 #SB_QUARANTINE_VISITS = 12     # Number of mininum visits needed to check if an account has seen any uncommon
