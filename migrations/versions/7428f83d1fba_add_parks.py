@@ -45,6 +45,8 @@ def downgrade():
     op.drop_constraint('forts_fk_parkid', 'forts', type_='foreignkey')
     op.drop_index('ix_forts_parkid', table_name='forts')
     op.drop_index('ix_park', table_name='parks')
+    op.drop_column("forts", "parkid")
+    op.drop_column("forts", "park")
+    op.add_column('forts', sa.Column('park', sa.String(128), nullable=True))
     op.drop_table('parks')
-    op.drop_column('forts', 'parkid')
     # ### end Alembic commands ###
