@@ -13,7 +13,7 @@ from sqlalchemy.types import TypeDecorator, Numeric, Text, TIMESTAMP
 from sqlalchemy.ext.declarative import declarative_base
 
 from . import bounds, spawns, db_proc, sanitized as conf
-from .utils import time_until_time, dump_pickle, load_pickle, get_s2_cell_as_polygon
+from .utils import time_until_time, dump_pickle, load_pickle
 from .shared import call_at, get_logger
 import overpy
 
