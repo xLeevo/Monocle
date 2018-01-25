@@ -33,7 +33,6 @@ def upgrade():
         sa.Column('coords', db.LONG_TEXT, nullable=True),
         sa.Column('updated', sa.Integer(), nullable=True)
     )
-    op.create_unique_constraint(None,"parks",["provider_game_id"])
     op.create_index('ix_forts_parkid', 'forts', ['parkid'])
     op.create_index('ix_park', 'parks', ['id'])
     op.create_foreign_key('forts_fk_parkid', 'forts', 'parks', ['parkid'], ['id'])
