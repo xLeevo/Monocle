@@ -132,11 +132,11 @@ class Parks():
                     # osm polygon can be a line
                     if len(coords) == 2:
                         shape = LineString(coords)
-                        if shape.within(gym_point) or cell.intersects(shape):
+                        if shape.within(cell.centroid):
                             return { 'id' : p['id'], 'name' : p['name'] }
                     if len(coords) > 2:
                         shape = Polygon(coords)
-                        if shape.contains(gym_point) or cell.intersects(shape):
+                        if shape.contains(cell.centroid):
                             return {'id': p['id'], 'name': p['name']}
             return None
 
