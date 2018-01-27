@@ -26,7 +26,7 @@ from .accounts import Account, get_accounts, InsufficientAccountsException, Logi
 from . import altitudes, avatar, bounds, db_proc, spawns, sanitized as conf
 from .notification import Notifier
 from .weather import WEATHER_CACHE, Weather
-from .parks import *
+from .parks import get_parks
 
 from python_anticaptcha import AnticaptchaClient, NoCaptchaTaskProxylessTask
 from python_anticaptcha.exceptions import AnticatpchaException
@@ -1135,17 +1135,17 @@ class Worker:
                             try:
                                 normalized_fort["park"] = FORT_CACHE.park[fort.id]
                             except KeyError:
-                                with Parks() as parks:
-                                    parkinfo = parks.check_in_park(normalized_fort['lat'], normalized_fort['lon'])
-                                    if parkinfo:
-                                        normalized_fort["park"] = parkinfo['name']
-                                        normalized_fort["parkid"] = parkinfo['id']
+                                parks = get_parks()
+                                parkinfo = parks.check_in_park(normalized_fort['lat'], normalized_fort['lon'])
+                                if parkinfo:
+                                    normalized_fort["park"] = parkinfo['name']
+                                    normalized_fort["parkid"] = parkinfo['id']
                     else:
-                        with Parks() as parks:
-                            parkinfo = parks.check_in_park(normalized_fort['lat'], normalized_fort['lon'])
-                            if parkinfo:
-                                normalized_fort["park"] = parkinfo['name']
-                                normalized_fort["parkid"] = parkinfo['id']
+                        parks = get_parks()
+                        parkinfo = parks.check_in_park(normalized_fort['lat'], normalized_fort['lon'])
+                        if parkinfo:
+                            normalized_fort["park"] = parkinfo['name']
+                            normalized_fort["parkid"] = parkinfo['id']
 
                     if is_target_gym:
                         seen_gym = True

@@ -10,6 +10,8 @@ from time import time
 from . import db, utils, sanitized as conf
 from .shared import get_logger, LOOP
 
+bucket = {}
+
 class Park(db.Base):
     __tablename__ = 'parks'
 
@@ -50,13 +52,6 @@ class Parks():
         self.log = get_logger('parks')
         self.log.info('Parks initialized')
         self.PARKS_CACHE = ParksCache()
-
-    def __enter__(self):
-        self.PARKS_CACHE.preload()
-        return self
-
-    def __exit__(self, *err):
-        pass
 
     def fetch_all_parks(self):
         self.log.info('Fetching all parks.')
@@ -176,6 +171,7 @@ class ParksCache:
     def __init__(self):
         self.log = get_logger('parks')
         self.store = {}
+        self.preload()
 
     def __len__(self):
         return len(self.store)
@@ -217,5 +213,11 @@ class ParksCache:
                 self.log.info("Preloaded {} parks", parks.count())
         except Exception as e:
             self.log.error('Error while preloading parks : {}', e)
+
+
+def get_parks():
+    if "PARKS" not in bucket:
+        bucket["PARKS"] = Parks()
+    return bucket["PARKS"]
 
 

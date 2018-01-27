@@ -31,7 +31,7 @@ from monocle.overseer import Overseer
 from monocle.db import FORT_CACHE, SIGHTING_CACHE
 from monocle.accounts import AccountQueue, CaptchaAccountQueue, Lv30AccountQueue, get_accounts, get_accounts30
 from monocle import altitudes, db_proc, spawns
-from monocle.parks import *
+from monocle.parks import get_parks 
 
 
 class AccountManager(BaseManager):
@@ -214,13 +214,14 @@ def main():
 
     overseer = Overseer(manager)
     overseer.start(args.status_bar)
-    with Parks() as parks:
-        if args.parks:
-            log.info('parks flag found. Refreshing all parks and gyms.')
-            parks_thread = Thread(target=parks.fetch_all_parks)
-        else:
-            parks_thread = Thread(target=parks.load)
-        parks_thread.start()
+
+    parks=get_parks()
+    if args.parks:
+        log.info('parks flag found. Refreshing all parks and gyms.')
+        parks_thread = Thread(target=parks.fetch_all_parks)
+    else:
+        parks_thread = Thread(target=parks.load)
+    parks_thread.start()
 
     launcher = LOOP.create_task(overseer.launch(args.bootstrap, args.pickle))
     
