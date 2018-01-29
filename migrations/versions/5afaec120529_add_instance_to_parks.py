@@ -1,7 +1,7 @@
 """add instance to parks
 
 Revision ID: 5afaec120529
-Revises: 567bec1859e2
+Revises: 7428f83d1fba
 Create Date: 2018-01-28 23:14:03.256165
 
 """
@@ -17,7 +17,7 @@ from monocle import db as db
 
 # revision identifiers, used by Alembic.
 revision = '5afaec120529'
-down_revision = '567bec1859e2'
+down_revision = '7428f83d1fba'
 branch_labels = None
 depends_on = None
 
