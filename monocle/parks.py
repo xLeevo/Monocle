@@ -278,7 +278,7 @@ class ParksCache:
                 self.store = {}
             with db.session_scope() as session:
                 parks = session.query(Park) \
-                        .filter(Park.instanceid == instances.instance_id)
+                        .filter(Park.instanceid == db.instance_id)
 
                 for park in parks:
                     obj = {
