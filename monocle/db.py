@@ -805,7 +805,8 @@ def get_fort_park(session, external_id):
         fortpark = session.query(Fort.park) \
             .filter(Fort.external_id == external_id) \
             .scalar()
-        FORT_CACHE.park[external_id] = fortpark
+        if fortpark:
+            FORT_CACHE.park[external_id] = fortpark
 
 
 def add_fort_sighting(session, raw_fort):
