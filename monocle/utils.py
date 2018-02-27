@@ -22,13 +22,7 @@ from pogeo import get_distance
 from . import bounds, sanitized as conf
 
 # iPhones 5 + 5C (4S is really not playable)
-IPHONES = {'iPhone5,1': 'N41AP',
-           'iPhone5,2': 'N42AP',
-           'iPhone5,3': 'N48AP',
-           'iPhone5,4': 'N49AP',
-           'iPhone6,1': 'N51AP',
-           'iPhone6,2': 'N53AP',
-           'iPhone7,1': 'N56AP',
+IPHONES = {'iPhone7,1': 'N56AP',
            'iPhone7,2': 'N61AP',
            'iPhone8,1': 'N71AP',
            'iPhone8,2': 'N66AP',
