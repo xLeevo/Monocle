@@ -644,7 +644,7 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 ##   "external_id", "latitude", "longitude", "level", "pokemon_id",
 ##   "team", "cp", "move_1", "move_2",
 ##   "raid_begin", "raid_battle", "raid_end",
-##   "gym_id", "base64_gym_id", "gym_name", "gym_url"
+##   "gym_id", "base64_gym_id", "name", "gym_url"
 ##
 ## For PokeAlarm, no raid webhook config is needed since it is supported out of the box
 ## Note that you must set NOTIFY_GYMS_WEBHOOK to True in config in order to obtain gym names from PokeAlarm.
@@ -655,7 +655,6 @@ MINIMUM_SCORE = 0.4  # the required score after FULL_TIME seconds have passed
 #
 #WEBHOOK_RAID_MAPPING = {
 #    'raid_seed': 'external_id',
-#    'gym_name': 'name',
 #    'gym_url': 'url',
 #}
 #
